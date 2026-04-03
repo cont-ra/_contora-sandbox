@@ -58,6 +58,13 @@
   td.id-cell { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 13px; color: #58a6ff; white-space: nowrap; }
   td.tc-cell { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; color: #8b949e; white-space: nowrap; }
   td.desc-cell { max-width: 400px; word-break: break-word; white-space: normal; }
+  td.gif-cell { width: 80px; padding: 6px; }
+  .gif-thumb { width: 70px; height: 44px; object-fit: cover; border-radius: 4px; cursor: pointer; border: 1px solid #30363d; transition: 0.15s; display: block; }
+  .gif-thumb:hover { border-color: #58a6ff; transform: scale(1.05); }
+  .gif-none { width: 70px; height: 44px; border-radius: 4px; background: #161b22; border: 1px solid #21262d; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #484f58; }
+  .gif-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 3000; display: flex; align-items: center; justify-content: center; cursor: zoom-out; }
+  .gif-overlay.hidden { display: none; }
+  .gif-overlay img { max-width: 90vw; max-height: 90vh; border-radius: 8px; }
   td.desc-cell.editable { cursor: pointer; border-radius: 4px; transition: 0.15s; padding: 8px 12px; }
   td.desc-cell.editable:hover { background: #1c2128; outline: 1px solid #30363d; }
   .desc-edit-ta { background: transparent; border: none; color: #c9d1d9; padding: 0; font-size: 14px; width: 100%; font-family: inherit; line-height: 1.5; resize: none; overflow: hidden; outline: 1px solid #1f6feb; outline-offset: 4px; border-radius: 4px; }
@@ -183,6 +190,8 @@
   </div>
 </div>
 
+<div class="gif-overlay hidden" id="gifOverlay" onclick="this.classList.add('hidden')"><img id="gifFull" src=""></div>
+
 <div class="note-overlay hidden" id="noteOverlay" onclick="if(event.target===this)closeNote()">
   <div class="note-panel">
     <div class="note-panel-header">
@@ -242,6 +251,7 @@
     <th onclick="sortTable(0)">#</th>
     <th onclick="sortTable(1)">ID</th>
     <th onclick="sortTable(2)">Description</th>
+    <th>Preview</th>
     <th onclick="sortTable(3)">Category</th>
     <th onclick="sortTable(4)">TC In</th>
     <th onclick="sortTable(5)">TC Out</th>
@@ -611,6 +621,11 @@ function saveNote(){
 
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!document.getElementById("noteOverlay").classList.contains("hidden"))closeNote();});
 
+const GIFS=new Set(["KH_01_198","KH_01_199","KH_01_201","KH_01_204","KH_01_209","KH_01_220","KH_01_221","KH_01_225","KH_01_227","KH_01_228","KH_01_253","KH_01_254","KH_01_321","KH_01_322","KH_01_323","KH_01_323_1","KH_01_324","KH_01_325","KH_01_326","KH_01_327","KH_01_329","KH_01_330","KH_01_331","KH_01_333","KH_01_334","KH_01_335","KH_01_336"]);
+function hasGif(id){return GIFS.has(id);}
+function openGif(id){document.getElementById("gifFull").src="gif/"+id+".gif";document.getElementById("gifOverlay").classList.remove("hidden");}
+document.addEventListener("keydown",e=>{if(e.key==="Escape")document.getElementById("gifOverlay").classList.add("hidden");});
+
 function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 function trunc(s,n){return !s?"":s.length>n?s.substring(0,n)+"...":s;}
 
@@ -634,6 +649,7 @@ function render(){
       <td style="color:#484f58">${r.idx}</td>
       <td class="id-cell">${r.id}</td>
       <td class="desc-cell${canEditDesc()?' editable':''}" ${canEditDesc()?`onclick="startEditDesc('${r.id}',this,event)"`:''} data-tid="${r.id}">${getDesc(r.id,r.desc)}</td>
+      <td class="gif-cell">${hasGif(r.id)?`<img class="gif-thumb" src="gif/${r.id}.gif" onclick="openGif('${r.id}')" loading="lazy">`:'<div class="gif-none">—</div>'}</td>
       <td class="category-cell"><span class="cat-tag cat-${r.cat}">${CAT_LABELS[r.cat]}</span></td>
       <td class="tc-cell">${r.tcIn}</td>
       <td class="tc-cell">${r.tcOut}</td>
