@@ -413,13 +413,14 @@ function renderChat(){
     const isAdm=m.author==="admin",isCli=m.author==="client",cls=isAdm?"from-admin":isCli?"from-client":"from-artist";
     const del=m.deleted;
     html+=`<div class="chat-msg ${cls}${del?' deleted':''}" data-mid="${m.id}">`;
-    if(!del&&canSend){
-      html+=`<div class="chat-msg-actions">`;
-      html+=`<button class="chat-action-btn" onclick="replyTo(${m.id})" title="Reply">&#8617;</button>`;
-      // Edit own messages only
+    if(!del&&!isGuest()){
       const isOwn=(isAdmin()&&m.author==="admin")||(isArtist()&&m.author==="artist")||(isClient()&&m.author==="client");
+      html+=`<div class="chat-msg-actions">`;
+      // Reply — anyone logged in, to any message including own
+      if(canSend) html+=`<button class="chat-action-btn" onclick="replyTo(${m.id})" title="Reply">&#8617;</button>`;
+      // Edit — own messages only
       if(isOwn) html+=`<button class="chat-action-btn" onclick="editMsg(${m.id})" title="Edit">&#9998;</button>`;
-      // Delete: own messages + admin can delete any
+      // Delete — own + admin any
       if(isAdmin()||isOwn) html+=`<button class="chat-action-btn" onclick="deleteMsg(${m.id})" title="Delete">&#10005;</button>`;
       html+=`</div>`;
     }
