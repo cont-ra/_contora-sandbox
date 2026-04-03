@@ -165,10 +165,11 @@
   .chat-msg.from-admin .chat-msg-reply { background: #1a0000; border-color: #f85149; color: #f8514999; }
   .chat-msg.from-artist .chat-msg-reply { background: #060d18; border-color: #58a6ff; color: #58a6ff99; }
   .chat-msg.from-client .chat-msg-reply { background: #0f0a00; border-color: #d29922; color: #d2992299; }
-  .chat-msg-actions { position: absolute; top: -14px; right: 4px; display: none; gap: 2px; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 2px; }
+  .chat-msg-actions { position: absolute; top: 4px; right: 4px; display: none; gap: 0; z-index: 10; }
   .chat-msg:hover .chat-msg-actions { display: flex; }
-  .chat-action-btn { background: #21262d; border: 1px solid #30363d; color: #8b949e; width: 32px; height: 32px; cursor: pointer; border-radius: 6px; font-size: 15px; display: flex; align-items: center; justify-content: center; }
-  .chat-action-btn:hover { color: #fff; background: #30363d; border-color: #484f58; }
+  .chat-msg { padding-top: 14px; }
+  .chat-action-btn { background: none; border: none; color: #484f58; width: 32px; height: 32px; cursor: pointer; border-radius: 6px; font-size: 15px; display: flex; align-items: center; justify-content: center; padding: 0; margin: 0; line-height: 1; }
+  .chat-action-btn:hover { color: #c9d1d9; background: rgba(255,255,255,0.08); }
   .chat-deleted-label { font-size: 11px; color: #484f58; }
   .chat-restore-btn { background: none; border: none; color: #3fb950; font-size: 11px; cursor: pointer; margin-left: 8px; text-decoration: underline; }
   .chat-restore-btn:hover { color: #56d364; }
@@ -325,7 +326,7 @@
   <tbody id="tbody"></tbody>
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
-<div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v2.8</div>
+<div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v3.0</div>
 
 <script>
 const USERS = {
@@ -581,11 +582,9 @@ function renderChat(){
       const isOwn=(isAdmin()&&m.author==="admin")||(isArtist()&&m.author==="artist")||(isClient()&&m.author==="client");
       html+=`<div class="chat-msg-actions">`;
       // Reply — anyone logged in, to any message including own
-      if(canSend) html+=`<button class="chat-action-btn" onclick="replyTo(${m.id})" title="Reply">&#8617;</button>`;
-      // Edit — own messages only
-      if(isOwn) html+=`<button class="chat-action-btn" onclick="editMsg(${m.id})" title="Edit">&#9998;</button>`;
-      // Delete — own + admin any
-      if(isAdmin()||isOwn) html+=`<button class="chat-action-btn" onclick="deleteMsg(${m.id})" title="Delete">&#10005;</button>`;
+      if(canSend) html+=`<div class="chat-action-btn" onclick="replyTo(${m.id})" title="Reply">↩</div>`;
+      if(isOwn) html+=`<div class="chat-action-btn" onclick="editMsg(${m.id})" title="Edit">✎</div>`;
+      if(isAdmin()||isOwn) html+=`<div class="chat-action-btn" onclick="deleteMsg(${m.id})" title="Delete">✕</div>`;
       html+=`</div>`;
     }
     const timeStr=m.ts?new Date(m.ts).toLocaleString('uk-UA',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
