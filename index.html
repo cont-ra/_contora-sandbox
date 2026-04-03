@@ -8,15 +8,11 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: #0d1117;
-    color: #c9d1d9;
-    padding: 20px;
+    background: #0d1117; color: #c9d1d9; padding: 20px;
   }
   h1 { color: #f0f6fc; margin-bottom: 6px; font-size: 22px; }
   .subtitle { color: #8b949e; margin-bottom: 20px; font-size: 14px; }
-  .header-row {
-    display: flex; align-items: center; gap: 16px; margin-bottom: 6px;
-  }
+  .header-row { display: flex; align-items: center; gap: 16px; margin-bottom: 6px; }
   .user-badge {
     display: inline-flex; align-items: center; gap: 6px;
     background: #161b22; border: 1px solid #30363d;
@@ -34,7 +30,6 @@
   }
   .logout-link:hover { color: #8b949e; }
 
-  /* Login overlay */
   .login-overlay {
     position: fixed; inset: 0; background: rgba(0,0,0,0.85);
     display: flex; align-items: center; justify-content: center; z-index: 1000;
@@ -64,14 +59,10 @@
     width: 100%; cursor: pointer; margin-bottom: 10px;
   }
   .login-box .guest-btn:hover { background: #161b22; color: #c9d1d9; border-color: #484f58; }
-  .login-divider {
-    color: #484f58; font-size: 12px; margin: 6px 0 14px;
-  }
+  .login-divider { color: #484f58; font-size: 12px; margin: 6px 0 14px; }
   .login-error { color: #f85149; font-size: 13px; min-height: 20px; }
 
-  .stats {
-    display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap;
-  }
+  .stats { display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
   .stat-card {
     background: #161b22; border: 1px solid #30363d;
     border-radius: 8px; padding: 14px 20px; min-width: 140px;
@@ -142,9 +133,7 @@
     background: #0d1117; border: 1px solid #30363d; color: #c9d1d9;
     padding: 4px 8px; border-radius: 6px; font-size: 13px; cursor: pointer;
   }
-  .status-select:disabled, .assign-select:disabled {
-    opacity: 0.4; cursor: not-allowed;
-  }
+  .status-select:disabled, .assign-select:disabled { opacity: 0.4; cursor: not-allowed; }
   .status-select.s-todo { border-color: #f85149; color: #f85149; }
   .status-select.s-progress { border-color: #d29922; color: #d29922; }
   .status-select.s-review { border-color: #58a6ff; color: #58a6ff; }
@@ -153,75 +142,89 @@
   .assign-nikita { border-color: #58a6ff; color: #58a6ff; }
   .assign-igor { border-color: #3fb950; color: #3fb950; }
 
-  /* Note buttons */
-  .note-btn {
-    background: #0d1117; border: 1px solid #30363d; color: #8b949e;
-    padding: 4px 10px; border-radius: 6px; font-size: 12px;
-    cursor: pointer; white-space: nowrap; max-width: 140px;
-    overflow: hidden; text-overflow: ellipsis; text-align: left;
-    display: block;
+  /* Note cell preview */
+  .note-cell {
+    cursor: pointer; padding: 4px 10px; border-radius: 6px;
+    font-size: 12px; max-width: 160px; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+    background: #0d1117; border: 1px solid #30363d; color: #484f58;
+    display: block; text-align: left; transition: 0.15s;
   }
-  .note-btn:hover { border-color: #484f58; color: #c9d1d9; }
-  .note-btn.has-text { color: #c9d1d9; border-color: #484f58; }
-  .note-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  .note-btn.admin-note { border-left: 3px solid #f85149; }
-  .note-btn.artist-note { border-left: 3px solid #58a6ff; }
+  .note-cell:hover { border-color: #484f58; color: #c9d1d9; }
+  .note-cell.has-text { color: #c9d1d9; border-color: #484f58; }
+  .note-cell.type-admin { border-left: 3px solid #f85149; }
+  .note-cell.type-artist { border-left: 3px solid #58a6ff; }
 
-  /* Note modal */
-  .note-modal-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
-    display: flex; align-items: center; justify-content: center; z-index: 2000;
+  /* Fullscreen note overlay */
+  .note-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.8);
+    z-index: 2000; display: flex; align-items: stretch; justify-content: center;
+    padding: 40px;
   }
-  .note-modal-overlay.hidden { display: none; }
-  .note-modal {
-    background: #161b22; border: 1px solid #30363d;
-    border-radius: 12px; padding: 24px; width: 480px; max-width: 90vw;
+  .note-overlay.hidden { display: none; }
+  .note-panel {
+    background: #161b22; border: 1px solid #30363d; border-radius: 12px;
+    width: 100%; max-width: 700px; display: flex; flex-direction: column;
+    overflow: hidden;
   }
-  .note-modal-header {
+  .note-panel-header {
     display: flex; justify-content: space-between; align-items: center;
-    margin-bottom: 16px;
+    padding: 20px 24px 16px; border-bottom: 1px solid #21262d; flex-shrink: 0;
   }
-  .note-modal-header h3 { color: #f0f6fc; font-size: 16px; }
-  .note-modal-close {
-    background: none; border: none; color: #484f58; font-size: 20px;
-    cursor: pointer; padding: 4px 8px; border-radius: 4px;
+  .note-panel-title { display: flex; align-items: center; gap: 10px; }
+  .note-panel-title h3 { color: #f0f6fc; font-size: 16px; font-weight: 600; }
+  .note-type-badge {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1px; padding: 2px 8px; border-radius: 4px;
   }
-  .note-modal-close:hover { color: #c9d1d9; background: #21262d; }
-  .note-modal-id {
-    font-family: 'SF Mono', monospace; color: #58a6ff;
-    font-size: 13px; margin-bottom: 16px;
+  .note-type-badge.admin-badge { background: #3d0000; color: #f85149; }
+  .note-type-badge.artist-badge { background: #0a1929; color: #58a6ff; }
+  .note-panel-close {
+    background: none; border: none; color: #484f58; font-size: 24px;
+    cursor: pointer; padding: 4px 8px; border-radius: 4px; line-height: 1;
   }
-  .note-modal textarea {
-    background: #0d1117; border: 1px solid #30363d; color: #c9d1d9;
-    padding: 12px; border-radius: 8px; font-size: 14px;
-    width: 100%; min-height: 120px; resize: vertical;
-    font-family: inherit; line-height: 1.5;
+  .note-panel-close:hover { color: #c9d1d9; background: #21262d; }
+  .note-panel-meta {
+    padding: 12px 24px; font-size: 13px; color: #8b949e;
+    border-bottom: 1px solid #21262d; flex-shrink: 0;
   }
-  .note-modal textarea:focus { outline: none; border-color: #1f6feb; }
-  .note-modal textarea:disabled {
-    opacity: 0.5; cursor: not-allowed; resize: none;
+  .note-panel-meta .shot-id {
+    font-family: 'SF Mono', monospace; color: #58a6ff; font-weight: 600;
   }
-  .note-modal-label {
-    font-size: 12px; font-weight: 600; text-transform: uppercase;
-    letter-spacing: 0.5px; margin-bottom: 6px;
+  .note-panel-meta .shot-desc { margin-left: 8px; }
+  .note-panel-body {
+    flex: 1; padding: 20px 24px; overflow-y: auto; display: flex; flex-direction: column;
   }
-  .note-modal-label.admin-label { color: #f85149; }
-  .note-modal-label.artist-label { color: #58a6ff; }
-  .note-section { margin-bottom: 16px; }
-  .note-section:last-child { margin-bottom: 0; }
-  .note-modal-save {
+  .note-panel-body textarea {
+    flex: 1; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9;
+    padding: 16px; border-radius: 8px; font-size: 15px; line-height: 1.6;
+    font-family: inherit; resize: none; min-height: 200px;
+  }
+  .note-panel-body textarea:focus { outline: none; border-color: #1f6feb; }
+  .note-panel-body textarea::placeholder { color: #484f58; }
+  .note-panel-readonly {
+    flex: 1; background: #0d1117; border: 1px solid #21262d; color: #c9d1d9;
+    padding: 16px; border-radius: 8px; font-size: 15px; line-height: 1.6;
+    white-space: pre-wrap; word-break: break-word; overflow-y: auto;
+    min-height: 200px;
+  }
+  .note-panel-readonly.empty { color: #484f58; font-style: italic; }
+  .note-panel-footer {
+    padding: 16px 24px; border-top: 1px solid #21262d;
+    display: flex; justify-content: flex-end; gap: 10px; flex-shrink: 0;
+  }
+  .note-panel-footer.hidden { display: none; }
+  .note-save-btn {
     background: #1f6feb; border: none; color: #fff;
-    padding: 8px 20px; border-radius: 6px; font-size: 13px;
-    font-weight: 600; cursor: pointer; margin-top: 16px; float: right;
+    padding: 8px 24px; border-radius: 6px; font-size: 14px;
+    font-weight: 600; cursor: pointer;
   }
-  .note-modal-save:hover { background: #388bfd; }
-  .note-readonly {
-    background: #0d1117; border: 1px solid #21262d; color: #8b949e;
-    padding: 12px; border-radius: 8px; font-size: 14px;
-    min-height: 50px; line-height: 1.5; white-space: pre-wrap;
-    word-break: break-word;
+  .note-save-btn:hover { background: #388bfd; }
+  .note-cancel-btn {
+    background: #21262d; border: 1px solid #30363d; color: #c9d1d9;
+    padding: 8px 20px; border-radius: 6px; font-size: 14px; cursor: pointer;
   }
-  .note-empty { color: #484f58; font-style: italic; }
+  .note-cancel-btn:hover { background: #30363d; }
 
   .save-notice {
     position: fixed; bottom: 20px; right: 20px;
@@ -253,17 +256,24 @@
   </div>
 </div>
 
-<!-- Note modal -->
-<div class="note-modal-overlay hidden" id="noteOverlay" onclick="if(event.target===this)closeNote()">
-  <div class="note-modal">
-    <div class="note-modal-header">
-      <h3>Notes</h3>
-      <button class="note-modal-close" onclick="closeNote()">&times;</button>
+<!-- Note fullscreen panel -->
+<div class="note-overlay hidden" id="noteOverlay" onclick="if(event.target===this)closeNote()">
+  <div class="note-panel">
+    <div class="note-panel-header">
+      <div class="note-panel-title">
+        <h3 id="notePanelTitle">Note</h3>
+        <span class="note-type-badge" id="noteTypeBadge"></span>
+      </div>
+      <button class="note-panel-close" onclick="closeNote()">&times;</button>
     </div>
-    <div class="note-modal-id" id="noteModalId"></div>
-    <div id="noteModalBody"></div>
-    <div style="overflow:hidden">
-      <button class="note-modal-save" id="noteModalSave" onclick="saveNote()" style="display:none">Save</button>
+    <div class="note-panel-meta">
+      <span class="shot-id" id="noteShotId"></span>
+      <span class="shot-desc" id="noteShotDesc"></span>
+    </div>
+    <div class="note-panel-body" id="notePanelBody"></div>
+    <div class="note-panel-footer" id="notePanelFooter">
+      <button class="note-cancel-btn" onclick="closeNote()">Cancel</button>
+      <button class="note-save-btn" onclick="saveNote()">Save</button>
     </div>
   </div>
 </div>
@@ -312,8 +322,8 @@
       <th onclick="sortTable(5)">TC Out</th>
       <th onclick="sortTable(6)">Artist</th>
       <th onclick="sortTable(7)">Status</th>
-      <th>Admin Notes</th>
-      <th>Artist Notes</th>
+      <th>Admin</th>
+      <th>Artist</th>
     </tr>
   </thead>
   <tbody id="tbody"></tbody>
@@ -322,7 +332,6 @@
 <div class="save-notice" id="saveNotice">Saved</div>
 
 <script>
-// --- AUTH ---
 const USERS = {
   admin:  { hash: "1b1c75327a2c21fbed054f58274ad378e0ba624aa3b909e8438cb483e95a5197", display: "Admin",  role: "admin" },
   nikita: { hash: "8be81b94c7fa0b441af35831ad359e03b395df561476c4ba78d4db90d7ebba2a", display: "Nikita", role: "artist" },
@@ -340,17 +349,15 @@ async function tryLogin() {
   const pass = document.getElementById("loginPass").value.trim();
   if (!pass) return;
   const h = await sha256(pass);
-  let found = null;
   for (const [id, u] of Object.entries(USERS)) {
-    if (u.hash === h) { found = { id, ...u }; break; }
+    if (u.hash === h) {
+      currentUser = { id, ...u };
+      sessionStorage.setItem("kh_user", id);
+      showLoggedIn();
+      return;
+    }
   }
-  if (found) {
-    currentUser = found;
-    sessionStorage.setItem("kh_user", found.id);
-    showLoggedIn();
-  } else {
-    document.getElementById("loginError").textContent = "Wrong password";
-  }
+  document.getElementById("loginError").textContent = "Wrong password";
 }
 
 function guestLogin() {
@@ -383,9 +390,8 @@ function logout() {
 
 (async function checkSession() {
   const saved = sessionStorage.getItem("kh_user");
-  if (saved === "guest") {
-    guestLogin();
-  } else if (saved && USERS[saved]) {
+  if (saved === "guest") guestLogin();
+  else if (saved && USERS[saved]) {
     currentUser = { id: saved, ...USERS[saved] };
     showLoggedIn();
   }
@@ -394,21 +400,19 @@ function logout() {
 function isAdmin() { return currentUser && currentUser.role === "admin"; }
 function isArtist() { return currentUser && currentUser.role === "artist"; }
 function isGuest() { return !currentUser || currentUser.role === "guest"; }
-
-function canEditStatus(taskId) {
+function canEditStatus(tid) {
   if (isGuest()) return false;
   if (isAdmin()) return true;
-  return getAssignee(taskId) === currentUser.id;
+  return getAssignee(tid) === currentUser.id;
 }
 function canAssign() { return isAdmin(); }
 function canEditAdminNote() { return isAdmin(); }
-function canEditArtistNote(taskId) {
+function canEditArtistNote(tid) {
   if (isGuest()) return false;
   if (isAdmin()) return true;
-  return isArtist() && getAssignee(taskId) === currentUser.id;
+  return isArtist() && getAssignee(tid) === currentUser.id;
 }
 
-// --- DATA ---
 const TASKS = [
   { id:"KH_01_198", desc:"Добавить воронку", cat:"voronka", tcIn:"0:37:47:19", tcOut:"0:37:50:14" },
   { id:"KH_01_199", desc:"Добавить воронку", cat:"voronka", tcIn:"0:37:57:15", tcOut:"0:37:58:17" },
@@ -441,188 +445,128 @@ const TASKS = [
 ];
 
 const CAT_LABELS = {
-  voronka: "Воронки", fpv: "ФПВ дрон", vrezka: "Врезка", angar: "Ангар",
-  puli: "Пули/Царапины", vzryv: "Взрыв/Сажа", dym: "Дым", other: "Другое"
+  voronka:"Воронки", fpv:"ФПВ дрон", vrezka:"Врезка", angar:"Ангар",
+  puli:"Пули/Царапины", vzryv:"Взрыв/Сажа", dym:"Дым", other:"Другое"
 };
-const ARTISTS = [
-  { id: "nikita", display: "Nikita" },
-  { id: "igor", display: "Igor" },
-];
-
+const ARTISTS = [{id:"nikita",display:"Nikita"},{id:"igor",display:"Igor"}];
 const STORAGE_KEY = "kh_vfx_tracker";
-function loadState() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
-  catch { return {}; }
-}
-function saveState(st) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(st));
+
+function loadState() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY))||{}; } catch { return {}; } }
+function saveState(s) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
   const n = document.getElementById("saveNotice");
-  n.classList.add("show");
-  setTimeout(() => n.classList.remove("show"), 1200);
+  n.classList.add("show"); setTimeout(()=>n.classList.remove("show"), 1200);
 }
-
 let state = loadState();
-let currentFilter = "all";
-let artistFilter = "all";
-let searchQuery = "";
-let sortCol = -1;
-let sortAsc = true;
-
-function getStatus(id) { return (state[id] && state[id].status) || "todo"; }
-function getAdminNote(id) { return (state[id] && state[id].adminNote) || ""; }
-function getArtistNote(id) { return (state[id] && state[id].artistNote) || ""; }
-function getAssignee(id) { return (state[id] && state[id].assignee) || ""; }
 
 // Migrate old "notes" → "adminNote"
-(function migrateNotes() {
-  let changed = false;
-  for (const [id, d] of Object.entries(state)) {
-    if (d.notes && !d.adminNote) {
-      d.adminNote = d.notes;
-      delete d.notes;
-      changed = true;
-    }
-  }
-  if (changed) localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-})();
+(function(){let c=false;for(const[k,d]of Object.entries(state)){if(d.notes&&!d.adminNote){d.adminNote=d.notes;delete d.notes;c=true;}}if(c)localStorage.setItem(STORAGE_KEY,JSON.stringify(state));})();
+
+let currentFilter="all", artistFilter="all", searchQuery="", sortCol=-1, sortAsc=true;
+
+function getStatus(id) { return state[id]?.status || "todo"; }
+function getAdminNote(id) { return state[id]?.adminNote || ""; }
+function getArtistNote(id) { return state[id]?.artistNote || ""; }
+function getAssignee(id) { return state[id]?.assignee || ""; }
 
 function updateStats() {
-  let c = { todo:0, progress:0, review:0, done:0, skip:0 };
-  TASKS.forEach(t => { c[getStatus(t.id)]++; });
-  document.getElementById("stat-todo").textContent = c.todo;
-  document.getElementById("stat-progress").textContent = c.progress;
-  document.getElementById("stat-review").textContent = c.review;
-  document.getElementById("stat-done").textContent = c.done;
+  let c={todo:0,progress:0,review:0,done:0,skip:0};
+  TASKS.forEach(t=>{c[getStatus(t.id)]++;});
+  document.getElementById("stat-todo").textContent=c.todo;
+  document.getElementById("stat-progress").textContent=c.progress;
+  document.getElementById("stat-review").textContent=c.review;
+  document.getElementById("stat-done").textContent=c.done;
 }
 
-// --- NOTE MODAL ---
-let noteModalTaskId = null;
-let noteModalDirty = false;
+// --- NOTE PANEL (one note at a time, fullscreen) ---
+let noteTaskId = null, noteType = null; // "admin" or "artist"
 
-function openNote(taskId) {
-  noteModalTaskId = taskId;
-  noteModalDirty = false;
-  const task = TASKS.find(t => t.id === taskId);
-  document.getElementById("noteModalId").textContent = taskId + " — " + (task ? task.desc : "");
+function openNote(taskId, type) {
+  noteTaskId = taskId;
+  noteType = type;
+  const task = TASKS.find(t=>t.id===taskId);
+  const badge = document.getElementById("noteTypeBadge");
+  const title = document.getElementById("notePanelTitle");
 
-  const adminText = getAdminNote(taskId);
-  const artistText = getArtistNote(taskId);
-  const canAdmin = canEditAdminNote();
-  const canArtist = canEditArtistNote(taskId);
-  const showSave = canAdmin || canArtist;
-
-  let html = "";
-
-  // Admin notes section
-  html += `<div class="note-section">`;
-  html += `<div class="note-modal-label admin-label">Admin Notes</div>`;
-  if (canAdmin) {
-    html += `<textarea id="noteAdminTA" placeholder="Admin notes...">${esc(adminText)}</textarea>`;
+  if (type === "admin") {
+    title.textContent = "Admin Note";
+    badge.textContent = "ADMIN";
+    badge.className = "note-type-badge admin-badge";
   } else {
-    html += `<div class="note-readonly">${adminText ? esc(adminText) : '<span class="note-empty">No admin notes</span>'}</div>`;
+    title.textContent = "Artist Note";
+    badge.textContent = "ARTIST";
+    badge.className = "note-type-badge artist-badge";
   }
-  html += `</div>`;
 
-  // Artist notes section
-  html += `<div class="note-section">`;
-  html += `<div class="note-modal-label artist-label">Artist Notes</div>`;
-  if (canArtist) {
-    html += `<textarea id="noteArtistTA" placeholder="Questions, comments...">${esc(artistText)}</textarea>`;
+  document.getElementById("noteShotId").textContent = taskId;
+  document.getElementById("noteShotDesc").textContent = task ? "— " + task.desc : "";
+
+  const text = type === "admin" ? getAdminNote(taskId) : getArtistNote(taskId);
+  const canEdit = type === "admin" ? canEditAdminNote() : canEditArtistNote(taskId);
+  const body = document.getElementById("notePanelBody");
+  const footer = document.getElementById("notePanelFooter");
+
+  if (canEdit) {
+    body.innerHTML = `<textarea id="noteTA" placeholder="Write your note here...">${esc(text)}</textarea>`;
+    footer.classList.remove("hidden");
+    setTimeout(()=>{ const ta=document.getElementById("noteTA"); if(ta){ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length);} },50);
   } else {
-    html += `<div class="note-readonly">${artistText ? esc(artistText) : '<span class="note-empty">No artist notes</span>'}</div>`;
+    body.innerHTML = `<div class="note-panel-readonly${text?'':' empty'}">${text ? esc(text) : 'No notes yet'}</div>`;
+    footer.classList.add("hidden");
   }
-  html += `</div>`;
 
-  document.getElementById("noteModalBody").innerHTML = html;
-  document.getElementById("noteModalSave").style.display = showSave ? "block" : "none";
   document.getElementById("noteOverlay").classList.remove("hidden");
-
-  // Focus first editable textarea
-  const ta = document.getElementById("noteAdminTA") || document.getElementById("noteArtistTA");
-  if (ta) setTimeout(() => ta.focus(), 50);
 }
 
 function closeNote() {
   document.getElementById("noteOverlay").classList.add("hidden");
-  noteModalTaskId = null;
+  noteTaskId = null; noteType = null;
 }
 
 function saveNote() {
-  if (!noteModalTaskId) return;
-  if (!state[noteModalTaskId]) state[noteModalTaskId] = {};
-
-  const adminTA = document.getElementById("noteAdminTA");
-  const artistTA = document.getElementById("noteArtistTA");
-  if (adminTA) state[noteModalTaskId].adminNote = adminTA.value;
-  if (artistTA) state[noteModalTaskId].artistNote = artistTA.value;
-
+  if (!noteTaskId || !noteType) return;
+  const ta = document.getElementById("noteTA");
+  if (!ta) return;
+  if (!state[noteTaskId]) state[noteTaskId] = {};
+  const key = noteType === "admin" ? "adminNote" : "artistNote";
+  state[noteTaskId][key] = ta.value;
   saveState(state);
   closeNote();
   render();
 }
 
-// Close on Escape
 document.addEventListener("keydown", e => {
-  if (e.key === "Escape" && !document.getElementById("noteOverlay").classList.contains("hidden")) {
-    closeNote();
-  }
+  if (e.key==="Escape" && !document.getElementById("noteOverlay").classList.contains("hidden")) closeNote();
 });
 
-function esc(s) {
-  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-}
-
-function truncate(s, len) {
-  if (!s) return "";
-  return s.length > len ? s.substring(0, len) + "..." : s;
-}
+function esc(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function trunc(s, n) { return !s ? "" : s.length > n ? s.substring(0,n)+"..." : s; }
 
 // --- RENDER ---
 function render() {
   const tbody = document.getElementById("tbody");
-  let rows = TASKS.map((t, i) => ({
-    ...t, idx: i + 1,
-    status: getStatus(t.id),
-    assignee: getAssignee(t.id)
-  }));
+  let rows = TASKS.map((t,i)=>({...t, idx:i+1, status:getStatus(t.id), assignee:getAssignee(t.id)}));
 
-  if (searchQuery) {
-    const q = searchQuery.toLowerCase();
-    rows = rows.filter(r => r.id.toLowerCase().includes(q) || r.desc.toLowerCase().includes(q));
+  if (searchQuery) { const q=searchQuery.toLowerCase(); rows=rows.filter(r=>r.id.toLowerCase().includes(q)||r.desc.toLowerCase().includes(q)); }
+  if (currentFilter!=="all") rows=rows.filter(r=>r.status===currentFilter);
+  if (artistFilter!=="all") {
+    if (artistFilter==="unassigned") rows=rows.filter(r=>!r.assignee);
+    else rows=rows.filter(r=>r.assignee===artistFilter);
   }
-  if (currentFilter !== "all") rows = rows.filter(r => r.status === currentFilter);
-  if (artistFilter !== "all") {
-    if (artistFilter === "unassigned") rows = rows.filter(r => !r.assignee);
-    else rows = rows.filter(r => r.assignee === artistFilter);
-  }
-  if (sortCol >= 0) {
-    const keys = ["idx","id","desc","cat","tcIn","tcOut","assignee","status"];
-    const k = keys[sortCol];
-    rows.sort((a, b) => {
-      let va = a[k], vb = b[k];
-      if (typeof va === "string") va = va.toLowerCase();
-      if (typeof vb === "string") vb = vb.toLowerCase();
-      return va < vb ? (sortAsc?-1:1) : va > vb ? (sortAsc?1:-1) : 0;
-    });
+  if (sortCol>=0) {
+    const keys=["idx","id","desc","cat","tcIn","tcOut","assignee","status"];
+    const k=keys[sortCol];
+    rows.sort((a,b)=>{ let va=a[k],vb=b[k]; if(typeof va==="string")va=va.toLowerCase(); if(typeof vb==="string")vb=vb.toLowerCase(); return va<vb?(sortAsc?-1:1):va>vb?(sortAsc?1:-1):0; });
   }
 
   tbody.innerHTML = rows.map(r => {
-    const st = r.status;
-    const stClass = "s-" + st;
-    const editSt = canEditStatus(r.id);
-    const adm = canAssign();
-    const assignCls = r.assignee ? " assign-" + r.assignee : "";
+    const st=r.status, stClass="s-"+st;
+    const editSt=canEditStatus(r.id), adm=canAssign();
+    const assignCls=r.assignee?" assign-"+r.assignee:"";
+    const an=getAdminNote(r.id), arn=getArtistNote(r.id);
+    const anPrev=trunc(an,24), arnPrev=trunc(arn,24);
 
-    const adminNote = getAdminNote(r.id);
-    const artistNote = getArtistNote(r.id);
-    const adminPreview = truncate(adminNote, 20);
-    const artistPreview = truncate(artistNote, 20);
-    const adminHas = adminNote ? " has-text" : "";
-    const artistHas = artistNote ? " has-text" : "";
-
-    const artistOptions = ARTISTS.map(a =>
-      `<option value="${a.id}" ${r.assignee===a.id?"selected":""}>${a.display}</option>`
-    ).join("");
+    const artistOpts = ARTISTS.map(a=>`<option value="${a.id}" ${r.assignee===a.id?"selected":""}>${a.display}</option>`).join("");
 
     return `<tr>
       <td style="color:#484f58">${r.idx}</td>
@@ -631,82 +575,56 @@ function render() {
       <td class="category-cell"><span class="cat-tag cat-${r.cat}">${CAT_LABELS[r.cat]}</span></td>
       <td class="tc-cell">${r.tcIn}</td>
       <td class="tc-cell">${r.tcOut}</td>
-      <td>
-        <select class="assign-select${assignCls}" onchange="setAssignee('${r.id}',this.value,this)" ${adm?"":"disabled"}>
-          <option value="" ${!r.assignee?"selected":""}>—</option>
-          ${artistOptions}
-        </select>
-      </td>
-      <td>
-        <select class="status-select ${stClass}" onchange="setStatus('${r.id}',this.value,this)" ${editSt?"":"disabled"}>
-          <option value="todo" ${st==="todo"?"selected":""}>TODO</option>
-          <option value="progress" ${st==="progress"?"selected":""}>In Progress</option>
-          <option value="review" ${st==="review"?"selected":""}>Review</option>
-          <option value="done" ${st==="done"?"selected":""}>Done</option>
-          <option value="skip" ${st==="skip"?"selected":""}>Skip</option>
-        </select>
-      </td>
-      <td><button class="note-btn admin-note${adminHas}" onclick="openNote('${r.id}')">${adminPreview || "..."}</button></td>
-      <td><button class="note-btn artist-note${artistHas}" onclick="openNote('${r.id}')">${artistPreview || "..."}</button></td>
+      <td><select class="assign-select${assignCls}" onchange="setAssignee('${r.id}',this.value)" ${adm?"":"disabled"}>
+        <option value="" ${!r.assignee?"selected":""}>—</option>${artistOpts}</select></td>
+      <td><select class="status-select ${stClass}" onchange="setStatus('${r.id}',this.value,this)" ${editSt?"":"disabled"}>
+        <option value="todo" ${st==="todo"?"selected":""}>TODO</option>
+        <option value="progress" ${st==="progress"?"selected":""}>In Progress</option>
+        <option value="review" ${st==="review"?"selected":""}>Review</option>
+        <option value="done" ${st==="done"?"selected":""}>Done</option>
+        <option value="skip" ${st==="skip"?"selected":""}>Skip</option></select></td>
+      <td><div class="note-cell type-admin${an?' has-text':''}" onclick="openNote('${r.id}','admin')">${anPrev||'...'}</div></td>
+      <td><div class="note-cell type-artist${arn?' has-text':''}" onclick="openNote('${r.id}','artist')">${arnPrev||'...'}</div></td>
     </tr>`;
   }).join("");
-
   updateStats();
 }
 
-function setStatus(id, val, el) {
-  if (!canEditStatus(id)) return;
-  if (!state[id]) state[id] = {};
-  state[id].status = val;
-  saveState(state);
-  el.className = "status-select s-" + val;
-  updateStats();
+function setStatus(id,val,el) {
+  if(!canEditStatus(id))return;
+  if(!state[id])state[id]={};
+  state[id].status=val; saveState(state);
+  el.className="status-select s-"+val; updateStats();
 }
-
-function setAssignee(id, val, el) {
-  if (!canAssign()) return;
-  if (!state[id]) state[id] = {};
-  state[id].assignee = val;
-  saveState(state);
-  render();
+function setAssignee(id,val) {
+  if(!canAssign())return;
+  if(!state[id])state[id]={};
+  state[id].assignee=val; saveState(state); render();
 }
-
 function sortTable(col) {
-  if (sortCol === col) sortAsc = !sortAsc;
-  else { sortCol = col; sortAsc = true; }
-  render();
+  if(sortCol===col)sortAsc=!sortAsc; else{sortCol=col;sortAsc=true;} render();
 }
 
-document.getElementById("search").addEventListener("input", e => {
-  searchQuery = e.target.value; render();
-});
-document.querySelectorAll(".filter-btn").forEach(btn => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    currentFilter = btn.dataset.filter; render();
-  });
-});
-document.querySelectorAll(".artist-filter-btn").forEach(btn => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".artist-filter-btn").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    artistFilter = btn.dataset.artist; render();
-  });
-});
+document.getElementById("search").addEventListener("input",e=>{searchQuery=e.target.value;render();});
+document.querySelectorAll(".filter-btn").forEach(b=>{b.addEventListener("click",()=>{
+  document.querySelectorAll(".filter-btn").forEach(x=>x.classList.remove("active"));
+  b.classList.add("active"); currentFilter=b.dataset.filter; render();
+});});
+document.querySelectorAll(".artist-filter-btn").forEach(b=>{b.addEventListener("click",()=>{
+  document.querySelectorAll(".artist-filter-btn").forEach(x=>x.classList.remove("active"));
+  b.classList.add("active"); artistFilter=b.dataset.artist; render();
+});});
 
 function exportCSV() {
-  let csv = "ID,Description,Category,TC In,TC Out,Artist,Status,Admin Notes,Artist Notes\n";
-  TASKS.forEach(t => {
-    const st = getStatus(t.id), artist = getAssignee(t.id);
-    const an = getAdminNote(t.id).replace(/"/g,'""');
-    const ar = getArtistNote(t.id).replace(/"/g,'""');
-    csv += `"${t.id}","${t.desc}","${CAT_LABELS[t.cat]}","${t.tcIn}","${t.tcOut}","${artist}","${st}","${an}","${ar}"\n`;
+  let csv="ID,Description,Category,TC In,TC Out,Artist,Status,Admin Notes,Artist Notes\n";
+  TASKS.forEach(t=>{
+    const st=getStatus(t.id),ar=getAssignee(t.id);
+    const an=getAdminNote(t.id).replace(/"/g,'""'),arn=getArtistNote(t.id).replace(/"/g,'""');
+    csv+=`"${t.id}","${t.desc}","${CAT_LABELS[t.cat]}","${t.tcIn}","${t.tcOut}","${ar}","${st}","${an}","${arn}"\n`;
   });
-  const blob = new Blob(["\uFEFF"+csv], {type:"text/csv;charset=utf-8;"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "kh_vfx_tracker.csv"; a.click();
+  const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download="kh_vfx_tracker.csv"; a.click();
 }
 
 render();
