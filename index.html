@@ -68,8 +68,42 @@
   .gif-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 3000; display: flex; align-items: center; justify-content: center; flex-direction: column; }
   .gif-overlay.hidden { display: none; }
   .gif-player-area { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .player-with-notes { display: flex; align-items: stretch; gap: 16px; max-width: 95vw; max-height: 90vh; }
+  .player-video-col { display: flex; flex-direction: column; align-items: center; gap: 12px; flex: 1; min-width: 0; }
   .video-wrap { position: relative; display: inline-block; }
-  .video-wrap video { max-width: 90vw; max-height: 75vh; border-radius: 8px; display: block; cursor: pointer; }
+  .video-wrap video { max-width: calc(95vw - 360px); max-height: 75vh; border-radius: 8px; display: block; cursor: pointer; }
+  .player-notes-panel { width: 320px; min-width: 280px; background: #161b22; border: 1px solid #30363d; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; }
+  .pn-header { padding: 10px 14px; border-bottom: 1px solid #30363d; display: flex; align-items: center; justify-content: space-between; }
+  .pn-header-title { color: #c9d1d9; font-size: 14px; font-weight: 600; }
+  .pn-header-count { color: #8b949e; font-size: 12px; }
+  .pn-list { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+  .pn-list::-webkit-scrollbar { width: 4px; } .pn-list::-webkit-scrollbar-thumb { background: #30363d; border-radius: 2px; }
+  .pn-item { background: #0d1117; border: 1px solid #21262d; border-radius: 6px; padding: 8px 10px; }
+  .pn-item-meta { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; flex-wrap: wrap; }
+  .pn-tc { font-family: 'SF Mono', monospace; font-size: 11px; color: #58a6ff; cursor: pointer; background: rgba(88,166,255,0.1); padding: 1px 6px; border-radius: 3px; }
+  .pn-tc:hover { background: rgba(88,166,255,0.2); }
+  .pn-color-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+  .pn-shape { font-size: 13px; color: #8b949e; }
+  .pn-author { font-size: 11px; color: #8b949e; }
+  .pn-text { color: #c9d1d9; font-size: 13px; line-height: 1.4; white-space: pre-wrap; word-break: break-word; }
+  .pn-text.placeholder { color: #484f58; font-style: italic; cursor: pointer; }
+  .pn-text-edit { background: transparent; border: 1px solid #30363d; color: #c9d1d9; padding: 4px 6px; font-size: 13px; width: 100%; font-family: inherit; line-height: 1.4; resize: none; overflow: hidden; border-radius: 4px; outline: none; }
+  .pn-text-edit:focus { border-color: #1f6feb; }
+  .pn-delete { background: none; border: none; color: #484f58; cursor: pointer; font-size: 14px; padding: 0 2px; margin-left: auto; }
+  .pn-delete:hover { color: #f85149; }
+  .pn-input { border-top: 1px solid #30363d; padding: 8px; }
+  .pn-input-row { display: flex; align-items: flex-end; gap: 6px; }
+  .pn-input-tc { font-family: 'SF Mono', monospace; font-size: 10px; color: #8b949e; white-space: nowrap; }
+  .pn-input-ta { flex: 1; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; padding: 6px 8px; font-size: 13px; font-family: inherit; border-radius: 4px; resize: none; overflow: hidden; line-height: 1.4; }
+  .pn-input-ta:focus { border-color: #1f6feb; outline: none; }
+  .pn-send-btn { background: #1f6feb; border: none; color: #fff; width: 32px; height: 32px; border-radius: 4px; cursor: pointer; font-size: 14px; flex-shrink: 0; }
+  .pn-send-btn:hover { background: #388bfd; }
+  .pn-empty { color: #484f58; font-size: 13px; text-align: center; padding: 20px; }
+  @media (max-width: 900px) {
+    .player-with-notes { flex-direction: column; align-items: center; }
+    .player-notes-panel { width: 100%; max-width: 600px; max-height: 35vh; }
+    .video-wrap video { max-width: 90vw; }
+  }
   .video-wrap canvas { max-width: 90vw; max-height: 75vh; }
   .gif-controls { display: flex; align-items: center; gap: 12px; }
   .gif-ctrl-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; }
@@ -223,32 +257,50 @@
 <div class="gif-overlay hidden" id="gifOverlay" onclick="if(event.target===this)closeGif()">
   <button class="gif-close-btn" onclick="closeGif()">&times;</button>
   <div class="gif-player-area" id="gifPlayerArea">
-    <div class="draw-toolbar">
-      <button class="draw-btn active" id="drawTool_pen" onclick="setDrawTool('pen',this)">&#9998; Pen</button>
-      <button class="draw-btn" id="drawTool_triangle" onclick="setDrawTool('triangle',this)">△ Triangle</button>
-      <button class="draw-btn" id="drawTool_rect" onclick="setDrawTool('rect',this)">▭ Rect</button>
-      <button class="draw-btn" id="drawTool_circle" onclick="setDrawTool('circle',this)">○ Circle</button>
-      <button class="draw-btn" id="drawTool_arrow" onclick="setDrawTool('arrow',this)">→ Arrow</button>
-      <span style="color:#30363d;font-size:18px">|</span>
-      <button class="draw-btn" id="drawToggle" onclick="toggleDraw()">&#9998; Draw</button>
-      <button class="draw-color selected" id="dc_red" style="background:#f85149" onclick="setDrawColor('#f85149',this)"></button>
-      <button class="draw-color" id="dc_yellow" style="background:#d29922" onclick="setDrawColor('#d29922',this)"></button>
-      <button class="draw-color" id="dc_green" style="background:#3fb950" onclick="setDrawColor('#3fb950',this)"></button>
-      <button class="draw-color" id="dc_blue" style="background:#58a6ff" onclick="setDrawColor('#58a6ff',this)"></button>
-      <button class="draw-color" id="dc_white" style="background:#ffffff" onclick="setDrawColor('#ffffff',this)"></button>
-      <input type="range" class="draw-size" id="drawSize" min="2" max="16" value="4" title="Brush size">
-      <button class="draw-btn" onclick="undoDraw()">&#8617; Undo</button>
-      <button class="draw-btn" onclick="clearDraw()">&#10005; Clear</button>
-    </div>
-    <div class="video-wrap" id="videoWrap">
-      <video id="gifVideo" loop muted playsinline onclick="toggleGifPause()"></video>
-    </div>
-    <div class="gif-controls">
-      <button class="gif-ctrl-btn" onclick="stepFrame(-1)" title="Previous frame">&lt;|</button>
-      <button class="gif-ctrl-btn" id="gifPlayBtn" onclick="toggleGifPause()">❚❚</button>
-      <button class="gif-ctrl-btn" onclick="stepFrame(1)" title="Next frame">|&gt;</button>
-      <div class="scrubber-wrap"><div class="scrubber-markers" id="scrubberMarkers"></div><input type="range" class="gif-scrubber" id="gifScrubber" min="0" max="100" value="0" oninput="seekGif(this.value)" onchange="seekGif(this.value)"></div>
-      <span class="gif-frame-label" id="gifFrameLabel">0 / 0</span>
+    <div class="player-with-notes">
+      <div class="player-video-col">
+        <div class="draw-toolbar">
+          <button class="draw-btn active" id="drawTool_pen" onclick="setDrawTool('pen',this)">&#9998; Pen</button>
+          <button class="draw-btn" id="drawTool_triangle" onclick="setDrawTool('triangle',this)">△ Triangle</button>
+          <button class="draw-btn" id="drawTool_rect" onclick="setDrawTool('rect',this)">▭ Rect</button>
+          <button class="draw-btn" id="drawTool_circle" onclick="setDrawTool('circle',this)">○ Circle</button>
+          <button class="draw-btn" id="drawTool_arrow" onclick="setDrawTool('arrow',this)">→ Arrow</button>
+          <span style="color:#30363d;font-size:18px">|</span>
+          <button class="draw-btn" id="drawToggle" onclick="toggleDraw()">&#9998; Draw</button>
+          <button class="draw-color selected" id="dc_red" style="background:#f85149" onclick="setDrawColor('#f85149',this)"></button>
+          <button class="draw-color" id="dc_yellow" style="background:#d29922" onclick="setDrawColor('#d29922',this)"></button>
+          <button class="draw-color" id="dc_green" style="background:#3fb950" onclick="setDrawColor('#3fb950',this)"></button>
+          <button class="draw-color" id="dc_blue" style="background:#58a6ff" onclick="setDrawColor('#58a6ff',this)"></button>
+          <button class="draw-color" id="dc_white" style="background:#ffffff" onclick="setDrawColor('#ffffff',this)"></button>
+          <input type="range" class="draw-size" id="drawSize" min="2" max="16" value="4" title="Brush size">
+          <button class="draw-btn" onclick="undoDraw()">&#8617; Undo</button>
+          <button class="draw-btn" onclick="clearDraw()">&#10005; Clear</button>
+        </div>
+        <div class="video-wrap" id="videoWrap">
+          <video id="gifVideo" loop muted playsinline onclick="toggleGifPause()"></video>
+        </div>
+        <div class="gif-controls">
+          <button class="gif-ctrl-btn" onclick="stepFrame(-1)" title="Previous frame">&lt;|</button>
+          <button class="gif-ctrl-btn" id="gifPlayBtn" onclick="toggleGifPause()">❚❚</button>
+          <button class="gif-ctrl-btn" onclick="stepFrame(1)" title="Next frame">|&gt;</button>
+          <div class="scrubber-wrap"><div class="scrubber-markers" id="scrubberMarkers"></div><input type="range" class="gif-scrubber" id="gifScrubber" min="0" max="100" value="0" oninput="seekGif(this.value)" onchange="seekGif(this.value)"></div>
+          <span class="gif-frame-label" id="gifFrameLabel">0 / 0</span>
+        </div>
+      </div>
+      <div class="player-notes-panel" id="playerNotesPanel">
+        <div class="pn-header">
+          <span class="pn-header-title">Notes</span>
+          <span class="pn-header-count" id="pnCount">0</span>
+        </div>
+        <div class="pn-list" id="pnList"></div>
+        <div class="pn-input">
+          <div class="pn-input-row">
+            <span class="pn-input-tc" id="pnInputTC">0:00:00:00</span>
+            <textarea class="pn-input-ta" id="pnInputTA" placeholder="Add a note..." rows="1"></textarea>
+            <button class="pn-send-btn" onclick="addPlayerNote()">&#9654;</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -467,6 +519,7 @@ function _initRealtime(){
             state=remote;
             localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
             runMigrations();render();
+            if(_gifCurrentId)renderPlayerNotes();
             if(noteTaskId&&noteType==='chat')renderChat();
           }
         }
@@ -775,6 +828,7 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!document.getElemen
 const GIFS=new Set(["KH_01_198","KH_01_199","KH_01_201","KH_01_204","KH_01_209","KH_01_220","KH_01_221","KH_01_225","KH_01_227","KH_01_228","KH_01_253","KH_01_254","KH_01_321","KH_01_322","KH_01_323","KH_01_323_1","KH_01_324","KH_01_325","KH_01_326","KH_01_327","KH_01_329","KH_01_330","KH_01_331","KH_01_333","KH_01_334","KH_01_335","KH_01_336"]);
 function hasGif(id){return GIFS.has(id);}
 let _gifPaused=false, _gifUpdater=null, _gifCurrentId=null, _videoFPS=24;
+const TOOL_ICONS={pen:'✏️',triangle:'△',rect:'▭',circle:'○',arrow:'→'};
 let _drawMode=false, _drawColor="#f85149", _drawStrokes=[], _drawing=false, _currentStroke=null, _drawCanvas=null, _drawCtx=null, _drawTool="pen", _shapeStart=null;
 
 function _vid(){return document.getElementById("gifVideo");}
@@ -786,6 +840,7 @@ function openGif(id){
   document.getElementById("drawToggle").classList.remove("active");
   const vid=_vid();
   document.getElementById("gifOverlay").classList.remove("hidden");
+  renderPlayerNotes();
 
   let _lastFrame=-1;
   let _readyCalled=false;
@@ -799,6 +854,7 @@ function openGif(id){
         _updateFrameLabel(f);
         _loadDrawingsForFrame();
         _redrawAll();
+        _updatePnInputTC();
       }
     }
     _gifUpdater=requestAnimationFrame(_tickUpdate);
@@ -831,8 +887,10 @@ function openGif(id){
 }
 
 function closeGif(){
+  _compileNotesToDesc();
   _cleanupGif();
   document.getElementById("gifOverlay").classList.add("hidden");
+  render();
 }
 
 function _cleanupGif(){
@@ -1001,10 +1059,11 @@ function _drawEnd(){
   if(_currentStroke){
     if(_drawTool==="pen"&&_currentStroke.points&&_currentStroke.points.length>1){
       _drawStrokes.push(_currentStroke);_saveDrawings();
+      addDrawingNote(_drawTool,_drawColor);
     } else if(_drawTool!=="pen"&&_currentStroke.start&&_currentStroke.end){
       const dx=_currentStroke.end.x-_currentStroke.start.x;
       const dy=_currentStroke.end.y-_currentStroke.start.y;
-      if(Math.abs(dx)+Math.abs(dy)>5){_drawStrokes.push(_currentStroke);_saveDrawings();}
+      if(Math.abs(dx)+Math.abs(dy)>5){_drawStrokes.push(_currentStroke);_saveDrawings();addDrawingNote(_drawTool,_drawColor);}
       else _redrawAll();
     }
   }
@@ -1167,14 +1226,141 @@ function _updateMarkers(){
   }
 }
 
+// --- PLAYER NOTES ---
+function _getPlayerNotes(){
+  if(!_gifCurrentId)return[];
+  return state[_gifCurrentId]?.playerNotes||[];
+}
+function _nextPnId(){
+  const notes=_getPlayerNotes();
+  return notes.length?Math.max(...notes.map(n=>n.id||0))+1:1;
+}
+function renderPlayerNotes(){
+  const list=document.getElementById("pnList");
+  const count=document.getElementById("pnCount");
+  if(!list)return;
+  const notes=_getPlayerNotes();
+  count.textContent=notes.length||"";
+  if(!notes.length){list.innerHTML='<div class="pn-empty">No notes yet. Draw or type to add.</div>';return;}
+  list.innerHTML=notes.map(n=>{
+    const tcHtml=n.tc?`<span class="pn-tc" onclick="seekToNoteFrame(${n.frame})">${n.tc}</span>`:'';
+    const drawHtml=n.drawing?`<span class="pn-color-dot" style="background:${n.drawing.color}"></span><span class="pn-shape">${TOOL_ICONS[n.drawing.tool]||''}</span>`:'';
+    const textClass=n.text?'pn-text':'pn-text placeholder';
+    const textContent=n.text||'Click to add description...';
+    return`<div class="pn-item" data-nid="${n.id}"><div class="pn-item-meta">${tcHtml}${drawHtml}<span class="pn-author">${n.author||''}</span><button class="pn-delete" onclick="deletePlayerNote(${n.id})" title="Delete">&times;</button></div><div class="${textClass}" onclick="editPlayerNote(${n.id},this)">${esc(textContent)}</div></div>`;
+  }).join('');
+  list.scrollTop=list.scrollHeight;
+}
+function addPlayerNote(){
+  const ta=document.getElementById("pnInputTA");
+  if(!ta||!ta.value.trim()||!_gifCurrentId)return;
+  if(!state[_gifCurrentId])state[_gifCurrentId]={};
+  if(!state[_gifCurrentId].playerNotes)state[_gifCurrentId].playerNotes=[];
+  const f=_currentFrame();
+  state[_gifCurrentId].playerNotes.push({
+    id:_nextPnId(),
+    author:(currentUser&&currentUser.display)||'Guest',
+    ts:Date.now(),
+    tc:_getFrameTC(f),
+    frame:f,
+    text:ta.value.trim(),
+    drawing:null
+  });
+  ta.value='';
+  saveState(state);
+  renderPlayerNotes();
+}
+function addDrawingNote(tool,color){
+  if(!_gifCurrentId)return;
+  if(!state[_gifCurrentId])state[_gifCurrentId]={};
+  if(!state[_gifCurrentId].playerNotes)state[_gifCurrentId].playerNotes=[];
+  const f=_currentFrame();
+  state[_gifCurrentId].playerNotes.push({
+    id:_nextPnId(),
+    author:(currentUser&&currentUser.display)||'Guest',
+    ts:Date.now(),
+    tc:_getFrameTC(f),
+    frame:f,
+    text:'',
+    drawing:{tool:tool,color:color}
+  });
+  saveState(state);
+  renderPlayerNotes();
+}
+function editPlayerNote(nid,el){
+  const notes=_getPlayerNotes();
+  const note=notes.find(n=>n.id===nid);
+  if(!note)return;
+  const ta=document.createElement('textarea');
+  ta.className='pn-text-edit';
+  ta.value=note.text||'';
+  ta.rows=1;
+  el.replaceWith(ta);
+  ta.style.height=ta.scrollHeight+'px';
+  ta.focus();
+  ta.addEventListener('input',()=>{ta.style.height='auto';ta.style.height=ta.scrollHeight+'px';});
+  ta.addEventListener('blur',()=>{savePlayerNoteText(nid,ta.value.trim());});
+  ta.addEventListener('keydown',(e)=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();ta.blur();}if(e.key==='Escape'){ta.blur();}});
+}
+function savePlayerNoteText(nid,text){
+  if(!_gifCurrentId)return;
+  const notes=state[_gifCurrentId]?.playerNotes;
+  if(!notes)return;
+  const note=notes.find(n=>n.id===nid);
+  if(!note)return;
+  note.text=text;
+  saveState(state);
+  renderPlayerNotes();
+}
+function deletePlayerNote(nid){
+  if(!_gifCurrentId||!state[_gifCurrentId]?.playerNotes)return;
+  state[_gifCurrentId].playerNotes=state[_gifCurrentId].playerNotes.filter(n=>n.id!==nid);
+  saveState(state);
+  renderPlayerNotes();
+}
+function seekToNoteFrame(frame){
+  const vid=_vid();
+  if(!vid.duration)return;
+  if(!_gifPaused){vid.pause();_gifPaused=true;document.getElementById("gifPlayBtn").textContent="▶";}
+  vid.currentTime=frame/_videoFPS;
+  document.getElementById("gifScrubber").value=Math.round(vid.currentTime*1000);
+  _updateFrameLabel(frame);
+  _switchFrame();
+}
+function _updatePnInputTC(){
+  const el=document.getElementById("pnInputTC");
+  if(el){const f=_currentFrame();el.textContent=_getFrameTC(f)||('F'+f);}
+}
+function _compileNotesToDesc(){
+  if(!_gifCurrentId)return;
+  const notes=_getPlayerNotes();
+  if(!notes.length)return;
+  const lines=notes.map(n=>{
+    let prefix=n.tc?'['+n.tc+'] ':'';
+    if(n.drawing)prefix+=(TOOL_ICONS[n.drawing.tool]||'')+' ';
+    return prefix+(n.text||'(no description)');
+  });
+  if(!state[_gifCurrentId])state[_gifCurrentId]={};
+  state[_gifCurrentId].desc=lines.join('\n');
+  saveState(state);
+}
+
 
 
 document.addEventListener("keydown",e=>{
   if(document.getElementById("gifOverlay").classList.contains("hidden"))return;
-  if(e.key==="Escape")closeGif();
+  const ae=document.activeElement;
+  const typing=ae&&(ae.tagName==='TEXTAREA'||ae.tagName==='INPUT');
+  if(e.key==="Escape"){if(typing){ae.blur();return;}closeGif();}
+  if(typing)return;
   if(e.key===" "){e.preventDefault();toggleGifPause();}
   if(e.key==="ArrowLeft"){e.preventDefault();stepFrame(-1);}
   if(e.key==="ArrowRight"){e.preventDefault();stepFrame(1);}
+});
+document.addEventListener("keydown",e=>{
+  if(e.key==='Enter'&&!e.shiftKey&&document.activeElement===document.getElementById("pnInputTA")){
+    e.preventDefault();addPlayerNote();
+  }
 });
 
 function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
@@ -1325,6 +1511,7 @@ setInterval(async()=>{
   if(_saving)return;
   const pulled=await _pullRemote();
   if(pulled){runMigrations();render();
+    if(_gifCurrentId)renderPlayerNotes();
     if(noteTaskId&&noteType==='chat')renderChat();
   }
 },15000);
