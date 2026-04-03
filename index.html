@@ -118,11 +118,13 @@
   .chat-msg { position: relative; padding: 10px 14px; border-radius: 10px; margin-bottom: 8px; max-width: 85%; font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
   .chat-msg.from-admin { background: #2a0000; color: #f85149; margin-left: auto; border-bottom-right-radius: 3px; }
   .chat-msg.from-artist { background: #0a1929; color: #c9d1d9; margin-right: auto; border-bottom-left-radius: 3px; }
+  .chat-msg.from-client { background: #1a1400; color: #d29922; margin-left: auto; border-bottom-right-radius: 3px; }
   .chat-msg.deleted { opacity: 0.4; font-style: italic; }
   .chat-msg-header { font-size: 10px; font-weight: 600; margin-bottom: 4px; opacity: 0.7; }
   .chat-msg-reply { font-size: 12px; padding: 4px 8px; border-radius: 4px; margin-bottom: 6px; border-left: 2px solid; cursor: pointer; }
   .chat-msg.from-admin .chat-msg-reply { background: #1a0000; border-color: #f85149; color: #f8514999; }
   .chat-msg.from-artist .chat-msg-reply { background: #060d18; border-color: #58a6ff; color: #58a6ff99; }
+  .chat-msg.from-client .chat-msg-reply { background: #0f0a00; border-color: #d29922; color: #d2992299; }
   .chat-msg-actions { position: absolute; top: 4px; right: 6px; display: none; gap: 4px; }
   .chat-msg:hover .chat-msg-actions { display: flex; }
   .chat-action-btn { background: none; border: none; color: #484f58; font-size: 14px; cursor: pointer; padding: 2px 4px; border-radius: 3px; }
@@ -276,7 +278,7 @@ function canEditStatus(t){if(isGuest()||isClient())return false;if(isAdmin())ret
 function canAssign(){return isAdmin();}
 function canEditAdminNote(){return isAdmin();}
 function canEditDesc(){return isAdmin()||isClient();}
-function canChat(t){if(isGuest()||isClient())return false;if(isAdmin())return true;return isArtist()&&getAssignee(t)===currentUser.id;}
+function canChat(t){if(isGuest())return false;if(isAdmin()||isClient())return true;return isArtist()&&getAssignee(t)===currentUser.id;}
 
 const TASKS=[
   {id:"KH_01_198",desc:"Добавить воронку",cat:"voronka",tcIn:"0:37:47:19",tcOut:"0:37:50:14"},
@@ -408,21 +410,22 @@ function renderChat(){
   let html='<div class="chat-messages" id="chatMessages">';
   if(!msgs.length) html+='<div class="chat-empty">No messages yet</div>';
   else msgs.forEach(m=>{
-    const isAdm=m.author==="admin",cls=isAdm?"from-admin":"from-artist";
+    const isAdm=m.author==="admin",isCli=m.author==="client",cls=isAdm?"from-admin":isCli?"from-client":"from-artist";
     const del=m.deleted;
     html+=`<div class="chat-msg ${cls}${del?' deleted':''}" data-mid="${m.id}">`;
     if(!del&&canSend){
       html+=`<div class="chat-msg-actions">`;
       html+=`<button class="chat-action-btn" onclick="replyTo(${m.id})" title="Reply">&#8617;</button>`;
       // Edit own messages only
-      const canEditThis=(isAdmin()&&m.author==="admin")||(isArtist()&&m.author==="artist");
-      if(canEditThis) html+=`<button class="chat-action-btn" onclick="editMsg(${m.id})" title="Edit">&#9998;</button>`;
-      // Artist can delete only own. Admin can delete any.
-      if(isAdmin()||(isArtist()&&m.author==="artist")) html+=`<button class="chat-action-btn" onclick="deleteMsg(${m.id})" title="Delete">&#10005;</button>`;
+      const isOwn=(isAdmin()&&m.author==="admin")||(isArtist()&&m.author==="artist")||(isClient()&&m.author==="client");
+      if(isOwn) html+=`<button class="chat-action-btn" onclick="editMsg(${m.id})" title="Edit">&#9998;</button>`;
+      // Delete: own messages + admin can delete any
+      if(isAdmin()||isOwn) html+=`<button class="chat-action-btn" onclick="deleteMsg(${m.id})" title="Delete">&#10005;</button>`;
       html+=`</div>`;
     }
     const timeStr=m.ts?new Date(m.ts).toLocaleString('uk-UA',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
-    html+=`<div class="chat-msg-header">${isAdm?'Admin':'Artist'}${timeStr?' &nbsp;<span style="opacity:0.5;font-weight:400">'+timeStr+'</span>':''}</div>`;
+    const authorName=isAdm?'Admin':isCli?'Client':'Artist';
+    html+=`<div class="chat-msg-header">${authorName}${timeStr?' &nbsp;<span style="opacity:0.5;font-weight:400">'+timeStr+'</span>':''}</div>`;
     if(m.replyTo!==undefined&&m.replyTo!==null){
       const orig=msgs.find(x=>x.id===m.replyTo);
       const preview=orig?(orig.deleted?'deleted message':trunc(orig.text,40)):'...';
@@ -513,7 +516,8 @@ function sendChat(){
     if(m){m.text=text;m.edited=true;}
     editingMsgId=null;
   } else {
-    const msg={id:nextMsgId(noteTaskId),author:isAdmin()?"admin":"artist",text,replyTo:replyToId,ts:Date.now()};
+    const author=isAdmin()?"admin":isClient()?"client":"artist";
+    const msg={id:nextMsgId(noteTaskId),author,text,replyTo:replyToId,ts:Date.now()};
     state[noteTaskId].artistNotes.push(msg);
   }
   replyToId=null;
@@ -527,8 +531,8 @@ function deleteMsg(mid){
   const msgs=getChat(noteTaskId);
   const m=msgs.find(x=>x.id===mid);
   if(!m)return;
-  // Artist can only delete own messages. Admin can delete any.
-  if(isAdmin()||(isArtist()&&m.author==="artist")){
+  const isOwn=(isArtist()&&m.author==="artist")||(isClient()&&m.author==="client");
+  if(isAdmin()||isOwn){
     m.deletedText=m.text; // preserve for admin restore
     m.deleted=true;m.text="";
     saveState(state);
