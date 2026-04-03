@@ -20,7 +20,7 @@
   }
   .user-badge .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
   .dot-admin { background: #f85149; } .dot-nikita { background: #58a6ff; }
-  .dot-igor { background: #3fb950; } .dot-guest { background: #484f58; }
+  .dot-igor { background: #3fb950; } .dot-guest { background: #484f58; } .dot-client { background: #d29922; }
   .user-badge .uname { font-weight: 600; }
   .logout-link { color: #484f58; font-size: 12px; cursor: pointer; text-decoration: underline; margin-left: 4px; }
   .logout-link:hover { color: #8b949e; }
@@ -58,6 +58,10 @@
   td.id-cell { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 13px; color: #58a6ff; white-space: nowrap; }
   td.tc-cell { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; color: #8b949e; white-space: nowrap; }
   td.desc-cell { max-width: 400px; }
+  td.desc-cell.editable { cursor: pointer; border-radius: 4px; transition: 0.15s; padding: 8px 12px; }
+  td.desc-cell.editable:hover { background: #1c2128; outline: 1px solid #30363d; }
+  .desc-edit-input { background: #0d1117; border: 1px solid #1f6feb; color: #c9d1d9; padding: 6px 10px; border-radius: 6px; font-size: 14px; width: 100%; font-family: inherit; }
+  .desc-edit-input:focus { outline: none; }
   td.category-cell { white-space: nowrap; }
   .cat-tag { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
   .cat-voronka { background: #3d1f00; color: #d29922; } .cat-fpv { background: #1a0030; color: #bc8cff; }
@@ -253,6 +257,7 @@ const USERS = {
   admin:  { hash: "03910b928efe988e1cf30f56f1e24e04ff0c1b8d95cac159565020c8493fbabb", display: "Admin",  role: "admin" },
   nikita: { hash: "5e4ec99b255f996b65e22b605a02289fe3976e5aabc3753f135bcb217bbacf4b", display: "Nikita", role: "artist" },
   igor:   { hash: "63669fcc68f8066547cd0752ed9d8be28638ad3a45e0d2bf24b67218f7a26c23", display: "Igor",   role: "artist" },
+  client: { hash: "42f0429b0d5206775def63178814d730cbe9f3e4245fb94a39cf6adf2e877b37", display: "Client", role: "client" },
 };
 async function sha256(s){const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(s));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,"0")).join("");}
 let currentUser=null;
@@ -265,11 +270,13 @@ function logout(){sessionStorage.removeItem("kh_user");currentUser=null;document
 
 function isAdmin(){return currentUser&&currentUser.role==="admin";}
 function isArtist(){return currentUser&&currentUser.role==="artist";}
+function isClient(){return currentUser&&currentUser.role==="client";}
 function isGuest(){return !currentUser||currentUser.role==="guest";}
-function canEditStatus(t){if(isGuest())return false;if(isAdmin())return true;return getAssignee(t)===currentUser.id;}
+function canEditStatus(t){if(isGuest()||isClient())return false;if(isAdmin())return true;return getAssignee(t)===currentUser.id;}
 function canAssign(){return isAdmin();}
 function canEditAdminNote(){return isAdmin();}
-function canChat(t){if(isGuest())return false;if(isAdmin())return true;return isArtist()&&getAssignee(t)===currentUser.id;}
+function canEditDesc(){return isAdmin()||isClient();}
+function canChat(t){if(isGuest()||isClient())return false;if(isAdmin())return true;return isArtist()&&getAssignee(t)===currentUser.id;}
 
 const TASKS=[
   {id:"KH_01_198",desc:"Добавить воронку",cat:"voronka",tcIn:"0:37:47:19",tcOut:"0:37:50:14"},
@@ -321,6 +328,7 @@ function getStatus(id){return state[id]?.status||"todo";}
 function getAdminNote(id){return state[id]?.adminNote||"";}
 function getChat(id){return state[id]?.artistNotes||[];}
 function getAssignee(id){return state[id]?.assignee||"";}
+function getDesc(id,fallback){return state[id]?.desc||fallback;}
 function nextMsgId(tid){const msgs=getChat(tid);return msgs.length?Math.max(...msgs.map(m=>m.id||0))+1:1;}
 function chatPreview(id){const msgs=getChat(id).filter(m=>!m.deleted);if(!msgs.length)return{text:"",count:0};return{text:msgs[msgs.length-1].text,count:msgs.length};}
 
@@ -617,7 +625,7 @@ function render(){
     return `<tr>
       <td style="color:#484f58">${r.idx}</td>
       <td class="id-cell">${r.id}</td>
-      <td class="desc-cell">${r.desc}</td>
+      <td class="desc-cell${canEditDesc()?' editable':''}" ${canEditDesc()?`onclick="startEditDesc('${r.id}',this,event)"`:''} data-tid="${r.id}">${getDesc(r.id,r.desc)}</td>
       <td class="category-cell"><span class="cat-tag cat-${r.cat}">${CAT_LABELS[r.cat]}</span></td>
       <td class="tc-cell">${r.tcIn}</td>
       <td class="tc-cell">${r.tcOut}</td>
@@ -631,6 +639,25 @@ function render(){
     </tr>`;
   }).join("");
   updateStats();
+}
+
+function startEditDesc(tid,td,ev){
+  if(!canEditDesc())return;
+  ev.stopPropagation();
+  const current=getDesc(tid,TASKS.find(t=>t.id===tid)?.desc||'');
+  td.innerHTML=`<input class="desc-edit-input" value="${esc(current)}" onblur="saveDesc('${tid}',this)" onkeydown="if(event.key==='Enter'){this.blur();}if(event.key==='Escape'){this.dataset.cancel='1';this.blur();}" autofocus>`;
+  td.onclick=null;
+  const inp=td.querySelector('input');
+  if(inp){inp.focus();inp.select();}
+}
+function saveDesc(tid,inp){
+  if(inp.dataset.cancel==='1'){render();return;}
+  const val=inp.value.trim();
+  if(!val){render();return;}
+  if(!state[tid])state[tid]={};
+  state[tid].desc=val;
+  saveState(state);
+  render();
 }
 
 function setStatus(id,val,el){if(!canEditStatus(id))return;if(!state[id])state[id]={};state[id].status=val;saveState(state);el.className="status-select s-"+val;updateStats();}
