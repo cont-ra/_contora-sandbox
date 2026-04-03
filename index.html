@@ -83,7 +83,7 @@
   .gif-scrubber::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #fff; cursor: pointer; }
   .scrubber-markers { position: absolute; top: 0; left: 0; right: 0; height: 100%; pointer-events: none; z-index: 0; }
   .scrubber-marker { position: absolute; top: 0; width: 2px; height: 100%; background: #f85149; transform: translateX(-50%); opacity: 0.8; }
-  .gif-frame-label { color: #8b949e; font-size: 12px; font-family: 'SF Mono', monospace; min-width: 70px; text-align: center; }
+  .gif-frame-label { color: #8b949e; font-size: 12px; font-family: 'SF Mono', monospace; min-width: 160px; text-align: center; }
   .gif-close-btn { position: absolute; top: 20px; right: 24px; background: none; border: none; color: #8b949e; font-size: 32px; cursor: pointer; line-height: 1; z-index: 10; }
   .gif-close-btn:hover { color: #fff; }
 
@@ -226,17 +226,9 @@
 <div class="gif-overlay hidden" id="gifOverlay" onclick="if(event.target===this)closeGif()">
   <button class="gif-close-btn" onclick="closeGif()">&times;</button>
   <div class="gif-player-area" id="gifPlayerArea">
-    <img id="gifImg" src="">
-    <div class="gif-controls">
-      <button class="gif-ctrl-btn" onclick="stepFrame(-1)" title="Previous frame">&#9664;</button>
-      <button class="gif-ctrl-btn" id="gifPlayBtn" onclick="toggleGifPause()">❚❚</button>
-      <button class="gif-ctrl-btn" onclick="stepFrame(1)" title="Next frame">&#9654;</button>
-      <div class="scrubber-wrap"><div class="scrubber-markers" id="scrubberMarkers"></div><input type="range" class="gif-scrubber" id="gifScrubber" min="0" max="100" value="0" oninput="seekGif(this.value)"></div>
-      <span class="gif-frame-label" id="gifFrameLabel">0 / 0</span>
-    </div>
     <div class="draw-toolbar">
       <button class="draw-btn active" id="drawTool_pen" onclick="setDrawTool('pen',this)">&#9998; Pen</button>
-      <button class="draw-btn" id="drawTool_line" onclick="setDrawTool('line',this)">╱ Line</button>
+      <button class="draw-btn" id="drawTool_triangle" onclick="setDrawTool('triangle',this)">△ Triangle</button>
       <button class="draw-btn" id="drawTool_rect" onclick="setDrawTool('rect',this)">▭ Rect</button>
       <button class="draw-btn" id="drawTool_circle" onclick="setDrawTool('circle',this)">○ Circle</button>
       <button class="draw-btn" id="drawTool_arrow" onclick="setDrawTool('arrow',this)">→ Arrow</button>
@@ -250,6 +242,14 @@
       <input type="range" class="draw-size" id="drawSize" min="2" max="16" value="4" title="Brush size">
       <button class="draw-btn" onclick="undoDraw()">&#8617; Undo</button>
       <button class="draw-btn" onclick="clearDraw()">&#10005; Clear</button>
+    </div>
+    <img id="gifImg" src="">
+    <div class="gif-controls">
+      <button class="gif-ctrl-btn" onclick="stepFrame(-1)" title="Previous frame">&lt;|</button>
+      <button class="gif-ctrl-btn" id="gifPlayBtn" onclick="toggleGifPause()">❚❚</button>
+      <button class="gif-ctrl-btn" onclick="stepFrame(1)" title="Next frame">|&gt;</button>
+      <div class="scrubber-wrap"><div class="scrubber-markers" id="scrubberMarkers"></div><input type="range" class="gif-scrubber" id="gifScrubber" min="0" max="100" value="0" oninput="seekGif(this.value)"></div>
+      <span class="gif-frame-label" id="gifFrameLabel">0 / 0</span>
     </div>
   </div>
 </div>
@@ -325,7 +325,7 @@
   <tbody id="tbody"></tbody>
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
-<div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v2.1</div>
+<div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v2.4</div>
 
 <script>
 const USERS = {
@@ -825,7 +825,7 @@ function openGif(id){
     document.getElementById("gifScrubber").disabled=false;
     // Canvas created by SuperGif — add click handler
     const cv=_sgif.get_canvas();
-    cv.onclick=toggleGifPause;
+    cv.onclick=function(e){if(!_drawMode)toggleGifPause();};
     cv.style.cursor="pointer";
     // Init draw canvas overlay
     _initDrawCanvas();
@@ -834,11 +834,18 @@ function openGif(id){
     const scrub=document.getElementById("gifScrubber");
     scrub.max=total-1;scrub.value=0;
     // Update scrubber position during playback
+    let _lastDrawFrame=-1;
     _gifUpdater=setInterval(()=>{
       if(!_sgif||_gifPaused)return;
       const f=_sgif.get_current_frame();
       scrub.value=f;
-      document.getElementById("gifFrameLabel").textContent=f+" / "+(total-1);
+      _updateFrameLabel(f);
+      // Show drawings for current frame during playback
+      if(f!==_lastDrawFrame){
+        _lastDrawFrame=f;
+        _loadDrawingsForFrame();
+        _redrawAll();
+      }
     },50);
   });
 }
@@ -858,16 +865,16 @@ function _cleanupGif(){
   const area=document.getElementById("gifPlayerArea");
   const controls=area.querySelector(".gif-controls");
   const drawBar=area.querySelector(".draw-toolbar");
-  area.innerHTML='<img id="gifImg" src="">';
-  if(controls)area.appendChild(controls);
+  area.innerHTML='';
   if(drawBar)area.appendChild(drawBar);
+  const img=document.createElement("img");img.id="gifImg";img.src="";
+  area.appendChild(img);
+  if(controls)area.appendChild(controls);
 }
 
 function toggleGifPause(){
   if(!_sgif||!_gifLoaded)return;
   if(_gifPaused){
-    // Clear drawing overlay when playing (drawings are per-frame)
-    if(_drawCtx&&_drawCanvas)_drawCtx.clearRect(0,0,_drawCanvas.width,_drawCanvas.height);
     _sgif.play();
     _gifPaused=false;
     document.getElementById("gifPlayBtn").textContent="❚❚";
@@ -877,9 +884,35 @@ function toggleGifPause(){
     document.getElementById("gifPlayBtn").textContent="▶";
     const f=_sgif.get_current_frame();
     document.getElementById("gifScrubber").value=f;
-    document.getElementById("gifFrameLabel").textContent=f+" / "+(_sgif.get_length()-1);
+    _updateFrameLabel(f);
     _switchFrame();
   }
+}
+
+function _tcToFrames(tc){
+  if(!tc||tc==="—")return 0;
+  const p=tc.split(":");
+  if(p.length!==4)return 0;
+  return parseInt(p[0])*3600*25+parseInt(p[1])*60*25+parseInt(p[2])*25+parseInt(p[3]);
+}
+function _framesToTc(f){
+  const ff=f%25;const s=Math.floor(f/25)%60;const m=Math.floor(f/1500)%60;const h=Math.floor(f/90000);
+  return h+":"+String(m).padStart(2,"0")+":"+String(s).padStart(2,"0")+":"+String(ff).padStart(2,"0");
+}
+function _getFrameTC(gifFrame){
+  if(!_gifCurrentId||!_sgif)return"";
+  const task=TASKS.find(t=>t.id===_gifCurrentId);
+  if(!task)return"";
+  const inF=_tcToFrames(task.tcIn),outF=_tcToFrames(task.tcOut);
+  const total=_sgif.get_length();
+  if(!total)return"";
+  const currentAbsolute=inF+Math.round(gifFrame*(outF-inF)/(total-1||1));
+  return _framesToTc(currentAbsolute);
+}
+function _updateFrameLabel(f){
+  const total=_sgif?_sgif.get_length()-1:0;
+  const tc=_getFrameTC(f);
+  document.getElementById("gifFrameLabel").textContent=f+"/"+total+(tc?" | "+tc:"");
 }
 
 function stepFrame(dir){
@@ -890,7 +923,7 @@ function stepFrame(dir){
   if(f<0)f=0;if(f>=total)f=total-1;
   _sgif.move_to(f);
   document.getElementById("gifScrubber").value=f;
-  document.getElementById("gifFrameLabel").textContent=f+" / "+(total-1);
+  _updateFrameLabel(f);
   _switchFrame();
 }
 
@@ -898,7 +931,7 @@ function seekGif(val){
   if(!_sgif||!_gifLoaded)return;
   _sgif.move_to(parseInt(val));
   if(!_gifPaused){_sgif.pause();_gifPaused=true;document.getElementById("gifPlayBtn").textContent="▶";}
-  document.getElementById("gifFrameLabel").textContent=val+" / "+(_sgif.get_length()-1);
+  _updateFrameLabel(parseInt(val));
   _switchFrame();
 }
 
@@ -997,8 +1030,12 @@ function _drawShape(s){
   ctx.strokeStyle=s.color;ctx.lineWidth=s.width;ctx.lineCap="round";ctx.lineJoin="round";
   const x1=s.start.x,y1=s.start.y,x2=s.end.x,y2=s.end.y;
   ctx.beginPath();
-  if(s.tool==="line"){
-    ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);
+  if(s.tool==="triangle"){
+    const cx=(x1+x2)/2;
+    ctx.moveTo(cx,Math.min(y1,y2));
+    ctx.lineTo(Math.min(x1,x2),Math.max(y1,y2));
+    ctx.lineTo(Math.max(x1,x2),Math.max(y1,y2));
+    ctx.closePath();
   } else if(s.tool==="rect"){
     ctx.rect(Math.min(x1,x2),Math.min(y1,y2),Math.abs(x2-x1),Math.abs(y2-y1));
   } else if(s.tool==="circle"){
