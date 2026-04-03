@@ -67,11 +67,8 @@
   .gif-none { width: 70px; height: 44px; border-radius: 4px; background: #161b22; border: 1px solid #21262d; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #484f58; }
   .gif-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 3000; display: flex; align-items: center; justify-content: center; flex-direction: column; }
   .gif-overlay.hidden { display: none; }
-  .gif-overlay .gif-player { max-width: 90vw; max-height: 80vh; border-radius: 8px; cursor: pointer; }
-  .gif-controls { margin-top: 16px; display: flex; gap: 12px; align-items: center; }
-  .gif-ctrl-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; width: 48px; height: 48px; border-radius: 50%; cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center; transition: 0.15s; }
-  .gif-ctrl-btn:hover { background: rgba(255,255,255,0.2); }
-  .gif-close-btn { position: absolute; top: 20px; right: 24px; background: none; border: none; color: #8b949e; font-size: 32px; cursor: pointer; line-height: 1; }
+  #gifImg { max-width: 90vw; max-height: 80vh; border-radius: 8px; cursor: pointer; display: block; }
+  .gif-close-btn { position: absolute; top: 20px; right: 24px; background: none; border: none; color: #8b949e; font-size: 32px; cursor: pointer; line-height: 1; z-index: 1; }
   .gif-close-btn:hover { color: #fff; }
   td.desc-cell.editable { cursor: pointer; border-radius: 4px; transition: 0.15s; padding: 8px 12px; }
   td.desc-cell.editable:hover { background: #1c2128; outline: 1px solid #30363d; }
@@ -198,12 +195,9 @@
   </div>
 </div>
 
-<div class="gif-overlay hidden" id="gifOverlay">
+<div class="gif-overlay hidden" id="gifOverlay" onclick="if(event.target===this)closeGif()">
   <button class="gif-close-btn" onclick="closeGif()">&times;</button>
-  <div id="gifPlayerWrap" onclick="toggleGifPlay()"></div>
-  <div class="gif-controls">
-    <button class="gif-ctrl-btn" id="gifPlayBtn" onclick="toggleGifPlay()">❚❚</button>
-  </div>
+  <img id="gifImg" src="" style="display:none">
 </div>
 
 <div class="note-overlay hidden" id="noteOverlay" onclick="if(event.target===this)closeNote()">
@@ -728,54 +722,18 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!document.getElemen
 
 const GIFS=new Set(["KH_01_198","KH_01_199","KH_01_201","KH_01_204","KH_01_209","KH_01_220","KH_01_221","KH_01_225","KH_01_227","KH_01_228","KH_01_253","KH_01_254","KH_01_321","KH_01_322","KH_01_323","KH_01_323_1","KH_01_324","KH_01_325","KH_01_326","KH_01_327","KH_01_329","KH_01_330","KH_01_331","KH_01_333","KH_01_334","KH_01_335","KH_01_336"]);
 function hasGif(id){return GIFS.has(id);}
-let gifPlaying=false, _gifCurrentId=null;
-
 function openGif(id){
-  _gifCurrentId=id;
-  gifPlaying=true;
-  const wrap=document.getElementById("gifPlayerWrap");
-  // Show animated gif directly — browser handles animation
-  wrap.innerHTML=`<img class="gif-player" id="gifImg" src="gif/${id}.gif">`;
-  document.getElementById("gifPlayBtn").textContent="❚❚";
+  const img=document.getElementById("gifImg");
+  img.src="gif/"+id+".gif";
+  img.style.display="block";
   document.getElementById("gifOverlay").classList.remove("hidden");
 }
 
 function closeGif(){
-  gifPlaying=false;_gifCurrentId=null;
-  document.getElementById("gifPlayerWrap").innerHTML="";
+  const img=document.getElementById("gifImg");
+  img.style.display="none";
+  img.src="";
   document.getElementById("gifOverlay").classList.add("hidden");
-}
-
-async function toggleGifPlay(){
-  const wrap=document.getElementById("gifPlayerWrap");
-  const btn=document.getElementById("gifPlayBtn");
-  if(gifPlaying){
-    // Pause: snapshot current frame to canvas, remove img (stops animation)
-    const img=document.getElementById("gifImg");
-    if(img){
-      try{
-        const bmp=await createImageBitmap(img);
-        const cv=document.createElement("canvas");
-        cv.className="gif-player";cv.id="gifPaused";
-        cv.width=bmp.width;cv.height=bmp.height;
-        cv.getContext("2d").drawImage(bmp,0,0);
-        bmp.close();
-        wrap.innerHTML="";wrap.appendChild(cv);
-      }catch(e){
-        // Fallback — just freeze the img by converting to data URL
-        const cv=document.createElement("canvas");
-        cv.className="gif-player";cv.id="gifPaused";
-        cv.width=img.naturalWidth;cv.height=img.naturalHeight;
-        cv.getContext("2d").drawImage(img,0,0);
-        wrap.innerHTML="";wrap.appendChild(cv);
-      }
-    }
-    gifPlaying=false;btn.textContent="▶";
-  } else {
-    // Resume: replace canvas with fresh img (restarts animation from beginning)
-    wrap.innerHTML=`<img class="gif-player" id="gifImg" src="gif/${_gifCurrentId}.gif">`;
-    gifPlaying=true;btn.textContent="❚❚";
-  }
 }
 
 
