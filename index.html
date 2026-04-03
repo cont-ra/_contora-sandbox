@@ -130,10 +130,9 @@
   /* Todo list in chat */
   .chat-todo { list-style: none; padding: 0; margin: 4px 0 0; }
   .chat-todo li { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 4px; line-height: 1.4; }
-  .chat-todo-check { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #484f58; background: none; cursor: pointer; flex-shrink: 0; margin-top: 1px; display: flex; align-items: center; justify-content: center; transition: 0.15s; }
+  .chat-todo-check { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #484f58; background: none; cursor: pointer; flex-shrink: 0; margin-top: 1px; display: flex; align-items: center; justify-content: center; transition: 0.15s; font-size: 0; line-height: 0; padding: 0; color: transparent; }
   .chat-todo-check:hover { border-color: #8b949e; }
-  .chat-todo-check.checked { border-color: #3fb950; background: #3fb950; }
-  .chat-todo-check.checked::after { content: "\\2713"; color: #0d1117; font-size: 12px; font-weight: 700; }
+  .chat-todo-check.checked { border-color: #3fb950; background: #3fb950; color: #0d1117; font-size: 13px; font-weight: 700; line-height: 1; }
   .chat-todo-text { flex: 1; }
   .chat-todo-text.done { text-decoration: line-through; opacity: 0.5; }
 
@@ -366,7 +365,7 @@ function renderMsgContent(text, mid) {
       const label = todoMatch[2];
       const canToggle = canChat(noteTaskId);
       html += `<li>`;
-      html += `<button class="chat-todo-check${checked?' checked':''}" ${canToggle?`onclick="toggleTodo(${mid},${lineIdx})"`:''} title="${checked?'Uncheck':'Check'}"></button>`;
+      html += `<button class="chat-todo-check${checked?' checked':''}" ${canToggle?`onclick="toggleTodo(${mid},${lineIdx})"`:''} title="${checked?'Uncheck':'Check'}">${checked?'&#10003;':''}</button>`;
       html += `<span class="chat-todo-text${checked?' done':''}">${esc(label)}</span>`;
       html += `</li>`;
     } else if (line.trim()) {
@@ -467,18 +466,22 @@ function renderChat(){
 }
 
 function toggleTodoMode(){
-  todoMode=!todoMode;
   const ta=document.getElementById("chatTA");
-  if(todoMode&&ta){
-    // Pre-fill first item prefix if empty
-    if(!ta.value.trim()) ta.value="- [ ] ";
-    ta.placeholder="Each line = todo item. Enter to send list.";
-  } else if(ta){
-    ta.placeholder="Enter to send, Shift+Enter for new line...";
-  }
+  const savedText=ta?ta.value:'';
+  todoMode=!todoMode;
   renderChat();
-  // Restore focus + cursor at end
-  setTimeout(()=>{const t=document.getElementById("chatTA");if(t){t.focus();t.setSelectionRange(t.value.length,t.value.length);}},50);
+  setTimeout(()=>{
+    const t=document.getElementById("chatTA");
+    if(!t)return;
+    if(todoMode){
+      if(!savedText.trim()) t.value="- [ ] ";
+      else t.value=savedText;
+    } else {
+      t.value=savedText;
+    }
+    t.focus();t.setSelectionRange(t.value.length,t.value.length);
+    t.dispatchEvent(new Event("input"));
+  },50);
 }
 
 function sendChat(){
