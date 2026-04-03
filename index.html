@@ -72,7 +72,6 @@
   .gif-player-area { display: flex; flex-direction: column; align-items: center; gap: 12px; }
   .gif-player-area canvas { max-width: 90vw; max-height: 75vh; border-radius: 8px; cursor: pointer; }
   .gif-player-area .jsgif { display: inline-block; }
-  .gif-player-area .loading_indicator { display: none !important; }
   .gif-controls { display: flex; align-items: center; gap: 12px; }
   .gif-ctrl-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; }
   .gif-ctrl-btn:hover { background: rgba(255,255,255,0.2); }
@@ -740,7 +739,7 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!document.getElemen
 
 const GIFS=new Set(["KH_01_198","KH_01_199","KH_01_201","KH_01_204","KH_01_209","KH_01_220","KH_01_221","KH_01_225","KH_01_227","KH_01_228","KH_01_253","KH_01_254","KH_01_321","KH_01_322","KH_01_323","KH_01_323_1","KH_01_324","KH_01_325","KH_01_326","KH_01_327","KH_01_329","KH_01_330","KH_01_331","KH_01_333","KH_01_334","KH_01_335","KH_01_336"]);
 function hasGif(id){return GIFS.has(id);}
-let _sgif=null, _gifPaused=false, _gifUpdater=null;
+let _sgif=null, _gifPaused=false, _gifUpdater=null, _gifLoaded=false;
 
 function openGif(id){
   // Clean up previous
@@ -750,9 +749,15 @@ function openGif(id){
   document.getElementById("gifOverlay").classList.remove("hidden");
   document.getElementById("gifPlayBtn").textContent="❚❚";
   _gifPaused=false;
+  _gifLoaded=false;
+  document.getElementById("gifPlayBtn").disabled=true;
+  document.getElementById("gifScrubber").disabled=true;
 
   _sgif=new SuperGif({gif:img, auto_play:true, max_width:Math.min(window.innerWidth*0.9,1200)});
   _sgif.load(()=>{
+    _gifLoaded=true;
+    document.getElementById("gifPlayBtn").disabled=false;
+    document.getElementById("gifScrubber").disabled=false;
     // Canvas created by SuperGif — add click handler
     const cv=_sgif.get_canvas();
     cv.onclick=toggleGifPause;
@@ -779,7 +784,7 @@ function closeGif(){
 function _cleanupGif(){
   if(_gifUpdater){clearInterval(_gifUpdater);_gifUpdater=null;}
   if(_sgif){try{_sgif.pause();}catch(e){}_sgif=null;}
-  _gifPaused=false;
+  _gifPaused=false;_gifLoaded=false;
   // SuperGif wraps img in a div and adds canvas — nuke everything, rebuild clean
   const area=document.getElementById("gifPlayerArea");
   const controls=area.querySelector(".gif-controls");
@@ -788,7 +793,7 @@ function _cleanupGif(){
 }
 
 function toggleGifPause(){
-  if(!_sgif)return;
+  if(!_sgif||!_gifLoaded)return;
   if(_gifPaused){
     _sgif.play();
     _gifPaused=false;
@@ -804,7 +809,7 @@ function toggleGifPause(){
 }
 
 function seekGif(val){
-  if(!_sgif)return;
+  if(!_sgif||!_gifLoaded)return;
   _sgif.move_to(parseInt(val));
   if(!_gifPaused){_sgif.pause();_gifPaused=true;document.getElementById("gifPlayBtn").textContent="▶";}
   document.getElementById("gifFrameLabel").textContent=val+" / "+(_sgif.get_length()-1);
