@@ -848,7 +848,6 @@ function _cleanupGif(){
 function toggleGifPause(){
   const vid=_vid();
   if(!vid.src&&!vid.currentSrc)return;
-  if(_drawMode&&!_gifPaused)return; // don't unpause while drawing
   if(_gifPaused){
     vid.play();
     _gifPaused=false;
@@ -968,6 +967,7 @@ function _getDrawPos(e){
 
 function _drawStart(e){
   if(!_drawMode)return;
+  if(!_gifPaused)toggleGifPause();
   _drawing=true;
   const pos=_getDrawPos(e);
   const size=parseInt(document.getElementById("drawSize").value);
@@ -1060,8 +1060,6 @@ function toggleDraw(){
   let cv=document.getElementById("drawCanvas");
   if(_drawMode){
     btn.classList.add("active");
-    // Auto-pause gif when drawing
-    if(!_gifPaused&&_gifCurrentId)toggleGifPause();
     // Ensure drawCanvas exists and sized correctly
     if(!cv){_initDrawCanvas();cv=document.getElementById("drawCanvas");}
     if(cv){
