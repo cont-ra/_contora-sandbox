@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script src="https://cdn.jsdelivr.net/npm/libgif@0.0.3/libgif.js"></script>
 <title>KILLHOUSE VFX Tracker — Declined Tasks</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -68,13 +67,10 @@
   .gif-none { width: 70px; height: 44px; border-radius: 4px; background: #161b22; border: 1px solid #21262d; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #484f58; }
   .gif-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 3000; display: flex; align-items: center; justify-content: center; flex-direction: column; }
   .gif-overlay.hidden { display: none; }
-  #gifImg { visibility: hidden; width: 0; height: 0; position: absolute; }
   .gif-player-area { display: flex; flex-direction: column; align-items: center; gap: 12px; }
-  .gif-player-area canvas { max-width: 90vw; max-height: 75vh; border-radius: 8px; cursor: pointer; }
-  .gif-player-area .jsgif { display: inline-block; position: relative; }
-  .gif-loading-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; border-radius: 8px; z-index: 1; pointer-events: none; }
-  .gif-loading-overlay.hidden { display: none; }
-  .gif-loading-text { color: #fff; font-size: 24px; font-weight: 600; letter-spacing: 2px; }
+  .video-wrap { position: relative; display: inline-block; }
+  .video-wrap video { max-width: 90vw; max-height: 75vh; border-radius: 8px; display: block; cursor: pointer; }
+  .video-wrap canvas { max-width: 90vw; max-height: 75vh; }
   .gif-controls { display: flex; align-items: center; gap: 12px; }
   .gif-ctrl-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; }
   .gif-ctrl-btn:hover { background: rgba(255,255,255,0.2); }
@@ -244,12 +240,14 @@
       <button class="draw-btn" onclick="undoDraw()">&#8617; Undo</button>
       <button class="draw-btn" onclick="clearDraw()">&#10005; Clear</button>
     </div>
-    <img id="gifImg" src="">
+    <div class="video-wrap" id="videoWrap">
+      <video id="gifVideo" loop muted playsinline onclick="toggleGifPause()"></video>
+    </div>
     <div class="gif-controls">
       <button class="gif-ctrl-btn" onclick="stepFrame(-1)" title="Previous frame">&lt;|</button>
       <button class="gif-ctrl-btn" id="gifPlayBtn" onclick="toggleGifPause()">❚❚</button>
       <button class="gif-ctrl-btn" onclick="stepFrame(1)" title="Next frame">|&gt;</button>
-      <div class="scrubber-wrap"><div class="scrubber-markers" id="scrubberMarkers"></div><input type="range" class="gif-scrubber" id="gifScrubber" min="0" max="100" value="0" oninput="seekGif(this.value)"></div>
+      <div class="scrubber-wrap"><div class="scrubber-markers" id="scrubberMarkers"></div><input type="range" class="gif-scrubber" id="gifScrubber" min="0" max="100" value="0" oninput="seekGif(this.value)" onchange="seekGif(this.value)"></div>
       <span class="gif-frame-label" id="gifFrameLabel">0 / 0</span>
     </div>
   </div>
@@ -326,7 +324,7 @@
   <tbody id="tbody"></tbody>
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
-<div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v3.0</div>
+<div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v4.0</div>
 
 <script>
 const USERS = {
@@ -776,77 +774,51 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!document.getElemen
 
 const GIFS=new Set(["KH_01_198","KH_01_199","KH_01_201","KH_01_204","KH_01_209","KH_01_220","KH_01_221","KH_01_225","KH_01_227","KH_01_228","KH_01_253","KH_01_254","KH_01_321","KH_01_322","KH_01_323","KH_01_323_1","KH_01_324","KH_01_325","KH_01_326","KH_01_327","KH_01_329","KH_01_330","KH_01_331","KH_01_333","KH_01_334","KH_01_335","KH_01_336"]);
 function hasGif(id){return GIFS.has(id);}
-let _sgif=null, _gifPaused=false, _gifUpdater=null, _gifLoaded=false, _gifLoadingInterval=null, _gifCurrentId=null;
+let _gifPaused=false, _gifUpdater=null, _gifCurrentId=null, _videoFPS=25;
 let _drawMode=false, _drawColor="#f85149", _drawStrokes=[], _drawing=false, _currentStroke=null, _drawCanvas=null, _drawCtx=null, _drawTool="pen", _shapeStart=null;
 
+function _vid(){return document.getElementById("gifVideo");}
+
 function openGif(id){
-  // Clean up previous
   _cleanupGif();
   _gifCurrentId=id;
   _drawMode=false;
   document.getElementById("drawToggle").classList.remove("active");
-  const img=document.getElementById("gifImg");
-  img.src="gif/"+id+".gif";
-  document.getElementById("gifOverlay").classList.remove("hidden");
-  document.getElementById("gifPlayBtn").textContent="❚❚";
+  const vid=_vid();
+  vid.src="video/"+id+".mp4";
+  vid.load();
+  vid.play();
   _gifPaused=false;
-  _gifLoaded=false;
-  document.getElementById("gifPlayBtn").disabled=true;
-  document.getElementById("gifScrubber").disabled=true;
+  document.getElementById("gifPlayBtn").textContent="❚❚";
+  document.getElementById("gifOverlay").classList.remove("hidden");
 
-  _sgif=new SuperGif({gif:img, auto_play:true, max_width:Math.min(window.innerWidth*0.9,1200)});
-
-  // Add loading overlay after SuperGif creates its wrapper
-  setTimeout(()=>{
-    const jsgif=document.querySelector(".gif-player-area .jsgif");
-    if(jsgif&&!document.getElementById("gifLoadingOverlay")){
-      const ov=document.createElement("div");
-      ov.className="gif-loading-overlay";ov.id="gifLoadingOverlay";
-      ov.innerHTML='<span class="gif-loading-text" id="gifLoadingText">Loading</span>';
-      jsgif.appendChild(ov);
-      // Animate dots
-      let dots=0;
-      _gifLoadingInterval=setInterval(()=>{
-        dots=(dots+1)%4;
-        const el=document.getElementById("gifLoadingText");
-        if(el)el.textContent="Loading"+".".repeat(dots);
-      },400);
-    }
-  },50);
-
-  _sgif.load(()=>{
-    _gifLoaded=true;
-    // Remove loading overlay
-    if(_gifLoadingInterval){clearInterval(_gifLoadingInterval);_gifLoadingInterval=null;}
-    const ov=document.getElementById("gifLoadingOverlay");
-    if(ov)ov.classList.add("hidden");
-    document.getElementById("gifPlayBtn").disabled=false;
-    document.getElementById("gifScrubber").disabled=false;
-    // Canvas created by SuperGif — add click handler
-    const cv=_sgif.get_canvas();
-    cv.onclick=function(e){if(!_drawMode)toggleGifPause();};
-    cv.style.cursor="pointer";
-    // Init draw canvas overlay
-    _initDrawCanvas();
-    // Setup scrubber
-    const total=_sgif.get_length();
+  function _onReady(){
+    const totalFrames=Math.round(vid.duration*_videoFPS);
     const scrub=document.getElementById("gifScrubber");
-    scrub.max=total-1;scrub.value=0;
-    // Update scrubber position during playback
-    let _lastDrawFrame=-1;
-    _gifUpdater=setInterval(()=>{
-      if(!_sgif||_gifPaused)return;
-      const f=_sgif.get_current_frame();
-      scrub.value=f;
-      _updateFrameLabel(f);
-      // Show drawings for current frame during playback
-      if(f!==_lastDrawFrame){
-        _lastDrawFrame=f;
+    scrub.max=totalFrames-1;scrub.value=0;
+    _initDrawCanvas();
+    _updateMarkers();
+  }
+  vid.onloadedmetadata=_onReady;
+  if(vid.readyState>=1)_onReady();
+
+  // Smooth scrubber update via rAF (not ontimeupdate which fires ~4x/sec)
+  let _lastF=-1;
+  function _tickUpdate(){
+    if(!_gifCurrentId)return;
+    if(!_gifPaused){
+      const f=Math.round(vid.currentTime*_videoFPS);
+      if(f!==_lastF){
+        _lastF=f;
+        document.getElementById("gifScrubber").value=f;
+        _updateFrameLabel(f);
         _loadDrawingsForFrame();
         _redrawAll();
       }
-    },50);
-  });
+    }
+    _gifUpdater=requestAnimationFrame(_tickUpdate);
+  }
+  _gifUpdater=requestAnimationFrame(_tickUpdate);
 }
 
 function closeGif(){
@@ -855,33 +827,28 @@ function closeGif(){
 }
 
 function _cleanupGif(){
-  if(_gifUpdater){clearInterval(_gifUpdater);_gifUpdater=null;}
-  if(_gifLoadingInterval){clearInterval(_gifLoadingInterval);_gifLoadingInterval=null;}
-  if(_sgif){try{_sgif.pause();}catch(e){}_sgif=null;}
-  _gifPaused=false;_gifLoaded=false;_gifCurrentId=null;
+  if(_gifUpdater){cancelAnimationFrame(_gifUpdater);_gifUpdater=null;}
+  const vid=_vid();
+  vid.onloadedmetadata=null;vid.onseeked=null;
+  vid.pause();vid.removeAttribute("src");vid.load();
+  _gifPaused=false;_gifCurrentId=null;
   _drawCanvas=null;_drawCtx=null;_drawStrokes=[];_drawing=false;_drawMode=false;_drawTool="pen";_shapeStart=null;
-  // SuperGif wraps img in a div and adds canvas — nuke everything, rebuild clean
-  const area=document.getElementById("gifPlayerArea");
-  const controls=area.querySelector(".gif-controls");
-  const drawBar=area.querySelector(".draw-toolbar");
-  area.innerHTML='';
-  if(drawBar)area.appendChild(drawBar);
-  const img=document.createElement("img");img.id="gifImg";img.src="";
-  area.appendChild(img);
-  if(controls)area.appendChild(controls);
+  const old=document.getElementById("drawCanvas");if(old)old.remove();
 }
 
 function toggleGifPause(){
-  if(!_sgif||!_gifLoaded)return;
+  const vid=_vid();
+  if(!vid.src&&!vid.currentSrc)return;
+  if(_drawMode&&!_gifPaused)return; // don't unpause while drawing
   if(_gifPaused){
-    _sgif.play();
+    vid.play();
     _gifPaused=false;
     document.getElementById("gifPlayBtn").textContent="❚❚";
   } else {
-    _sgif.pause();
+    vid.pause();
     _gifPaused=true;
     document.getElementById("gifPlayBtn").textContent="▶";
-    const f=_sgif.get_current_frame();
+    const f=Math.round(vid.currentTime*_videoFPS);
     document.getElementById("gifScrubber").value=f;
     _updateFrameLabel(f);
     _switchFrame();
@@ -898,60 +865,78 @@ function _framesToTc(f){
   const ff=f%25;const s=Math.floor(f/25)%60;const m=Math.floor(f/1500)%60;const h=Math.floor(f/90000);
   return h+":"+String(m).padStart(2,"0")+":"+String(s).padStart(2,"0")+":"+String(ff).padStart(2,"0");
 }
-function _getFrameTC(gifFrame){
-  if(!_gifCurrentId||!_sgif)return"";
+function _getFrameTC(frame){
+  if(!_gifCurrentId)return"";
   const task=TASKS.find(t=>t.id===_gifCurrentId);
   if(!task)return"";
+  const vid=_vid();
   const inF=_tcToFrames(task.tcIn),outF=_tcToFrames(task.tcOut);
-  const total=_sgif.get_length();
-  if(!total)return"";
-  const currentAbsolute=inF+Math.round(gifFrame*(outF-inF)/(total-1||1));
+  const totalFrames=Math.round(vid.duration*_videoFPS)||1;
+  const currentAbsolute=inF+Math.round(frame*(outF-inF)/(totalFrames-1||1));
   return _framesToTc(currentAbsolute);
 }
+function _currentFrame(){
+  const vid=_vid();
+  return Math.round(vid.currentTime*_videoFPS);
+}
+function _totalFrames(){
+  const vid=_vid();
+  return Math.round(vid.duration*_videoFPS);
+}
 function _updateFrameLabel(f){
-  const total=_sgif?_sgif.get_length()-1:0;
+  const total=_totalFrames()-1;
   const tc=_getFrameTC(f);
   document.getElementById("gifFrameLabel").textContent=f+"/"+total+(tc?" | "+tc:"");
 }
 
 function stepFrame(dir){
-  if(!_sgif||!_gifLoaded)return;
-  if(!_gifPaused){_sgif.pause();_gifPaused=true;document.getElementById("gifPlayBtn").textContent="▶";}
-  const total=_sgif.get_length();
-  let f=_sgif.get_current_frame()+dir;
-  if(f<0)f=0;if(f>=total)f=total-1;
-  _sgif.move_to(f);
+  const vid=_vid();
+  if(!vid.duration)return;
+  if(!_gifPaused){vid.pause();_gifPaused=true;document.getElementById("gifPlayBtn").textContent="▶";}
+  const step=1/_videoFPS;
+  vid.currentTime=Math.max(0,Math.min(vid.duration,vid.currentTime+dir*step));
+  const f=_currentFrame();
   document.getElementById("gifScrubber").value=f;
   _updateFrameLabel(f);
   _switchFrame();
 }
 
+let _seekQueued=null;
 function seekGif(val){
-  if(!_sgif||!_gifLoaded)return;
-  _sgif.move_to(parseInt(val));
-  if(!_gifPaused){_sgif.pause();_gifPaused=true;document.getElementById("gifPlayBtn").textContent="▶";}
-  _updateFrameLabel(parseInt(val));
-  _switchFrame();
+  const vid=_vid();
+  if(!vid.duration)return;
+  if(!_gifPaused){vid.pause();_gifPaused=true;document.getElementById("gifPlayBtn").textContent="▶";}
+  const f=parseInt(val);
+  _updateFrameLabel(f);
+  // Queue seek — browser can only handle one at a time
+  if(vid.seeking){_seekQueued=f;return;}
+  vid.currentTime=f/_videoFPS;
+  vid.onseeked=()=>{
+    _switchFrame();
+    if(_seekQueued!==null){
+      const next=_seekQueued;_seekQueued=null;
+      vid.currentTime=next/_videoFPS;
+    } else {
+      vid.onseeked=null;
+    }
+  };
 }
 
 // --- DRAWING ---
 function _initDrawCanvas(){
-  // Create draw canvas overlay matching the gif canvas size
-  const jsgif=document.querySelector(".gif-player-area .jsgif");
-  if(!jsgif)return;
-  const gifCv=jsgif.querySelector("canvas");
-  if(!gifCv)return;
-  // Remove old draw canvas if exists
+  const wrap=document.getElementById("videoWrap");
+  const vid=_vid();
+  if(!wrap||!vid)return;
   const old=document.getElementById("drawCanvas");
   if(old)old.remove();
   const cv=document.createElement("canvas");
   cv.id="drawCanvas";
-  cv.width=gifCv.width;cv.height=gifCv.height;
-  // Match display size exactly
-  const rect=gifCv.getBoundingClientRect();
+  cv.width=vid.videoWidth||vid.offsetWidth;
+  cv.height=vid.videoHeight||vid.offsetHeight;
+  const rect=vid.getBoundingClientRect();
   cv.style.width=rect.width+"px";
   cv.style.height=rect.height+"px";
-  jsgif.appendChild(cv);
+  wrap.appendChild(cv);
   _drawCanvas=cv;_drawCtx=cv.getContext("2d");
   // Mouse events
   cv.addEventListener("mousedown",e=>{e.stopPropagation();_drawStart(e);});
@@ -1078,11 +1063,10 @@ function toggleDraw(){
     // Auto-pause gif when drawing
     if(!_gifPaused&&_sgif&&_gifLoaded)toggleGifPause();
     // Ensure drawCanvas exists and sized correctly
-    if(!cv&&_sgif){_initDrawCanvas();cv=document.getElementById("drawCanvas");}
+    if(!cv){_initDrawCanvas();cv=document.getElementById("drawCanvas");}
     if(cv){
-      // Re-sync size in case it drifted
-      const gifCv=document.querySelector(".gif-player-area .jsgif canvas:not(#drawCanvas)");
-      if(gifCv){const r=gifCv.getBoundingClientRect();cv.style.width=r.width+"px";cv.style.height=r.height+"px";}
+      const vid=_vid();
+      if(vid){const r=vid.getBoundingClientRect();cv.style.width=r.width+"px";cv.style.height=r.height+"px";}
       cv.classList.add("active");
     }
   } else {
