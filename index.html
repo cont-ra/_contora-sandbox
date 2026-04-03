@@ -1319,6 +1319,23 @@ function savePlayerNoteText(nid,text){
 }
 function deletePlayerNote(nid){
   if(!_gifCurrentId||!state[_gifCurrentId]?.playerNotes)return;
+  const note=state[_gifCurrentId].playerNotes.find(n=>n.id===nid);
+  if(note&&note.drawing){
+    const drawings=state[_gifCurrentId].drawings;
+    if(drawings&&drawings[note.frame]){
+      const arr=drawings[note.frame];
+      // Remove last matching stroke (same tool+color) on that frame
+      for(let i=arr.length-1;i>=0;i--){
+        if(arr[i].t===note.drawing.tool&&arr[i].c===note.drawing.color){
+          arr.splice(i,1);break;
+        }
+      }
+      if(!arr.length)delete drawings[note.frame];
+    }
+    _loadDrawingsForFrame();
+    _redrawAll();
+    _updateMarkers();
+  }
   state[_gifCurrentId].playerNotes=state[_gifCurrentId].playerNotes.filter(n=>n.id!==nid);
   _compileNotesToDesc();
   renderPlayerNotes();
