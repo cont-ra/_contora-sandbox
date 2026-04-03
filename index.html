@@ -59,12 +59,20 @@
   td.tc-cell { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; color: #8b949e; white-space: nowrap; }
   td.desc-cell { max-width: 400px; word-break: break-word; white-space: normal; }
   td.gif-cell { width: 80px; padding: 6px; }
-  .gif-thumb { width: 70px; height: 44px; object-fit: cover; border-radius: 4px; cursor: pointer; border: 1px solid #30363d; transition: 0.15s; display: block; }
+  .gif-thumb { width: 70px; height: 44px; object-fit: cover; border-radius: 4px; cursor: pointer; border: 1px solid #30363d; transition: 0.15s; display: block; background: #0d1117; }
   .gif-thumb:hover { border-color: #58a6ff; transform: scale(1.05); }
+  .gif-thumb-wrap { position: relative; width: 70px; height: 44px; }
+  .gif-play-icon { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+  .gif-play-icon::after { content: "▶"; font-size: 16px; color: rgba(255,255,255,0.7); text-shadow: 0 1px 4px rgba(0,0,0,0.8); }
   .gif-none { width: 70px; height: 44px; border-radius: 4px; background: #161b22; border: 1px solid #21262d; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #484f58; }
-  .gif-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 3000; display: flex; align-items: center; justify-content: center; cursor: zoom-out; }
+  .gif-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 3000; display: flex; align-items: center; justify-content: center; flex-direction: column; }
   .gif-overlay.hidden { display: none; }
-  .gif-overlay img { max-width: 90vw; max-height: 90vh; border-radius: 8px; }
+  .gif-overlay img { max-width: 90vw; max-height: 80vh; border-radius: 8px; cursor: pointer; }
+  .gif-controls { margin-top: 16px; display: flex; gap: 12px; align-items: center; }
+  .gif-ctrl-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; width: 48px; height: 48px; border-radius: 50%; cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center; transition: 0.15s; }
+  .gif-ctrl-btn:hover { background: rgba(255,255,255,0.2); }
+  .gif-close-btn { position: absolute; top: 20px; right: 24px; background: none; border: none; color: #8b949e; font-size: 32px; cursor: pointer; line-height: 1; }
+  .gif-close-btn:hover { color: #fff; }
   td.desc-cell.editable { cursor: pointer; border-radius: 4px; transition: 0.15s; padding: 8px 12px; }
   td.desc-cell.editable:hover { background: #1c2128; outline: 1px solid #30363d; }
   .desc-edit-ta { background: transparent; border: none; color: #c9d1d9; padding: 0; font-size: 14px; width: 100%; font-family: inherit; line-height: 1.5; resize: none; overflow: hidden; outline: 1px solid #1f6feb; outline-offset: 4px; border-radius: 4px; }
@@ -190,7 +198,13 @@
   </div>
 </div>
 
-<div class="gif-overlay hidden" id="gifOverlay" onclick="this.classList.add('hidden')"><img id="gifFull" src=""></div>
+<div class="gif-overlay hidden" id="gifOverlay">
+  <button class="gif-close-btn" onclick="closeGif()">&times;</button>
+  <img id="gifFull" src="" onclick="toggleGifPlay()">
+  <div class="gif-controls">
+    <button class="gif-ctrl-btn" id="gifPlayBtn" onclick="toggleGifPlay()">❚❚</button>
+  </div>
+</div>
 
 <div class="note-overlay hidden" id="noteOverlay" onclick="if(event.target===this)closeNote()">
   <div class="note-panel">
@@ -673,8 +687,52 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!document.getElemen
 
 const GIFS=new Set(["KH_01_198","KH_01_199","KH_01_201","KH_01_204","KH_01_209","KH_01_220","KH_01_221","KH_01_225","KH_01_227","KH_01_228","KH_01_253","KH_01_254","KH_01_321","KH_01_322","KH_01_323","KH_01_323_1","KH_01_324","KH_01_325","KH_01_326","KH_01_327","KH_01_329","KH_01_330","KH_01_331","KH_01_333","KH_01_334","KH_01_335","KH_01_336"]);
 function hasGif(id){return GIFS.has(id);}
-function openGif(id){document.getElementById("gifFull").src="gif/"+id+".gif";document.getElementById("gifOverlay").classList.remove("hidden");}
-document.addEventListener("keydown",e=>{if(e.key==="Escape")document.getElementById("gifOverlay").classList.add("hidden");});
+let gifPlaying=true;
+function openGif(id){
+  const img=document.getElementById("gifFull");
+  img.src="gif/"+id+".gif";
+  gifPlaying=true;
+  document.getElementById("gifPlayBtn").textContent="❚❚";
+  document.getElementById("gifOverlay").classList.remove("hidden");
+}
+function closeGif(){
+  document.getElementById("gifOverlay").classList.add("hidden");
+  document.getElementById("gifFull").src="";
+}
+function toggleGifPlay(){
+  const img=document.getElementById("gifFull");
+  const btn=document.getElementById("gifPlayBtn");
+  if(gifPlaying){
+    // Freeze: draw current frame to canvas, replace img src with canvas data
+    const c=document.createElement("canvas");
+    c.width=img.naturalWidth;c.height=img.naturalHeight;
+    c.getContext("2d").drawImage(img,0,0);
+    img.dataset.origSrc=img.src;
+    img.src=c.toDataURL();
+    btn.textContent="▶";gifPlaying=false;
+  } else {
+    img.src=img.dataset.origSrc;
+    btn.textContent="❚❚";gifPlaying=true;
+  }
+}
+
+// Draw first frame of gifs onto canvases (static thumbnails)
+function initGifThumbs(){
+  document.querySelectorAll("canvas.gif-thumb[data-gif]").forEach(cv=>{
+    const src=cv.dataset.gif;
+    if(cv.dataset.loaded)return;
+    const img=new Image();
+    img.onload=()=>{
+      cv.width=img.naturalWidth;cv.height=img.naturalHeight;
+      cv.getContext("2d").drawImage(img,0,0);
+      cv.dataset.loaded="1";
+      img.src=""; // stop gif animation / free memory
+    };
+    img.src=src;
+  });
+}
+
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeGif();});
 
 function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 function trunc(s,n){return !s?"":s.length>n?s.substring(0,n)+"...":s;}
@@ -698,7 +756,7 @@ function render(){
     return `<tr>
       <td style="color:#484f58">${r.idx}</td>
       <td class="id-cell">${r.id}</td>
-      <td class="gif-cell">${hasGif(r.id)?`<img class="gif-thumb" src="gif/${r.id}.gif" onclick="openGif('${r.id}')" loading="lazy">`:'<div class="gif-none">—</div>'}</td>
+      <td class="gif-cell">${hasGif(r.id)?`<div class="gif-thumb-wrap" onclick="openGif('${r.id}')"><canvas class="gif-thumb" data-gif="gif/${r.id}.gif"></canvas><div class="gif-play-icon"></div></div>`:'<div class="gif-none">—</div>'}</td>
       <td class="desc-cell${canEditDesc()?' editable':''}" ${canEditDesc()?`onclick="startEditDesc('${r.id}',this,event)"`:''} data-tid="${r.id}">${getDesc(r.id,r.desc)}</td>
       <td class="category-cell"><span class="cat-tag cat-${r.cat}">${CAT_LABELS[r.cat]}</span></td>
       <td class="tc-cell">${r.tcIn}</td>
@@ -713,6 +771,7 @@ function render(){
     </tr>`;
   }).join("");
   updateStats();
+  setTimeout(initGifThumbs,50);
 }
 
 function startEditDesc(tid,td,ev){
