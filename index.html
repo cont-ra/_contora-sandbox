@@ -19,120 +19,52 @@
     border-radius: 20px; padding: 4px 14px 4px 10px; font-size: 13px;
   }
   .user-badge .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-  .dot-admin { background: #f85149; }
-  .dot-nikita { background: #58a6ff; }
-  .dot-igor { background: #3fb950; }
-  .dot-guest { background: #484f58; }
+  .dot-admin { background: #f85149; } .dot-nikita { background: #58a6ff; }
+  .dot-igor { background: #3fb950; } .dot-guest { background: #484f58; }
   .user-badge .uname { font-weight: 600; }
-  .logout-link {
-    color: #484f58; font-size: 12px; cursor: pointer;
-    text-decoration: underline; margin-left: 4px;
-  }
+  .logout-link { color: #484f58; font-size: 12px; cursor: pointer; text-decoration: underline; margin-left: 4px; }
   .logout-link:hover { color: #8b949e; }
-
-  .login-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.85);
-    display: flex; align-items: center; justify-content: center; z-index: 1000;
-  }
+  .login-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 1000; }
   .login-overlay.hidden { display: none; }
-  .login-box {
-    background: #161b22; border: 1px solid #30363d;
-    border-radius: 12px; padding: 32px; width: 340px; text-align: center;
-  }
+  .login-box { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 32px; width: 340px; text-align: center; }
   .login-box h2 { color: #f0f6fc; margin-bottom: 8px; font-size: 20px; }
   .login-box p { color: #8b949e; font-size: 13px; margin-bottom: 20px; }
-  .login-box input {
-    background: #0d1117; border: 1px solid #30363d; color: #c9d1d9;
-    padding: 10px 14px; border-radius: 8px; font-size: 15px;
-    width: 100%; text-align: center; letter-spacing: 2px; margin-bottom: 14px;
-  }
+  .login-box input { background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; padding: 10px 14px; border-radius: 8px; font-size: 15px; width: 100%; text-align: center; letter-spacing: 2px; margin-bottom: 14px; }
   .login-box input:focus { outline: none; border-color: #1f6feb; }
-  .login-box .login-btn {
-    background: #1f6feb; border: none; color: #fff;
-    padding: 10px 0; border-radius: 8px; font-size: 14px;
-    font-weight: 600; width: 100%; cursor: pointer; margin-bottom: 10px;
-  }
+  .login-box .login-btn { background: #1f6feb; border: none; color: #fff; padding: 10px 0; border-radius: 8px; font-size: 14px; font-weight: 600; width: 100%; cursor: pointer; margin-bottom: 10px; }
   .login-box .login-btn:hover { background: #388bfd; }
-  .login-box .guest-btn {
-    background: transparent; border: 1px solid #30363d; color: #8b949e;
-    padding: 10px 0; border-radius: 8px; font-size: 13px;
-    width: 100%; cursor: pointer; margin-bottom: 10px;
-  }
+  .login-box .guest-btn { background: transparent; border: 1px solid #30363d; color: #8b949e; padding: 10px 0; border-radius: 8px; font-size: 13px; width: 100%; cursor: pointer; margin-bottom: 10px; }
   .login-box .guest-btn:hover { background: #161b22; color: #c9d1d9; border-color: #484f58; }
   .login-divider { color: #484f58; font-size: 12px; margin: 6px 0 14px; }
   .login-error { color: #f85149; font-size: 13px; min-height: 20px; }
-
   .stats { display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
-  .stat-card {
-    background: #161b22; border: 1px solid #30363d;
-    border-radius: 8px; padding: 14px 20px; min-width: 140px;
-  }
+  .stat-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 14px 20px; min-width: 140px; }
   .stat-card .num { font-size: 28px; font-weight: 700; }
   .stat-card .label { font-size: 12px; color: #8b949e; margin-top: 2px; }
-  .num.red { color: #f85149; }
-  .num.yellow { color: #d29922; }
-  .num.green { color: #3fb950; }
-  .num.blue { color: #58a6ff; }
-
-  .filters {
-    display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center;
-  }
-  .filters input {
-    background: #0d1117; border: 1px solid #30363d; color: #c9d1d9;
-    padding: 8px 12px; border-radius: 6px; font-size: 14px; width: 260px;
-  }
+  .num.red { color: #f85149; } .num.yellow { color: #d29922; } .num.green { color: #3fb950; } .num.blue { color: #58a6ff; }
+  .filters { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+  .filters input { background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; padding: 8px 12px; border-radius: 6px; font-size: 14px; width: 260px; }
   .filters input::placeholder { color: #484f58; }
-  .filter-btn, .artist-filter-btn {
-    background: #21262d; border: 1px solid #30363d; color: #c9d1d9;
-    padding: 8px 14px; border-radius: 6px; cursor: pointer;
-    font-size: 13px; transition: 0.15s;
-  }
+  .filter-btn, .artist-filter-btn { background: #21262d; border: 1px solid #30363d; color: #c9d1d9; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: 0.15s; }
   .filter-btn:hover, .artist-filter-btn:hover { background: #30363d; }
   .filter-btn.active, .artist-filter-btn.active { background: #1f6feb; border-color: #1f6feb; color: #fff; }
   .separator { color: #30363d; font-size: 18px; user-select: none; }
-
-  table {
-    width: 100%; border-collapse: collapse; background: #161b22;
-    border-radius: 8px; overflow: hidden; border: 1px solid #30363d;
-  }
-  thead th {
-    background: #21262d; padding: 10px 14px; text-align: left;
-    font-size: 12px; font-weight: 600; color: #8b949e;
-    text-transform: uppercase; letter-spacing: 0.5px;
-    border-bottom: 1px solid #30363d; cursor: pointer;
-    user-select: none; white-space: nowrap;
-  }
+  table { width: 100%; border-collapse: collapse; background: #161b22; border-radius: 8px; overflow: hidden; border: 1px solid #30363d; }
+  thead th { background: #21262d; padding: 10px 14px; text-align: left; font-size: 12px; font-weight: 600; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #30363d; cursor: pointer; user-select: none; white-space: nowrap; }
   thead th:hover { color: #c9d1d9; }
   tbody tr { border-bottom: 1px solid #21262d; transition: 0.1s; }
   tbody tr:hover { background: #1c2128; }
   tbody td { padding: 10px 14px; font-size: 14px; vertical-align: top; }
-  td.id-cell {
-    font-family: 'SF Mono', 'Fira Code', monospace;
-    font-size: 13px; color: #58a6ff; white-space: nowrap;
-  }
-  td.tc-cell {
-    font-family: 'SF Mono', 'Fira Code', monospace;
-    font-size: 12px; color: #8b949e; white-space: nowrap;
-  }
+  td.id-cell { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 13px; color: #58a6ff; white-space: nowrap; }
+  td.tc-cell { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; color: #8b949e; white-space: nowrap; }
   td.desc-cell { max-width: 400px; }
   td.category-cell { white-space: nowrap; }
-  .cat-tag {
-    display: inline-block; padding: 2px 8px; border-radius: 12px;
-    font-size: 11px; font-weight: 600;
-  }
-  .cat-voronka { background: #3d1f00; color: #d29922; }
-  .cat-fpv { background: #1a0030; color: #bc8cff; }
-  .cat-vrezka { background: #00261c; color: #3fb950; }
-  .cat-angar { background: #30160a; color: #f0883e; }
-  .cat-puli { background: #300018; color: #f778ba; }
-  .cat-vzryv { background: #2a0000; color: #f85149; }
-  .cat-dym { background: #1a1a2e; color: #8b949e; }
-  .cat-other { background: #1c1c1c; color: #8b949e; }
-
-  .status-select, .assign-select {
-    background: #0d1117; border: 1px solid #30363d; color: #c9d1d9;
-    padding: 4px 8px; border-radius: 6px; font-size: 13px; cursor: pointer;
-  }
+  .cat-tag { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .cat-voronka { background: #3d1f00; color: #d29922; } .cat-fpv { background: #1a0030; color: #bc8cff; }
+  .cat-vrezka { background: #00261c; color: #3fb950; } .cat-angar { background: #30160a; color: #f0883e; }
+  .cat-puli { background: #300018; color: #f778ba; } .cat-vzryv { background: #2a0000; color: #f85149; }
+  .cat-dym { background: #1a1a2e; color: #8b949e; } .cat-other { background: #1c1c1c; color: #8b949e; }
+  .status-select, .assign-select { background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; padding: 4px 8px; border-radius: 6px; font-size: 13px; cursor: pointer; }
   .status-select:disabled, .assign-select:disabled { opacity: 0.4; cursor: not-allowed; }
   .status-select.s-todo { border-color: #f85149; color: #f85149; }
   .status-select.s-progress { border-color: #d29922; color: #d29922; }
@@ -141,118 +73,80 @@
   .status-select.s-skip { border-color: #484f58; color: #484f58; }
   .assign-nikita { border-color: #58a6ff; color: #58a6ff; }
   .assign-igor { border-color: #3fb950; color: #3fb950; }
-
-  /* Note cell preview */
-  .note-cell {
-    cursor: pointer; padding: 4px 10px; border-radius: 6px;
-    font-size: 12px; max-width: 160px; overflow: hidden;
-    text-overflow: ellipsis; white-space: nowrap;
-    background: #0d1117; border: 1px solid #30363d; color: #484f58;
-    display: block; text-align: left; transition: 0.15s;
-  }
+  .note-cell { cursor: pointer; padding: 4px 10px; border-radius: 6px; font-size: 12px; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: #0d1117; border: 1px solid #30363d; color: #484f58; display: block; text-align: left; transition: 0.15s; }
   .note-cell:hover { border-color: #484f58; color: #c9d1d9; }
   .note-cell.has-text { color: #c9d1d9; border-color: #484f58; }
   .note-cell.type-admin { border-left: 3px solid #f85149; }
   .note-cell.type-artist { border-left: 3px solid #58a6ff; }
+  .note-cell .msg-count { font-size: 10px; color: #58a6ff; margin-left: 4px; }
 
   /* Fullscreen note overlay */
-  .note-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.8);
-    z-index: 2000; display: flex; align-items: stretch; justify-content: center;
-    padding: 40px;
-  }
+  .note-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 2000; display: flex; align-items: stretch; justify-content: center; padding: 40px; }
   .note-overlay.hidden { display: none; }
-  .note-panel {
-    background: #161b22; border: 1px solid #30363d; border-radius: 12px;
-    width: 100%; max-width: 700px; display: flex; flex-direction: column;
-    overflow: hidden;
-  }
-  .note-panel-header {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 20px 24px 16px; border-bottom: 1px solid #21262d; flex-shrink: 0;
-  }
+  .note-panel { background: #161b22; border: 1px solid #30363d; border-radius: 12px; width: 100%; max-width: 700px; display: flex; flex-direction: column; overflow: hidden; }
+  .note-panel-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px 16px; border-bottom: 1px solid #21262d; flex-shrink: 0; }
   .note-panel-title { display: flex; align-items: center; gap: 10px; }
   .note-panel-title h3 { color: #f0f6fc; font-size: 16px; font-weight: 600; }
-  .note-type-badge {
-    font-size: 10px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 1px; padding: 2px 8px; border-radius: 4px;
-  }
+  .note-type-badge { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; padding: 2px 8px; border-radius: 4px; }
   .note-type-badge.admin-badge { background: #3d0000; color: #f85149; }
   .note-type-badge.artist-badge { background: #0a1929; color: #58a6ff; }
-  .note-panel-close {
-    background: none; border: none; color: #484f58; font-size: 24px;
-    cursor: pointer; padding: 4px 8px; border-radius: 4px; line-height: 1;
-  }
+  .note-panel-close { background: none; border: none; color: #484f58; font-size: 24px; cursor: pointer; padding: 4px 8px; border-radius: 4px; line-height: 1; }
   .note-panel-close:hover { color: #c9d1d9; background: #21262d; }
-  .note-panel-meta {
-    padding: 12px 24px; font-size: 13px; color: #8b949e;
-    border-bottom: 1px solid #21262d; flex-shrink: 0;
-  }
-  .note-panel-meta .shot-id {
-    font-family: 'SF Mono', monospace; color: #58a6ff; font-weight: 600;
-  }
+  .note-panel-meta { padding: 12px 24px; font-size: 13px; color: #8b949e; border-bottom: 1px solid #21262d; flex-shrink: 0; }
+  .note-panel-meta .shot-id { font-family: 'SF Mono', monospace; color: #58a6ff; font-weight: 600; }
   .note-panel-meta .shot-desc { margin-left: 8px; }
-  .note-panel-body {
-    flex: 1; padding: 20px 24px; overflow-y: auto; display: flex; flex-direction: column;
-  }
-  .note-panel-body textarea {
-    flex: 1; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9;
-    padding: 16px; border-radius: 8px; font-size: 15px; line-height: 1.6;
-    font-family: inherit; resize: none; min-height: 200px;
-  }
+  .note-panel-body { flex: 1; padding: 20px 24px; overflow-y: auto; display: flex; flex-direction: column; }
+  .note-panel-body textarea { flex: 1; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; padding: 16px; border-radius: 8px; font-size: 15px; line-height: 1.6; font-family: inherit; resize: none; min-height: 200px; }
   .note-panel-body textarea:focus { outline: none; border-color: #1f6feb; }
   .note-panel-body textarea::placeholder { color: #484f58; }
-  .note-panel-readonly {
-    flex: 1; background: #0d1117; border: 1px solid #21262d; color: #c9d1d9;
-    padding: 16px; border-radius: 8px; font-size: 15px; line-height: 1.6;
-    white-space: pre-wrap; word-break: break-word; overflow-y: auto;
-    min-height: 200px;
-  }
+  .note-panel-readonly { flex: 1; background: #0d1117; border: 1px solid #21262d; color: #c9d1d9; padding: 16px; border-radius: 8px; font-size: 15px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; overflow-y: auto; min-height: 200px; }
   .note-panel-readonly.empty { color: #484f58; font-style: italic; }
-
-  .note-entry { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #21262d; }
-  .note-entry:last-child { margin-bottom: 0; border-bottom: none; }
-  .note-entry-header { font-size: 11px; font-weight: 600; margin-bottom: 4px; }
-  .note-entry-header.by-admin { color: #f85149; }
-  .note-entry-header.by-artist { color: #58a6ff; }
-  .note-entry-text { font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
-  .note-entry-text.from-admin { color: #f85149; }
-  .note-entry-text.from-artist { color: #c9d1d9; }
-  .note-panel-footer {
-    padding: 16px 24px; border-top: 1px solid #21262d;
-    display: flex; justify-content: flex-end; gap: 10px; flex-shrink: 0;
-  }
+  .note-panel-footer { padding: 16px 24px; border-top: 1px solid #21262d; display: flex; justify-content: flex-end; gap: 10px; flex-shrink: 0; }
   .note-panel-footer.hidden { display: none; }
-  .note-save-btn {
-    background: #1f6feb; border: none; color: #fff;
-    padding: 8px 24px; border-radius: 6px; font-size: 14px;
-    font-weight: 600; cursor: pointer;
-  }
+  .note-save-btn { background: #1f6feb; border: none; color: #fff; padding: 8px 24px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; }
   .note-save-btn:hover { background: #388bfd; }
-  .note-cancel-btn {
-    background: #21262d; border: 1px solid #30363d; color: #c9d1d9;
-    padding: 8px 20px; border-radius: 6px; font-size: 14px; cursor: pointer;
-  }
+  .note-cancel-btn { background: #21262d; border: 1px solid #30363d; color: #c9d1d9; padding: 8px 20px; border-radius: 6px; font-size: 14px; cursor: pointer; }
   .note-cancel-btn:hover { background: #30363d; }
 
-  .save-notice {
-    position: fixed; bottom: 20px; right: 20px;
-    background: #1f6feb; color: #fff;
-    padding: 10px 18px; border-radius: 8px; font-size: 13px;
-    opacity: 0; transition: opacity 0.3s; pointer-events: none;
-  }
+  /* Chat messages */
+  .chat-messages { flex: 1; overflow-y: auto; margin-bottom: 12px; }
+  .chat-empty { color: #484f58; font-style: italic; padding: 20px 0; text-align: center; }
+  .chat-msg { position: relative; padding: 10px 14px; border-radius: 10px; margin-bottom: 8px; max-width: 85%; font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+  .chat-msg.from-admin { background: #2a0000; color: #f85149; margin-left: auto; border-bottom-right-radius: 3px; }
+  .chat-msg.from-artist { background: #0a1929; color: #c9d1d9; margin-right: auto; border-bottom-left-radius: 3px; }
+  .chat-msg.deleted { opacity: 0.4; font-style: italic; }
+  .chat-msg-header { font-size: 10px; font-weight: 600; margin-bottom: 4px; opacity: 0.7; }
+  .chat-msg-reply { font-size: 12px; padding: 4px 8px; border-radius: 4px; margin-bottom: 6px; border-left: 2px solid; cursor: pointer; }
+  .chat-msg.from-admin .chat-msg-reply { background: #1a0000; border-color: #f85149; color: #f8514999; }
+  .chat-msg.from-artist .chat-msg-reply { background: #060d18; border-color: #58a6ff; color: #58a6ff99; }
+  .chat-msg-actions { position: absolute; top: 4px; right: 6px; display: none; gap: 4px; }
+  .chat-msg:hover .chat-msg-actions { display: flex; }
+  .chat-action-btn { background: none; border: none; color: #484f58; font-size: 14px; cursor: pointer; padding: 2px 4px; border-radius: 3px; }
+  .chat-action-btn:hover { color: #c9d1d9; background: rgba(255,255,255,0.05); }
+  .chat-deleted-label { font-size: 11px; color: #484f58; }
+
+  /* Chat input area */
+  .chat-input-area { flex-shrink: 0; }
+  .chat-reply-preview { background: #21262d; border-radius: 6px; padding: 6px 10px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: #8b949e; }
+  .chat-reply-preview.hidden { display: none; }
+  .chat-reply-close { background: none; border: none; color: #484f58; cursor: pointer; font-size: 16px; padding: 0 4px; }
+  .chat-reply-close:hover { color: #c9d1d9; }
+  .chat-input-row { display: flex; gap: 8px; align-items: flex-end; }
+  .chat-input-row textarea { flex: 1; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; padding: 10px 14px; border-radius: 8px; font-size: 14px; line-height: 1.4; font-family: inherit; resize: none; min-height: 42px; max-height: 150px; overflow-y: auto; }
+  .chat-input-row textarea:focus { outline: none; border-color: #1f6feb; }
+  .chat-input-row textarea::placeholder { color: #484f58; }
+  .chat-send-btn { background: #1f6feb; border: none; color: #fff; width: 42px; height: 42px; border-radius: 8px; cursor: pointer; font-size: 18px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+  .chat-send-btn:hover { background: #388bfd; }
+  .chat-hint { font-size: 11px; color: #484f58; margin-top: 6px; }
+
+  .save-notice { position: fixed; bottom: 20px; right: 20px; background: #1f6feb; color: #fff; padding: 10px 18px; border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
   .save-notice.show { opacity: 1; }
-  .export-btn {
-    background: #238636; border: 1px solid #2ea043; color: #fff;
-    padding: 8px 16px; border-radius: 6px; cursor: pointer;
-    font-size: 13px; margin-left: auto;
-  }
+  .export-btn { background: #238636; border: 1px solid #2ea043; color: #fff; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; margin-left: auto; }
   .export-btn:hover { background: #2ea043; }
 </style>
 </head>
 <body>
 
-<!-- Login -->
 <div class="login-overlay" id="loginOverlay">
   <div class="login-box">
     <h2>KILLHOUSE VFX</h2>
@@ -265,7 +159,6 @@
   </div>
 </div>
 
-<!-- Note fullscreen panel -->
 <div class="note-overlay hidden" id="noteOverlay" onclick="if(event.target===this)closeNote()">
   <div class="note-panel">
     <div class="note-panel-header">
@@ -321,23 +214,20 @@
 </div>
 
 <table>
-  <thead>
-    <tr>
-      <th onclick="sortTable(0)">#</th>
-      <th onclick="sortTable(1)">ID</th>
-      <th onclick="sortTable(2)">Description</th>
-      <th onclick="sortTable(3)">Category</th>
-      <th onclick="sortTable(4)">TC In</th>
-      <th onclick="sortTable(5)">TC Out</th>
-      <th onclick="sortTable(6)">Artist</th>
-      <th onclick="sortTable(7)">Status</th>
-      <th>Admin</th>
-      <th>Artist</th>
-    </tr>
-  </thead>
+  <thead><tr>
+    <th onclick="sortTable(0)">#</th>
+    <th onclick="sortTable(1)">ID</th>
+    <th onclick="sortTable(2)">Description</th>
+    <th onclick="sortTable(3)">Category</th>
+    <th onclick="sortTable(4)">TC In</th>
+    <th onclick="sortTable(5)">TC Out</th>
+    <th onclick="sortTable(6)">Artist</th>
+    <th onclick="sortTable(7)">Status</th>
+    <th>Admin</th>
+    <th>Chat</th>
+  </tr></thead>
   <tbody id="tbody"></tbody>
 </table>
-
 <div class="save-notice" id="saveNotice">Saved</div>
 
 <script>
@@ -346,285 +236,232 @@ const USERS = {
   nikita: { hash: "5e4ec99b255f996b65e22b605a02289fe3976e5aabc3753f135bcb217bbacf4b", display: "Nikita", role: "artist" },
   igor:   { hash: "63669fcc68f8066547cd0752ed9d8be28638ad3a45e0d2bf24b67218f7a26c23", display: "Igor",   role: "artist" },
 };
+async function sha256(s){const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(s));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,"0")).join("");}
+let currentUser=null;
+async function tryLogin(){const p=document.getElementById("loginPass").value.trim();if(!p)return;const h=await sha256(p);for(const[id,u]of Object.entries(USERS)){if(u.hash===h){currentUser={id,...u};sessionStorage.setItem("kh_user",id);showLoggedIn();return;}}document.getElementById("loginError").textContent="Wrong password";}
+function guestLogin(){currentUser={id:"guest",display:"Guest",role:"guest"};sessionStorage.setItem("kh_user","guest");showLoggedIn();}
+document.getElementById("loginPass").addEventListener("keydown",e=>{if(e.key==="Enter")tryLogin();});
+function showLoggedIn(){document.getElementById("loginOverlay").classList.add("hidden");document.getElementById("userBadge").style.display="inline-flex";document.getElementById("userName").textContent=currentUser.display;document.getElementById("userDot").className="dot dot-"+currentUser.id;render();}
+function logout(){sessionStorage.removeItem("kh_user");currentUser=null;document.getElementById("loginOverlay").classList.remove("hidden");document.getElementById("userBadge").style.display="none";document.getElementById("loginPass").value="";document.getElementById("loginError").textContent="";render();}
+(async function(){const s=sessionStorage.getItem("kh_user");if(s==="guest")guestLogin();else if(s&&USERS[s]){currentUser={id:s,...USERS[s]};showLoggedIn();}})();
 
-async function sha256(str) {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,"0")).join("");
-}
+function isAdmin(){return currentUser&&currentUser.role==="admin";}
+function isArtist(){return currentUser&&currentUser.role==="artist";}
+function isGuest(){return !currentUser||currentUser.role==="guest";}
+function canEditStatus(t){if(isGuest())return false;if(isAdmin())return true;return getAssignee(t)===currentUser.id;}
+function canAssign(){return isAdmin();}
+function canEditAdminNote(){return isAdmin();}
+function canChat(t){if(isGuest())return false;if(isAdmin())return true;return isArtist()&&getAssignee(t)===currentUser.id;}
 
-let currentUser = null;
-
-async function tryLogin() {
-  const pass = document.getElementById("loginPass").value.trim();
-  if (!pass) return;
-  const h = await sha256(pass);
-  for (const [id, u] of Object.entries(USERS)) {
-    if (u.hash === h) {
-      currentUser = { id, ...u };
-      sessionStorage.setItem("kh_user", id);
-      showLoggedIn();
-      return;
-    }
-  }
-  document.getElementById("loginError").textContent = "Wrong password";
-}
-
-function guestLogin() {
-  currentUser = { id: "guest", display: "Guest", role: "guest" };
-  sessionStorage.setItem("kh_user", "guest");
-  showLoggedIn();
-}
-
-document.getElementById("loginPass").addEventListener("keydown", e => {
-  if (e.key === "Enter") tryLogin();
-});
-
-function showLoggedIn() {
-  document.getElementById("loginOverlay").classList.add("hidden");
-  document.getElementById("userBadge").style.display = "inline-flex";
-  document.getElementById("userName").textContent = currentUser.display;
-  document.getElementById("userDot").className = "dot dot-" + currentUser.id;
-  render();
-}
-
-function logout() {
-  sessionStorage.removeItem("kh_user");
-  currentUser = null;
-  document.getElementById("loginOverlay").classList.remove("hidden");
-  document.getElementById("userBadge").style.display = "none";
-  document.getElementById("loginPass").value = "";
-  document.getElementById("loginError").textContent = "";
-  render();
-}
-
-(async function checkSession() {
-  const saved = sessionStorage.getItem("kh_user");
-  if (saved === "guest") guestLogin();
-  else if (saved && USERS[saved]) {
-    currentUser = { id: saved, ...USERS[saved] };
-    showLoggedIn();
-  }
-})();
-
-function isAdmin() { return currentUser && currentUser.role === "admin"; }
-function isArtist() { return currentUser && currentUser.role === "artist"; }
-function isGuest() { return !currentUser || currentUser.role === "guest"; }
-function canEditStatus(tid) {
-  if (isGuest()) return false;
-  if (isAdmin()) return true;
-  return getAssignee(tid) === currentUser.id;
-}
-function canAssign() { return isAdmin(); }
-function canEditAdminNote() { return isAdmin(); }
-function canEditArtistNote(tid) {
-  if (isGuest()) return false;
-  if (isAdmin()) return true;
-  return isArtist() && getAssignee(tid) === currentUser.id;
-}
-
-const TASKS = [
-  { id:"KH_01_198", desc:"Добавить воронку", cat:"voronka", tcIn:"0:37:47:19", tcOut:"0:37:50:14" },
-  { id:"KH_01_199", desc:"Добавить воронку", cat:"voronka", tcIn:"0:37:57:15", tcOut:"0:37:58:17" },
-  { id:"KH_01_201", desc:"Добавить воронку", cat:"voronka", tcIn:"0:38:13:01", tcOut:"0:38:16:02" },
-  { id:"KH_01_204", desc:"Добавить воронку", cat:"voronka", tcIn:"0:39:10:14", tcOut:"0:39:11:14" },
-  { id:"KH_01_209", desc:"Воронка от снаряда", cat:"voronka", tcIn:"0:40:53:20", tcOut:"0:40:54:08" },
-  { id:"KH_01_220", desc:"Врезка пролета ФПВ дрона", cat:"fpv", tcIn:"0:45:58:03", tcOut:"0:45:59:08" },
-  { id:"KH_01_221", desc:"Врезка пролета ФПВ", cat:"fpv", tcIn:"0:46:03:19", tcOut:"0:46:04:21" },
-  { id:"KH_01_225", desc:"Эффект камеры ФПВ дрона и два выстрела", cat:"fpv", tcIn:"0:46:16:00", tcOut:"0:46:17:01" },
-  { id:"KH_01_227", desc:"Дым добавить и точки от прилетов", cat:"dym", tcIn:"0:47:10:14", tcOut:"0:47:11:22" },
-  { id:"KH_01_228", desc:"Воронки от прилетов и дым...", cat:"voronka", tcIn:"0:47:18:03", tcOut:"0:47:19:01" },
-  { id:"KH_01_253", desc:"Воронки от снарядов", cat:"voronka", tcIn:"0:54:50:05", tcOut:"0:54:54:01" },
-  { id:"KH_01_254", desc:"Врезка ангара слева", cat:"angar", tcIn:"0:57:35:09", tcOut:"0:58:16:01" },
-  { id:"KH_01_321", desc:"Царапины от пуль на лобовом стекле", cat:"puli", tcIn:"1:14:52:01", tcOut:"1:14:54:06" },
-  { id:"KH_01_322", desc:"Царапины от пуль на лобовом стекле", cat:"puli", tcIn:"1:14:56:14", tcOut:"1:14:59:12" },
-  { id:"KH_01_323", desc:"Царапины от пуль на лобовом стекле", cat:"puli", tcIn:"1:15:05:21", tcOut:"1:15:12:15" },
-  { id:"KH_01_323_1", desc:"Царапины от пуль на лобовом стекле", cat:"puli", tcIn:"1:15:44:15", tcOut:"1:15:46:22" },
-  { id:"KH_01_324", desc:"Пролет точки — ФПВ дрона", cat:"fpv", tcIn:"1:15:46:23", tcOut:"1:15:49:09" },
-  { id:"KH_01_325", desc:"ФПВ дрон камера, металические усики", cat:"fpv", tcIn:"1:15:49:10", tcOut:"1:15:51:11" },
-  { id:"KH_01_326", desc:"ФПВ дрон камера, металические усики", cat:"fpv", tcIn:"1:15:56:03", tcOut:"1:15:59:14" },
-  { id:"KH_01_327", desc:"Точка ФПВ дрона", cat:"fpv", tcIn:"1:15:59:15", tcOut:"1:16:03:14" },
-  { id:"KH_01_328", desc:"ФПВ несется на дар, камера ФПВ", cat:"fpv", tcIn:"—", tcOut:"—" },
-  { id:"KH_01_329", desc:"Дорисовываем ФПВ в слоу мо", cat:"fpv", tcIn:"1:16:05:23", tcOut:"1:16:06:17" },
-  { id:"KH_01_330", desc:"Камера дрона", cat:"fpv", tcIn:"1:16:06:18", tcOut:"1:16:07:18" },
-  { id:"KH_01_331", desc:"Добавить на первый сажи от взрыва", cat:"vzryv", tcIn:"1:16:15:12", tcOut:"1:16:24:02" },
-  { id:"KH_01_333", desc:"Добавляем Ангар", cat:"angar", tcIn:"1:19:21:21", tcOut:"1:19:27:00" },
-  { id:"KH_01_334", desc:"Добавляем Ангар", cat:"angar", tcIn:"1:19:27:01", tcOut:"1:19:30:15" },
-  { id:"KH_01_335", desc:"Добавляем Ангар", cat:"angar", tcIn:"1:19:32:04", tcOut:"1:19:35:08" },
-  { id:"KH_01_336", desc:"Добавляем Ангар", cat:"angar", tcIn:"1:20:04:08", tcOut:"1:20:06:01" },
+const TASKS=[
+  {id:"KH_01_198",desc:"Добавить воронку",cat:"voronka",tcIn:"0:37:47:19",tcOut:"0:37:50:14"},
+  {id:"KH_01_199",desc:"Добавить воронку",cat:"voronka",tcIn:"0:37:57:15",tcOut:"0:37:58:17"},
+  {id:"KH_01_201",desc:"Добавить воронку",cat:"voronka",tcIn:"0:38:13:01",tcOut:"0:38:16:02"},
+  {id:"KH_01_204",desc:"Добавить воронку",cat:"voronka",tcIn:"0:39:10:14",tcOut:"0:39:11:14"},
+  {id:"KH_01_209",desc:"Воронка от снаряда",cat:"voronka",tcIn:"0:40:53:20",tcOut:"0:40:54:08"},
+  {id:"KH_01_220",desc:"Врезка пролета ФПВ дрона",cat:"fpv",tcIn:"0:45:58:03",tcOut:"0:45:59:08"},
+  {id:"KH_01_221",desc:"Врезка пролета ФПВ",cat:"fpv",tcIn:"0:46:03:19",tcOut:"0:46:04:21"},
+  {id:"KH_01_225",desc:"Эффект камеры ФПВ дрона и два выстрела",cat:"fpv",tcIn:"0:46:16:00",tcOut:"0:46:17:01"},
+  {id:"KH_01_227",desc:"Дым добавить и точки от прилетов",cat:"dym",tcIn:"0:47:10:14",tcOut:"0:47:11:22"},
+  {id:"KH_01_228",desc:"Воронки от прилетов и дым...",cat:"voronka",tcIn:"0:47:18:03",tcOut:"0:47:19:01"},
+  {id:"KH_01_253",desc:"Воронки от снарядов",cat:"voronka",tcIn:"0:54:50:05",tcOut:"0:54:54:01"},
+  {id:"KH_01_254",desc:"Врезка ангара слева",cat:"angar",tcIn:"0:57:35:09",tcOut:"0:58:16:01"},
+  {id:"KH_01_321",desc:"Царапины от пуль на лобовом стекле",cat:"puli",tcIn:"1:14:52:01",tcOut:"1:14:54:06"},
+  {id:"KH_01_322",desc:"Царапины от пуль на лобовом стекле",cat:"puli",tcIn:"1:14:56:14",tcOut:"1:14:59:12"},
+  {id:"KH_01_323",desc:"Царапины от пуль на лобовом стекле",cat:"puli",tcIn:"1:15:05:21",tcOut:"1:15:12:15"},
+  {id:"KH_01_323_1",desc:"Царапины от пуль на лобовом стекле",cat:"puli",tcIn:"1:15:44:15",tcOut:"1:15:46:22"},
+  {id:"KH_01_324",desc:"Пролет точки — ФПВ дрона",cat:"fpv",tcIn:"1:15:46:23",tcOut:"1:15:49:09"},
+  {id:"KH_01_325",desc:"ФПВ дрон камера, металические усики",cat:"fpv",tcIn:"1:15:49:10",tcOut:"1:15:51:11"},
+  {id:"KH_01_326",desc:"ФПВ дрон камера, металические усики",cat:"fpv",tcIn:"1:15:56:03",tcOut:"1:15:59:14"},
+  {id:"KH_01_327",desc:"Точка ФПВ дрона",cat:"fpv",tcIn:"1:15:59:15",tcOut:"1:16:03:14"},
+  {id:"KH_01_328",desc:"ФПВ несется на дар, камера ФПВ",cat:"fpv",tcIn:"—",tcOut:"—"},
+  {id:"KH_01_329",desc:"Дорисовываем ФПВ в слоу мо",cat:"fpv",tcIn:"1:16:05:23",tcOut:"1:16:06:17"},
+  {id:"KH_01_330",desc:"Камера дрона",cat:"fpv",tcIn:"1:16:06:18",tcOut:"1:16:07:18"},
+  {id:"KH_01_331",desc:"Добавить на первый сажи от взрыва",cat:"vzryv",tcIn:"1:16:15:12",tcOut:"1:16:24:02"},
+  {id:"KH_01_333",desc:"Добавляем Ангар",cat:"angar",tcIn:"1:19:21:21",tcOut:"1:19:27:00"},
+  {id:"KH_01_334",desc:"Добавляем Ангар",cat:"angar",tcIn:"1:19:27:01",tcOut:"1:19:30:15"},
+  {id:"KH_01_335",desc:"Добавляем Ангар",cat:"angar",tcIn:"1:19:32:04",tcOut:"1:19:35:08"},
+  {id:"KH_01_336",desc:"Добавляем Ангар",cat:"angar",tcIn:"1:20:04:08",tcOut:"1:20:06:01"},
 ];
-
-const CAT_LABELS = {
-  voronka:"Воронки", fpv:"ФПВ дрон", vrezka:"Врезка", angar:"Ангар",
-  puli:"Пули/Царапины", vzryv:"Взрыв/Сажа", dym:"Дым", other:"Другое"
-};
-const ARTISTS = [{id:"nikita",display:"Nikita"},{id:"igor",display:"Igor"}];
-const STORAGE_KEY = "kh_vfx_tracker";
-
-function loadState() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY))||{}; } catch { return {}; } }
-function saveState(s) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
-  const n = document.getElementById("saveNotice");
-  n.classList.add("show"); setTimeout(()=>n.classList.remove("show"), 1200);
-}
-let state = loadState();
+const CAT_LABELS={voronka:"Воронки",fpv:"ФПВ дрон",vrezka:"Врезка",angar:"Ангар",puli:"Пули/Царапины",vzryv:"Взрыв/Сажа",dym:"Дым",other:"Другое"};
+const ARTISTS=[{id:"nikita",display:"Nikita"},{id:"igor",display:"Igor"}];
+const STORAGE_KEY="kh_vfx_tracker";
+function loadState(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY))||{};}catch{return {};}}
+function saveState(s){localStorage.setItem(STORAGE_KEY,JSON.stringify(s));const n=document.getElementById("saveNotice");n.classList.add("show");setTimeout(()=>n.classList.remove("show"),1200);}
+let state=loadState();
 
 // Migrate old formats
 (function(){let c=false;for(const[k,d]of Object.entries(state)){
   if(d.notes&&!d.adminNote){d.adminNote=d.notes;delete d.notes;c=true;}
-  // Migrate old string artistNote → array artistNotes
-  if(typeof d.artistNote==="string"&&d.artistNote){
-    d.artistNotes=[{author:"artist",text:d.artistNote}];delete d.artistNote;c=true;
-  }
+  if(typeof d.artistNote==="string"&&d.artistNote){d.artistNotes=[{id:0,author:"artist",text:d.artistNote}];delete d.artistNote;c=true;}
+  // Ensure IDs on artistNotes
+  if(d.artistNotes){d.artistNotes.forEach((n,i)=>{if(n.id===undefined){n.id=i;c=true;}});}
 }if(c)localStorage.setItem(STORAGE_KEY,JSON.stringify(state));})();
 
-let currentFilter="all", artistFilter="all", searchQuery="", sortCol=-1, sortAsc=true;
+let currentFilter="all",artistFilter="all",searchQuery="",sortCol=-1,sortAsc=true;
+function getStatus(id){return state[id]?.status||"todo";}
+function getAdminNote(id){return state[id]?.adminNote||"";}
+function getChat(id){return state[id]?.artistNotes||[];}
+function getAssignee(id){return state[id]?.assignee||"";}
+function nextMsgId(tid){const msgs=getChat(tid);return msgs.length?Math.max(...msgs.map(m=>m.id||0))+1:1;}
+function chatPreview(id){const msgs=getChat(id).filter(m=>!m.deleted);if(!msgs.length)return{text:"",count:0};return{text:msgs[msgs.length-1].text,count:msgs.length};}
 
-function getStatus(id) { return state[id]?.status || "todo"; }
-function getAdminNote(id) { return state[id]?.adminNote || ""; }
-function getArtistNotes(id) { return state[id]?.artistNotes || []; }
-function getAssignee(id) { return state[id]?.assignee || ""; }
-function artistNotesPreview(id) {
-  const notes = getArtistNotes(id);
-  if (!notes.length) return "";
-  const last = notes[notes.length - 1];
-  return last.text;
-}
+function updateStats(){let c={todo:0,progress:0,review:0,done:0,skip:0};TASKS.forEach(t=>{c[getStatus(t.id)]++;});document.getElementById("stat-todo").textContent=c.todo;document.getElementById("stat-progress").textContent=c.progress;document.getElementById("stat-review").textContent=c.review;document.getElementById("stat-done").textContent=c.done;}
 
-function updateStats() {
-  let c={todo:0,progress:0,review:0,done:0,skip:0};
-  TASKS.forEach(t=>{c[getStatus(t.id)]++;});
-  document.getElementById("stat-todo").textContent=c.todo;
-  document.getElementById("stat-progress").textContent=c.progress;
-  document.getElementById("stat-review").textContent=c.review;
-  document.getElementById("stat-done").textContent=c.done;
-}
+// --- NOTE / CHAT PANEL ---
+let noteTaskId=null,noteType=null,replyToId=null;
 
-// --- NOTE PANEL (one note at a time, fullscreen) ---
-let noteTaskId = null, noteType = null; // "admin" or "artist"
+function openNote(taskId,type){
+  noteTaskId=taskId;noteType=type;replyToId=null;
+  const task=TASKS.find(t=>t.id===taskId);
+  const badge=document.getElementById("noteTypeBadge"),title=document.getElementById("notePanelTitle");
+  if(type==="admin"){title.textContent="Admin Note";badge.textContent="ADMIN";badge.className="note-type-badge admin-badge";}
+  else{title.textContent="Chat";badge.textContent="CHAT";badge.className="note-type-badge artist-badge";}
+  document.getElementById("noteShotId").textContent=taskId;
+  document.getElementById("noteShotDesc").textContent=task?"— "+task.desc:"";
+  const body=document.getElementById("notePanelBody"),footer=document.getElementById("notePanelFooter");
 
-function openNote(taskId, type) {
-  noteTaskId = taskId;
-  noteType = type;
-  const task = TASKS.find(t=>t.id===taskId);
-  const badge = document.getElementById("noteTypeBadge");
-  const title = document.getElementById("notePanelTitle");
-
-  if (type === "admin") {
-    title.textContent = "Admin Note";
-    badge.textContent = "ADMIN";
-    badge.className = "note-type-badge admin-badge";
+  if(type==="admin"){
+    const text=getAdminNote(taskId),canEdit=canEditAdminNote();
+    if(canEdit){body.innerHTML=`<textarea id="noteTA" placeholder="Write your note here...">${esc(text)}</textarea>`;footer.classList.remove("hidden");setTimeout(()=>{const ta=document.getElementById("noteTA");if(ta){ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length);}},50);}
+    else{body.innerHTML=`<div class="note-panel-readonly${text?'':' empty'}">${text?esc(text):'No notes yet'}</div>`;footer.classList.add("hidden");}
   } else {
-    title.textContent = "Artist Note";
-    badge.textContent = "ARTIST";
-    badge.className = "note-type-badge artist-badge";
+    footer.classList.add("hidden"); // chat has its own send
+    renderChat();
   }
-
-  document.getElementById("noteShotId").textContent = taskId;
-  document.getElementById("noteShotDesc").textContent = task ? "— " + task.desc : "";
-
-  const body = document.getElementById("notePanelBody");
-  const footer = document.getElementById("notePanelFooter");
-
-  if (type === "admin") {
-    const text = getAdminNote(taskId);
-    const canEdit = canEditAdminNote();
-    if (canEdit) {
-      body.innerHTML = `<textarea id="noteTA" placeholder="Write your note here...">${esc(text)}</textarea>`;
-      footer.classList.remove("hidden");
-      setTimeout(()=>{ const ta=document.getElementById("noteTA"); if(ta){ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length);} },50);
-    } else {
-      body.innerHTML = `<div class="note-panel-readonly${text?'':' empty'}">${text ? esc(text) : 'No notes yet'}</div>`;
-      footer.classList.add("hidden");
-    }
-  } else {
-    // Artist notes — show history + input
-    const notes = getArtistNotes(taskId);
-    const canEdit = canEditArtistNote(taskId);
-    let html = '<div style="flex:1;overflow-y:auto;margin-bottom:12px">';
-    if (notes.length) {
-      notes.forEach(n => {
-        const isAdm = n.author === "admin";
-        html += `<div class="note-entry">`;
-        html += `<div class="note-entry-header ${isAdm?'by-admin':'by-artist'}">${isAdm?'Admin':n.author==='artist'?'Artist':n.author}</div>`;
-        html += `<div class="note-entry-text ${isAdm?'from-admin':'from-artist'}">${esc(n.text)}</div>`;
-        html += `</div>`;
-      });
-    } else {
-      html += '<div class="note-panel-readonly empty">No notes yet</div>';
-    }
-    html += '</div>';
-    if (canEdit) {
-      html += `<textarea id="noteTA" placeholder="Add a note..." style="min-height:80px;flex-shrink:0"></textarea>`;
-      footer.classList.remove("hidden");
-    } else {
-      footer.classList.add("hidden");
-    }
-    body.innerHTML = html;
-    if (canEdit) setTimeout(()=>{const ta=document.getElementById("noteTA");if(ta)ta.focus();},50);
-  }
-
   document.getElementById("noteOverlay").classList.remove("hidden");
 }
 
-function closeNote() {
-  document.getElementById("noteOverlay").classList.add("hidden");
-  noteTaskId = null; noteType = null;
-}
-
-function saveNote() {
-  if (!noteTaskId || !noteType) return;
-  const ta = document.getElementById("noteTA");
-  if (!ta) return;
-  if (!state[noteTaskId]) state[noteTaskId] = {};
-  if (noteType === "admin") {
-    state[noteTaskId].adminNote = ta.value;
-  } else {
-    // Artist notes — append new entry (don't save empty)
-    const text = ta.value.trim();
-    if (text) {
-      if (!state[noteTaskId].artistNotes) state[noteTaskId].artistNotes = [];
-      const author = isAdmin() ? "admin" : "artist";
-      state[noteTaskId].artistNotes.push({ author, text });
+function renderChat(){
+  const msgs=getChat(noteTaskId),canSend=canChat(noteTaskId);
+  const body=document.getElementById("notePanelBody");
+  let html='<div class="chat-messages" id="chatMessages">';
+  if(!msgs.length) html+='<div class="chat-empty">No messages yet</div>';
+  else msgs.forEach(m=>{
+    const isAdm=m.author==="admin",cls=isAdm?"from-admin":"from-artist";
+    const del=m.deleted;
+    html+=`<div class="chat-msg ${cls}${del?' deleted':''}" data-mid="${m.id}">`;
+    if(!del&&canSend){
+      html+=`<div class="chat-msg-actions">`;
+      html+=`<button class="chat-action-btn" onclick="replyTo(${m.id})" title="Reply">&#8617;</button>`;
+      if(isAdmin()||(isArtist()&&!isAdm)) html+=`<button class="chat-action-btn" onclick="deleteMsg(${m.id})" title="Delete">&#10005;</button>`;
+      html+=`</div>`;
     }
+    const timeStr=m.ts?new Date(m.ts).toLocaleString('uk-UA',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
+    html+=`<div class="chat-msg-header">${isAdm?'Admin':'Artist'}${timeStr?' &nbsp;<span style="opacity:0.5;font-weight:400">'+timeStr+'</span>':''}</div>`;
+    if(m.replyTo!==undefined&&m.replyTo!==null){
+      const orig=msgs.find(x=>x.id===m.replyTo);
+      const preview=orig?(orig.deleted?'deleted message':trunc(orig.text,40)):'...';
+      html+=`<div class="chat-msg-reply" onclick="scrollToMsg(${m.replyTo})">${esc(preview)}</div>`;
+    }
+    if(del) html+=`<span class="chat-deleted-label">message deleted</span>`;
+    else html+=`<div>${esc(m.text)}</div>`;
+    html+=`</div>`;
+  });
+  html+='</div>';
+  if(canSend){
+    html+=`<div class="chat-input-area">`;
+    html+=`<div class="chat-reply-preview hidden" id="chatReplyPreview"><span id="chatReplyText"></span><button class="chat-reply-close" onclick="cancelReply()">&times;</button></div>`;
+    html+=`<div class="chat-input-row"><textarea id="chatTA" placeholder="Enter to send, Shift+Enter for new line..." rows="1"></textarea><button class="chat-send-btn" onclick="sendChat()">&#9654;</button></div>`;
+    html+=`<div class="chat-hint">Enter — send &nbsp;|&nbsp; Shift+Enter — new line</div>`;
+    html+=`</div>`;
   }
-  saveState(state);
-  closeNote();
-  render();
+  body.innerHTML=html;
+  // Auto-scroll to bottom
+  setTimeout(()=>{const c=document.getElementById("chatMessages");if(c)c.scrollTop=c.scrollHeight;},30);
+  // Bind Enter key
+  const ta=document.getElementById("chatTA");
+  if(ta){
+    ta.addEventListener("keydown",e=>{
+      if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat();}
+    });
+    // Auto-resize
+    ta.addEventListener("input",()=>{ta.style.height="auto";ta.style.height=Math.min(ta.scrollHeight,150)+"px";});
+    ta.focus();
+  }
 }
 
-document.addEventListener("keydown", e => {
-  if (e.key==="Escape" && !document.getElementById("noteOverlay").classList.contains("hidden")) closeNote();
-});
+function sendChat(){
+  const ta=document.getElementById("chatTA");if(!ta)return;
+  const text=ta.value.trim();if(!text)return;
+  if(!state[noteTaskId])state[noteTaskId]={};
+  if(!state[noteTaskId].artistNotes)state[noteTaskId].artistNotes=[];
+  const msg={id:nextMsgId(noteTaskId),author:isAdmin()?"admin":"artist",text,replyTo:replyToId,ts:Date.now()};
+  state[noteTaskId].artistNotes.push(msg);
+  replyToId=null;
+  saveState(state);
+  renderChat();
+  render(); // update table preview
+}
 
-function esc(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
-function trunc(s, n) { return !s ? "" : s.length > n ? s.substring(0,n)+"..." : s; }
-
-// --- RENDER ---
-function render() {
-  const tbody = document.getElementById("tbody");
-  let rows = TASKS.map((t,i)=>({...t, idx:i+1, status:getStatus(t.id), assignee:getAssignee(t.id)}));
-
-  if (searchQuery) { const q=searchQuery.toLowerCase(); rows=rows.filter(r=>r.id.toLowerCase().includes(q)||r.desc.toLowerCase().includes(q)); }
-  if (currentFilter!=="all") rows=rows.filter(r=>r.status===currentFilter);
-  if (artistFilter!=="all") {
-    if (artistFilter==="unassigned") rows=rows.filter(r=>!r.assignee);
-    else rows=rows.filter(r=>r.assignee===artistFilter);
+function deleteMsg(mid){
+  const msgs=getChat(noteTaskId);
+  const m=msgs.find(x=>x.id===mid);
+  if(!m)return;
+  // Admin can delete any, artist can delete own (non-admin) messages
+  if(isAdmin()||(isArtist()&&m.author!=="admin")){
+    m.deleted=true;m.text="";
+    saveState(state);
+    renderChat();
+    render();
   }
-  if (sortCol>=0) {
-    const keys=["idx","id","desc","cat","tcIn","tcOut","assignee","status"];
-    const k=keys[sortCol];
-    rows.sort((a,b)=>{ let va=a[k],vb=b[k]; if(typeof va==="string")va=va.toLowerCase(); if(typeof vb==="string")vb=vb.toLowerCase(); return va<vb?(sortAsc?-1:1):va>vb?(sortAsc?1:-1):0; });
-  }
+}
 
-  tbody.innerHTML = rows.map(r => {
-    const st=r.status, stClass="s-"+st;
-    const editSt=canEditStatus(r.id), adm=canAssign();
+function replyTo(mid){
+  replyToId=mid;
+  const msgs=getChat(noteTaskId);
+  const m=msgs.find(x=>x.id===mid);
+  const prev=document.getElementById("chatReplyPreview");
+  const txt=document.getElementById("chatReplyText");
+  if(prev&&txt&&m){
+    txt.textContent="Reply to: "+(m.deleted?"deleted message":trunc(m.text,50));
+    prev.classList.remove("hidden");
+  }
+  const ta=document.getElementById("chatTA");if(ta)ta.focus();
+}
+
+function cancelReply(){
+  replyToId=null;
+  const prev=document.getElementById("chatReplyPreview");
+  if(prev)prev.classList.add("hidden");
+}
+
+function scrollToMsg(mid){
+  const el=document.querySelector(`.chat-msg[data-mid="${mid}"]`);
+  if(el){el.scrollIntoView({behavior:"smooth",block:"center"});el.style.outline="1px solid #484f58";setTimeout(()=>el.style.outline="",1500);}
+}
+
+function closeNote(){document.getElementById("noteOverlay").classList.add("hidden");noteTaskId=null;noteType=null;replyToId=null;}
+
+function saveNote(){
+  if(!noteTaskId||noteType!=="admin")return;
+  const ta=document.getElementById("noteTA");if(!ta)return;
+  if(!state[noteTaskId])state[noteTaskId]={};
+  state[noteTaskId].adminNote=ta.value;
+  saveState(state);closeNote();render();
+}
+
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!document.getElementById("noteOverlay").classList.contains("hidden"))closeNote();});
+
+function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+function trunc(s,n){return !s?"":s.length>n?s.substring(0,n)+"...":s;}
+
+// --- RENDER TABLE ---
+function render(){
+  const tbody=document.getElementById("tbody");
+  let rows=TASKS.map((t,i)=>({...t,idx:i+1,status:getStatus(t.id),assignee:getAssignee(t.id)}));
+  if(searchQuery){const q=searchQuery.toLowerCase();rows=rows.filter(r=>r.id.toLowerCase().includes(q)||r.desc.toLowerCase().includes(q));}
+  if(currentFilter!=="all")rows=rows.filter(r=>r.status===currentFilter);
+  if(artistFilter!=="all"){if(artistFilter==="unassigned")rows=rows.filter(r=>!r.assignee);else rows=rows.filter(r=>r.assignee===artistFilter);}
+  if(sortCol>=0){const keys=["idx","id","desc","cat","tcIn","tcOut","assignee","status"];const k=keys[sortCol];rows.sort((a,b)=>{let va=a[k],vb=b[k];if(typeof va==="string")va=va.toLowerCase();if(typeof vb==="string")vb=vb.toLowerCase();return va<vb?(sortAsc?-1:1):va>vb?(sortAsc?1:-1):0;});}
+
+  tbody.innerHTML=rows.map(r=>{
+    const st=r.status,stClass="s-"+st,editSt=canEditStatus(r.id),adm=canAssign();
     const assignCls=r.assignee?" assign-"+r.assignee:"";
-    const an=getAdminNote(r.id), arn=artistNotesPreview(r.id);
-    const anPrev=trunc(an,24), arnPrev=trunc(arn,24);
-
-    const artistOpts = ARTISTS.map(a=>`<option value="${a.id}" ${r.assignee===a.id?"selected":""}>${a.display}</option>`).join("");
-
+    const an=getAdminNote(r.id);const anPrev=trunc(an,24);
+    const cp=chatPreview(r.id);const cpPrev=trunc(cp.text,20);
+    const countBadge=cp.count?`<span class="msg-count">${cp.count}</span>`:"";
+    const artistOpts=ARTISTS.map(a=>`<option value="${a.id}" ${r.assignee===a.id?"selected":""}>${a.display}</option>`).join("");
     return `<tr>
       <td style="color:#484f58">${r.idx}</td>
       <td class="id-cell">${r.id}</td>
@@ -632,59 +469,30 @@ function render() {
       <td class="category-cell"><span class="cat-tag cat-${r.cat}">${CAT_LABELS[r.cat]}</span></td>
       <td class="tc-cell">${r.tcIn}</td>
       <td class="tc-cell">${r.tcOut}</td>
-      <td><select class="assign-select${assignCls}" onchange="setAssignee('${r.id}',this.value)" ${adm?"":"disabled"}>
-        <option value="" ${!r.assignee?"selected":""}>—</option>${artistOpts}</select></td>
+      <td><select class="assign-select${assignCls}" onchange="setAssignee('${r.id}',this.value)" ${adm?"":"disabled"}><option value="" ${!r.assignee?"selected":""}>—</option>${artistOpts}</select></td>
       <td><select class="status-select ${stClass}" onchange="setStatus('${r.id}',this.value,this)" ${editSt?"":"disabled"}>
-        <option value="todo" ${st==="todo"?"selected":""}>TODO</option>
-        <option value="progress" ${st==="progress"?"selected":""}>In Progress</option>
-        <option value="review" ${st==="review"?"selected":""}>Review</option>
-        <option value="done" ${st==="done"?"selected":""}>Done</option>
+        <option value="todo" ${st==="todo"?"selected":""}>TODO</option><option value="progress" ${st==="progress"?"selected":""}>In Progress</option>
+        <option value="review" ${st==="review"?"selected":""}>Review</option><option value="done" ${st==="done"?"selected":""}>Done</option>
         <option value="skip" ${st==="skip"?"selected":""}>Skip</option></select></td>
       <td><div class="note-cell type-admin${an?' has-text':''}" onclick="openNote('${r.id}','admin')">${anPrev||'...'}</div></td>
-      <td><div class="note-cell type-artist${arn?' has-text':''}" onclick="openNote('${r.id}','artist')">${arnPrev||'...'}</div></td>
+      <td><div class="note-cell type-artist${cp.text?' has-text':''}" onclick="openNote('${r.id}','chat')">${cpPrev||'...'} ${cp.count?'<span class="msg-count" style="font-size:10px;color:#58a6ff">('+cp.count+')</span>':''}</div></td>
     </tr>`;
   }).join("");
   updateStats();
 }
 
-function setStatus(id,val,el) {
-  if(!canEditStatus(id))return;
-  if(!state[id])state[id]={};
-  state[id].status=val; saveState(state);
-  el.className="status-select s-"+val; updateStats();
-}
-function setAssignee(id,val) {
-  if(!canAssign())return;
-  if(!state[id])state[id]={};
-  state[id].assignee=val; saveState(state); render();
-}
-function sortTable(col) {
-  if(sortCol===col)sortAsc=!sortAsc; else{sortCol=col;sortAsc=true;} render();
-}
-
+function setStatus(id,val,el){if(!canEditStatus(id))return;if(!state[id])state[id]={};state[id].status=val;saveState(state);el.className="status-select s-"+val;updateStats();}
+function setAssignee(id,val){if(!canAssign())return;if(!state[id])state[id]={};state[id].assignee=val;saveState(state);render();}
+function sortTable(col){if(sortCol===col)sortAsc=!sortAsc;else{sortCol=col;sortAsc=true;}render();}
 document.getElementById("search").addEventListener("input",e=>{searchQuery=e.target.value;render();});
-document.querySelectorAll(".filter-btn").forEach(b=>{b.addEventListener("click",()=>{
-  document.querySelectorAll(".filter-btn").forEach(x=>x.classList.remove("active"));
-  b.classList.add("active"); currentFilter=b.dataset.filter; render();
-});});
-document.querySelectorAll(".artist-filter-btn").forEach(b=>{b.addEventListener("click",()=>{
-  document.querySelectorAll(".artist-filter-btn").forEach(x=>x.classList.remove("active"));
-  b.classList.add("active"); artistFilter=b.dataset.artist; render();
-});});
+document.querySelectorAll(".filter-btn").forEach(b=>{b.addEventListener("click",()=>{document.querySelectorAll(".filter-btn").forEach(x=>x.classList.remove("active"));b.classList.add("active");currentFilter=b.dataset.filter;render();});});
+document.querySelectorAll(".artist-filter-btn").forEach(b=>{b.addEventListener("click",()=>{document.querySelectorAll(".artist-filter-btn").forEach(x=>x.classList.remove("active"));b.classList.add("active");artistFilter=b.dataset.artist;render();});});
 
-function exportCSV() {
-  let csv="ID,Description,Category,TC In,TC Out,Artist,Status,Admin Notes,Artist Notes\n";
-  TASKS.forEach(t=>{
-    const st=getStatus(t.id),ar=getAssignee(t.id);
-    const an=getAdminNote(t.id).replace(/"/g,'""');
-    const arnArr=getArtistNotes(t.id).map(n=>`[${n.author}] ${n.text}`).join("\n").replace(/"/g,'""');
-    csv+=`"${t.id}","${t.desc}","${CAT_LABELS[t.cat]}","${t.tcIn}","${t.tcOut}","${ar}","${st}","${an}","${arnArr}"\n`;
-  });
-  const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
-  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
-  a.download="kh_vfx_tracker.csv"; a.click();
+function exportCSV(){
+  let csv="ID,Description,Category,TC In,TC Out,Artist,Status,Admin Notes,Chat\n";
+  TASKS.forEach(t=>{const st=getStatus(t.id),ar=getAssignee(t.id);const an=getAdminNote(t.id).replace(/"/g,'""');const ch=getChat(t.id).filter(m=>!m.deleted).map(m=>`[${m.author}] ${m.text}`).join("\n").replace(/"/g,'""');csv+=`"${t.id}","${t.desc}","${CAT_LABELS[t.cat]}","${t.tcIn}","${t.tcOut}","${ar}","${st}","${an}","${ch}"\n`;});
+  const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="kh_vfx_tracker.csv";a.click();
 }
-
 render();
 </script>
 </body>
