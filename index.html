@@ -809,7 +809,11 @@ function seekGif(val){
 }
 
 
-document.addEventListener("keydown",e=>{if(e.key==="Escape")closeGif();});
+document.addEventListener("keydown",e=>{
+  if(document.getElementById("gifOverlay").classList.contains("hidden"))return;
+  if(e.key==="Escape")closeGif();
+  if(e.key===" "){e.preventDefault();toggleGifPause();}
+});
 
 function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 function trunc(s,n){return !s?"":s.length>n?s.substring(0,n)+"...":s;}
