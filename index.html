@@ -736,19 +736,28 @@ function openGif(id){
   const src=document.getElementById("gifSource");
   const cv=document.getElementById("gifCanvas");
   const ctx=cv.getContext("2d");
-  src.onload=()=>{
+  // Stop any previous playback
+  gifPlaying=false;
+  if(gifRafId){cancelAnimationFrame(gifRafId);gifRafId=null;}
+
+  function startPlayback(){
     cv.width=src.naturalWidth;cv.height=src.naturalHeight;
     gifPlaying=true;
     document.getElementById("gifPlayBtn").textContent="❚❚";
-    // Start render loop
     function drawFrame(){
       if(!gifPlaying)return;
       ctx.drawImage(src,0,0);
       gifRafId=requestAnimationFrame(drawFrame);
     }
     drawFrame();
-  };
+  }
+
+  src.onload=startPlayback;
+  // Force reload by clearing src first (avoids cached onload skip)
+  src.src="";
   src.src="gif/"+id+".gif";
+  // If already cached and complete, onload may not fire
+  if(src.complete&&src.naturalWidth>0) setTimeout(startPlayback,10);
   document.getElementById("gifOverlay").classList.remove("hidden");
 }
 
