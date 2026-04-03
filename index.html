@@ -325,7 +325,7 @@
   <tbody id="tbody"></tbody>
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
-<div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v2.5</div>
+<div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v2.6</div>
 
 <script>
 const USERS = {
@@ -1285,11 +1285,13 @@ function startEditDesc(tid,td,ev){
   }
 }
 function saveDesc(tid,ta){
-  if(ta.dataset.cancel==='1'){render();return;}
+  const td=ta.parentElement;
+  if(ta.dataset.cancel==='1'){if(td)td.innerHTML=getDesc(tid,TASKS.find(t=>t.id===tid)?.desc||'');render();return;}
   const val=ta.value.trim();
-  if(!val){render();return;}
+  if(!val){if(td)td.innerHTML=getDesc(tid,TASKS.find(t=>t.id===tid)?.desc||'');render();return;}
   if(!state[tid])state[tid]={};
   state[tid].desc=val;
+  if(td)td.innerHTML=val;
   saveState(state);
   render();
 }
@@ -1313,9 +1315,11 @@ function startEditAdmin(tid,td,ev){
   }
 }
 function saveAdmin(tid,ta){
-  if(ta.dataset.cancel==='1'){render();return;}
+  const td=ta.parentElement;
+  if(ta.dataset.cancel==='1'){if(td)td.innerHTML=getAdminNote(tid)||'<span style="color:#484f58">...</span>';render();return;}
   if(!state[tid])state[tid]={};
   state[tid].adminNote=ta.value.trim();
+  if(td)td.innerHTML=state[tid].adminNote||'<span style="color:#484f58">...</span>';
   saveState(state);
   render();
 }
