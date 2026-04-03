@@ -88,7 +88,7 @@
   .gif-close-btn:hover { color: #fff; }
 
   /* Drawing overlay */
-  #drawCanvas { position: absolute; top: 0; left: 0; border-radius: 8px; z-index: 2; pointer-events: none; }
+  #drawCanvas { position: absolute; top: 0; left: 0; border-radius: 8px; z-index: 5; pointer-events: none; }
   #drawCanvas.active { pointer-events: auto; cursor: crosshair; }
   .draw-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .draw-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 5px; }
@@ -325,7 +325,7 @@
   <tbody id="tbody"></tbody>
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
-<div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v2.4</div>
+<div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v2.5</div>
 
 <script>
 const USERS = {
@@ -948,12 +948,14 @@ function _initDrawCanvas(){
   const cv=document.createElement("canvas");
   cv.id="drawCanvas";
   cv.width=gifCv.width;cv.height=gifCv.height;
-  cv.style.width=gifCv.style.width||gifCv.offsetWidth+"px";
-  cv.style.height=gifCv.style.height||gifCv.offsetHeight+"px";
+  // Match display size exactly
+  const rect=gifCv.getBoundingClientRect();
+  cv.style.width=rect.width+"px";
+  cv.style.height=rect.height+"px";
   jsgif.appendChild(cv);
   _drawCanvas=cv;_drawCtx=cv.getContext("2d");
   // Mouse events
-  cv.addEventListener("mousedown",_drawStart);
+  cv.addEventListener("mousedown",e=>{e.stopPropagation();_drawStart(e);});
   cv.addEventListener("mousemove",_drawMove);
   cv.addEventListener("mouseup",_drawEnd);
   cv.addEventListener("mouseleave",_drawEnd);
@@ -1045,7 +1047,7 @@ function _drawShape(s){
   } else if(s.tool==="arrow"){
     ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
     // Arrowhead
-    const angle=Math.atan2(y2-y1,x2-x1);const hl=Math.max(s.width*3,12);
+    const angle=Math.atan2(y2-y1,x2-x1);const hl=Math.max(s.width*6,24);
     ctx.beginPath();
     ctx.moveTo(x2-hl*Math.cos(angle-0.4),y2-hl*Math.sin(angle-0.4));
     ctx.lineTo(x2,y2);
@@ -1071,12 +1073,19 @@ function _redrawAll(){
 function toggleDraw(){
   _drawMode=!_drawMode;
   const btn=document.getElementById("drawToggle");
-  const cv=document.getElementById("drawCanvas");
+  let cv=document.getElementById("drawCanvas");
   if(_drawMode){
     btn.classList.add("active");
-    if(cv)cv.classList.add("active");
     // Auto-pause gif when drawing
     if(!_gifPaused&&_sgif&&_gifLoaded)toggleGifPause();
+    // Ensure drawCanvas exists and sized correctly
+    if(!cv&&_sgif){_initDrawCanvas();cv=document.getElementById("drawCanvas");}
+    if(cv){
+      // Re-sync size in case it drifted
+      const gifCv=document.querySelector(".gif-player-area .jsgif canvas:not(#drawCanvas)");
+      if(gifCv){const r=gifCv.getBoundingClientRect();cv.style.width=r.width+"px";cv.style.height=r.height+"px";}
+      cv.classList.add("active");
+    }
   } else {
     btn.classList.remove("active");
     if(cv)cv.classList.remove("active");
