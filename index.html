@@ -293,7 +293,7 @@
           <span class="pn-header-count" id="pnCount">0</span>
         </div>
         <div class="pn-list" id="pnList"></div>
-        <div class="pn-input">
+        <div class="pn-input" id="pnInputWrap">
           <div class="pn-input-row">
             <span class="pn-input-tc" id="pnInputTC">0:00:00:00</span>
             <textarea class="pn-input-ta" id="pnInputTA" placeholder="Add a note..." rows="1"></textarea>
@@ -1247,13 +1247,18 @@ function renderPlayerNotes(){
     const drawHtml=n.drawing?`<span class="pn-color-dot" style="background:${n.drawing.color}"></span><span class="pn-shape">${TOOL_ICONS[n.drawing.tool]||''}</span>`:'';
     const textClass=n.text?'pn-text':'pn-text placeholder';
     const textContent=n.text||'Click to add description...';
-    return`<div class="pn-item" data-nid="${n.id}"><div class="pn-item-meta">${tcHtml}${drawHtml}<span class="pn-author">${n.author||''}</span><button class="pn-delete" onclick="deletePlayerNote(${n.id})" title="Delete">&times;</button></div><div class="${textClass}" onclick="editPlayerNote(${n.id},this)">${esc(textContent)}</div></div>`;
+    const delBtn=_canNote()?`<button class="pn-delete" onclick="deletePlayerNote(${n.id})" title="Delete">&times;</button>`:'';
+    const editAttr=_canNote()?`onclick="editPlayerNote(${n.id},this)"`:'';
+    return`<div class="pn-item" data-nid="${n.id}"><div class="pn-item-meta">${tcHtml}${drawHtml}<span class="pn-author">${n.author||''}</span>${delBtn}</div><div class="${textClass}" ${editAttr}>${esc(textContent)}</div></div>`;
   }).join('');
   list.scrollTop=list.scrollHeight;
+  const inp=document.getElementById("pnInputWrap");
+  if(inp)inp.style.display=_canNote()?'':'none';
 }
+function _canNote(){return !isGuest();}
 function addPlayerNote(){
   const ta=document.getElementById("pnInputTA");
-  if(!ta||!ta.value.trim()||!_gifCurrentId)return;
+  if(!_canNote()||!ta||!ta.value.trim()||!_gifCurrentId)return;
   if(!state[_gifCurrentId])state[_gifCurrentId]={};
   if(!state[_gifCurrentId].playerNotes)state[_gifCurrentId].playerNotes=[];
   const f=_currentFrame();
@@ -1271,7 +1276,7 @@ function addPlayerNote(){
   renderPlayerNotes();
 }
 function addDrawingNote(tool,color){
-  if(!_gifCurrentId)return;
+  if(!_canNote()||!_gifCurrentId)return;
   if(!state[_gifCurrentId])state[_gifCurrentId]={};
   if(!state[_gifCurrentId].playerNotes)state[_gifCurrentId].playerNotes=[];
   const f=_currentFrame();
