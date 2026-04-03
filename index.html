@@ -1314,13 +1314,13 @@ function savePlayerNoteText(nid,text){
   const note=notes.find(n=>n.id===nid);
   if(!note)return;
   note.text=text;
-  saveState(state);
+  _compileNotesToDesc();
   renderPlayerNotes();
 }
 function deletePlayerNote(nid){
   if(!_gifCurrentId||!state[_gifCurrentId]?.playerNotes)return;
   state[_gifCurrentId].playerNotes=state[_gifCurrentId].playerNotes.filter(n=>n.id!==nid);
-  saveState(state);
+  _compileNotesToDesc();
   renderPlayerNotes();
 }
 function seekToNoteFrame(frame){
