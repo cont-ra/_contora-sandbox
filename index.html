@@ -1338,22 +1338,26 @@ function _updatePnInputTC(){
 }
 function _compileNotesToDesc(){
   if(!_gifCurrentId)return;
-  const notes=_getPlayerNotes();
-  if(!notes.length)return;
   if(!state[_gifCurrentId])state[_gifCurrentId]={};
+  const notes=_getPlayerNotes();
   // Keep original description from the task table
   const task=TASKS.find(t=>t.id===_gifCurrentId);
   const original=task?task.desc:'';
   const existing=state[_gifCurrentId].desc||original||'';
+  const marker='--- Notes ---';
+  const base=existing.split(marker)[0].trim();
+  if(!notes.length){
+    // All notes deleted — remove notes section, keep original
+    state[_gifCurrentId].desc=base;
+    saveState(state);
+    return;
+  }
   // Build new notes text
   const lines=notes.map(n=>{
     let prefix=n.tc?'['+n.tc+'] ':'';
     if(n.drawing)prefix+=(TOOL_ICONS[n.drawing.tool]||'')+' ';
     return prefix+(n.text||'(no description)');
   }).join('\n');
-  // Combine: original + notes (avoid duplicating notes on repeated close)
-  const marker='--- Notes ---';
-  const base=existing.split(marker)[0].trim();
   state[_gifCurrentId].desc=base?(base+'\n'+marker+'\n'+lines):(marker+'\n'+lines);
   saveState(state);
 }
