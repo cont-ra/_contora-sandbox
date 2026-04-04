@@ -441,7 +441,7 @@
   <tbody id="tbody"></tbody>
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
-<div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v5.7</div>
+<div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v5.8</div>
 
 <script>
 const USERS = {
@@ -1576,21 +1576,26 @@ function openShot(id){
   _renderShotBody(id);
   document.getElementById("shotOverlay").classList.remove("hidden");
 }
+function _canUpload(id){return isAdmin()||(isArtist()&&getAssignee(id)===currentUser.id);}
 function _renderShotBody(id){
   const body=document.getElementById("shotBody");
   const versions=state[id]?.versions||[];
+  const canUp=_canUpload(id);
   let html="";
   if(hasGif(id)){
     html+=`<div class="shot-media-card" onclick="closeShot();openGif('${id}')">
       <img src="${CDN_BASE}/thumbs/${id}.jpg" alt="${id}">
-      <div class="shot-media-label"><span class="play-icon">▶</span> Original</div>
+      <div class="shot-media-label"><span class="play-icon">▶</span> Original${isAdmin()?`<button class="ver-del" onclick="event.stopPropagation();document.getElementById('origFileInput').click()" title="Update original">&#8635;</button>`:''}
+      </div>
     </div>`;
+    if(isAdmin())html+=`<input type="file" id="origFileInput" accept="video/mp4,video/*" style="display:none" onchange="updateOriginal('${id}',this)">`;
   }
   versions.forEach((v,i)=>{
     const thumbHtml=v.thumb?`<img src="${v.thumb}" alt="V${i+1}" style="width:320px;height:auto">`:`<div class="version-thumb"><span class="version-num">V${i+1}</span></div>`;
+    const delBtn=canUp?`<button class="ver-del" onclick="event.stopPropagation();deleteVersion('${id}',${i})" title="Delete">&times;</button>`:'';
     html+=`<div class="shot-media-card" onclick="closeShot();_playVersion('${id}',${i})">
       ${thumbHtml}
-      <div class="shot-media-label"><span class="play-icon">▶</span> ${esc(v.name||'Version '+(i+1))}<button class="ver-del" onclick="event.stopPropagation();deleteVersion('${id}',${i})" title="Delete">&times;</button></div>
+      <div class="shot-media-label"><span class="play-icon">▶</span> ${esc(v.name||'Version '+(i+1))}${delBtn}</div>
     </div>`;
   });
   if(_uploads[id]){
@@ -1600,7 +1605,7 @@ function _renderShotBody(id){
       <div class="shot-media-label">${esc(up.name)}</div>
       <div class="upload-bar"><div class="upload-bar-fill" style="width:${up.pct}%"></div></div>
     </div>`;
-  } else if(isAdmin()){
+  } else if(canUp){
     html+=`<div class="shot-media-card shot-add-card" onclick="document.getElementById('versionFileInput').click()">
       <div class="shot-add-icon">+</div>
       <div class="shot-media-label">Add Version</div>
@@ -1608,6 +1613,29 @@ function _renderShotBody(id){
     html+=`<input type="file" id="versionFileInput" accept="video/mp4,video/*" style="display:none" onchange="uploadVersion('${id}',this)">`;
   }
   body.innerHTML=html;
+}
+async function updateOriginal(shotId,input){
+  const file=input.files[0];
+  if(!file||!isAdmin())return;
+  input.value="";
+  const ok=await _showConfirm("Update original?","Replace original video for "+shotId+".<br>All notes, drawings and comments will be preserved.");
+  if(!ok)return;
+  const videoKey="video/"+shotId+".mp4";
+  const thumbKey="thumbs/"+shotId+".jpg";
+  _uploads[shotId]={name:"Updating original...",pct:0,done:false,error:false};
+  if(_shotCurrentId===shotId)_renderShotBody(shotId);
+  const uploadOk=await r2UploadXHR(videoKey,file,(pct)=>{
+    _uploads[shotId].pct=pct;
+    _updateUploadUI(shotId);
+  });
+  if(uploadOk){
+    await _generateThumbnail(CDN_BASE+"/"+videoKey+"?t="+Date.now(),thumbKey);
+    _uploads[shotId].done=true;
+  } else {
+    _uploads[shotId].error=true;
+  }
+  delete _uploads[shotId];
+  if(_shotCurrentId===shotId)_renderShotBody(shotId);
 }
 function closeShot(){
   _shotCurrentId=null;
@@ -1639,7 +1667,7 @@ function _showConfirm(title,msg){
   });
 }
 async function deleteVersion(id,idx){
-  if(!isAdmin()||!state[id]?.versions)return;
+  if(!_canUpload(id)||!state[id]?.versions)return;
   const v=state[id].versions[idx];
   if(!v)return;
   const ok=await _showConfirm("Delete version?",esc(v.name||"Version "+(idx+1))+"<br>This will permanently remove the file.");
