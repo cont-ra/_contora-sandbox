@@ -1204,20 +1204,111 @@ const SI_OPTIONS={
     "ACEScct","ACEScc",
   ],
 };
+const SI_SENSOR_MODES={
+  // ARRI
+  "ARRI Alexa 35":["Open Gate 4.6K 27.99×19.22mm","S35 4K 26.22×13.60mm","16:9 3.8K 24.88×13.99mm","S16 2K 12.82×7.20mm"],
+  "ARRI Alexa Mini LF":["Open Gate 4.5K LF 36.70×25.54mm","LF 16:9 38.88×21.22mm","S35 4K 28.25×14.58mm","S35 3.2K 23.76×13.37mm"],
+  "ARRI Alexa Mini":["Open Gate 3.4K 28.17×18.13mm","16:9 2.8K 23.76×13.37mm","4:3 2.8K 21.12×17.61mm","S16 1.6K 12.48×7.02mm"],
+  "ARRI Alexa LF":["Open Gate 4.5K LF 36.70×25.54mm","LF 16:9 38.88×21.22mm","LF 2.39:1 36.70×15.31mm"],
+  "ARRI Alexa SXT W":["Open Gate 3.4K 28.17×18.13mm","16:9 2.8K 23.76×13.37mm","4:3 2.8K 21.12×17.61mm"],
+  "ARRI Alexa SXT Plus":["Open Gate 3.4K 28.17×18.13mm","16:9 2.8K 23.76×13.37mm","4:3 2.8K 21.12×17.61mm"],
+  "ARRI Alexa Plus 4:3":["4:3 2.8K 21.12×17.61mm","16:9 2.8K 23.76×13.37mm"],
+  "ARRI Alexa Studio":["Open Gate 3.4K 28.17×18.13mm","16:9 2.8K 23.76×13.37mm","4:3 2.8K 21.12×17.61mm"],
+  "ARRI Alexa XT":["Open Gate 3.4K 28.17×18.13mm","16:9 2.8K 23.76×13.37mm"],
+  "ARRI Alexa Classic":["16:9 2.8K 23.76×13.37mm"],
+  "ARRI Amira":["16:9 2.8K 23.76×13.37mm","4:3 2.8K 21.12×17.61mm"],
+  "ARRI Alexa 65":["Open Gate 6.5K 54.12×25.59mm","16:9 5.1K 42.24×23.76mm","LF 4.3K 36.70×25.54mm"],
+  // RED
+  "RED V-Raptor [X]":["8K FF 40.96×21.60mm","7K S35 29.90×15.77mm","6K 2.4:1 40.96×17.07mm","5K S16 20.48×10.80mm","4K S16 15.36×8.64mm"],
+  "RED V-Raptor XL":["8K FF 40.96×21.60mm","7K S35 29.90×15.77mm","6K 2.4:1 40.96×17.07mm","5K S16 20.48×10.80mm"],
+  "RED V-Raptor":["8K FF 40.96×21.60mm","7K S35 29.90×15.77mm","6K 2.4:1 40.96×17.07mm","5K S16 20.48×10.80mm"],
+  "RED DSMC2 Monstro 8K VV":["8K FF 40.96×21.60mm","7K S35 29.90×15.77mm","6K 2.4:1 40.96×17.07mm","5K 4:3 20.48×16.20mm","4K S16 15.36×8.64mm"],
+  "RED DSMC2 Helium 8K S35":["8K S35 29.90×15.77mm","7K 24.43×12.88mm","6K 2.4:1 29.90×12.46mm","5K 18.69×9.86mm","4K 14.95×7.89mm"],
+  "RED DSMC2 Gemini 5K S35":["5K FF 30.72×18.00mm","5K S35 30.72×16.20mm","4K S35 24.58×12.96mm","3K S16 15.36×8.10mm"],
+  "RED DSMC2 Dragon-X 6K S35":["6K S35 30.72×18.00mm","5K 25.60×13.50mm","4K 20.48×10.80mm"],
+  "RED Komodo 6K":["6K S35 27.03×14.26mm","5K 22.53×11.88mm","4K 18.02×9.50mm","2K S16 13.52×7.13mm"],
+  "RED Komodo-X 6K":["6K S35 27.03×14.26mm","5K 22.53×11.88mm","4K 18.02×9.50mm"],
+  // Sony
+  "Sony Venice 2":["FF 6K 36.00×24.00mm","FF 4K 36.00×24.00mm","S35 4K 23.30×13.10mm","FF Anam 2x 36.00×15.00mm"],
+  "Sony Venice":["FF 6K 36.00×24.00mm","FF 4K 36.00×24.00mm","S35 4K 23.30×13.10mm","FF Anam 2x 36.00×15.00mm","S35 Anam 2x 23.30×9.71mm"],
+  "Sony FX9":["FF 6K 35.70×18.80mm","FF 4K 35.70×18.80mm","S35 4K 23.30×13.10mm","S16 2K 11.65×6.55mm"],
+  "Sony FX6":["FF 4K 35.70×18.80mm","S35 4K 23.30×13.10mm","S16 2K 11.65×6.55mm"],
+  "Sony FX3":["FF 4K 35.60×23.80mm","S35 4K 23.30×13.10mm","S16 HD 11.65×6.55mm"],
+  "Sony FX30":["S35 6K 23.30×15.50mm","S35 4K 23.30×13.10mm"],
+  "Sony FS7 II":["S35 4K 23.60×13.30mm","S35 2K 23.60×13.30mm","S16 2K 11.80×6.65mm"],
+  "Sony FS7":["S35 4K 23.60×13.30mm","S35 2K 23.60×13.30mm"],
+  "Sony F65":["S35 8K 24.70×13.10mm","S35 4K 24.70×13.10mm"],
+  "Sony F55":["S35 4K 24.00×12.70mm","S35 2K 24.00×12.70mm"],
+  "Sony A7S III":["FF 4K 35.60×23.80mm","S35 4K crop 23.30×15.50mm"],
+  "Sony A1":["FF 8K 35.90×24.00mm","FF 4K 35.90×24.00mm","S35 4K crop"],
+  // Canon
+  "Canon C500 Mark II":["FF 5.9K 38.10×20.10mm","FF 4K 38.10×20.10mm","S35 5.9K DGO 26.20×13.80mm","S35 4K 26.20×13.80mm","S35 2K crop 13.10×6.90mm"],
+  "Canon C300 Mark III":["S35 4K DGO 26.20×13.80mm","S35 4K 26.20×13.80mm","S35 2K 26.20×13.80mm","S16 2K crop 14.60×8.20mm"],
+  "Canon C300 Mark II":["S35 4K 24.60×13.80mm","S35 2K 24.60×13.80mm","S16 crop"],
+  "Canon C70":["S35 4K DGO 26.20×13.80mm","S35 4K 26.20×13.80mm","S16 2K crop 14.60×8.20mm"],
+  "Canon R5 C":["FF 8K 36.00×24.00mm","FF 4K 36.00×24.00mm","S35 4K crop 22.00×15.00mm"],
+  "Canon R5":["FF 8K 36.00×24.00mm","FF 4K 36.00×24.00mm","S35 4K crop"],
+  "Canon C700 FF":["FF 5.9K 38.10×20.10mm","S35 4K 24.60×13.80mm"],
+  "Canon C700":["S35 4K 24.60×13.80mm","S35 2K 24.60×13.80mm"],
+  // Blackmagic
+  "Blackmagic URSA Mini Pro 12K":["12K S35 27.03×14.26mm","8K S35 27.03×14.26mm","4K S35 27.03×14.26mm"],
+  "Blackmagic URSA Mini Pro G2":["4.6K S35 25.34×14.25mm","4K S35 23.10×12.99mm","HD S35"],
+  "Blackmagic URSA Mini Pro":["4.6K S35 25.34×14.25mm","4K S35 23.10×12.99mm"],
+  "Blackmagic URSA Cine 12K":["12K S35 27.03×14.26mm","8K 27.03×14.26mm","4K 27.03×14.26mm"],
+  "Blackmagic Pocket 6K G2":["6K S35 23.10×12.99mm","4K S35 windowed","2.8K S16 windowed"],
+  "Blackmagic Pocket 6K Pro":["6K S35 23.10×12.99mm","4K S35 windowed","2.8K S16 windowed"],
+  "Blackmagic Pocket 6K":["6K S35 23.10×12.99mm","4K S35 windowed","2.8K S16 windowed"],
+  "Blackmagic Pocket 4K":["4K MFT 18.96×10.00mm","HD MFT windowed"],
+  // Panasonic
+  "Panasonic VariCam 35":["4K S35 24.58×12.84mm","S35 2K 24.58×12.84mm"],
+  "Panasonic VariCam LT":["4K S35 24.58×12.84mm","S35 2K crop"],
+  "Panasonic EVA1":["5.7K S35 25.12×18.84mm","4K S35 crop","2K S16 crop"],
+  "Panasonic S1H":["FF 6K 35.40×23.80mm","FF 4K 35.40×23.80mm","S35 4K crop","APS-C crop"],
+  "Panasonic GH6":["5.7K MFT 17.30×13.00mm","4K MFT 17.30×13.00mm"],
+  // DJI
+  "DJI Ronin 4D-8K":["8K FF 35.90×23.90mm","4K FF 35.90×23.90mm","4K S35 crop"],
+  "DJI Ronin 4D-6K":["6K S35 23.10×12.99mm","4K S35 23.10×12.99mm"],
+  "DJI Inspire 3":["8K FF 35.90×23.90mm","4K S35 crop"],
+  "DJI Inspire 2 (X7)":["6K S35 23.50×15.70mm","4K S35 crop"],
+  "DJI Mavic 3 Cine":["5.1K 4/3 17.30×13.00mm","4K crop"],
+  // Kinefinity
+  "Kinefinity MAVO Edge 8K":["8K FF 36.00×24.00mm","6K S35 crop","4K S35 crop"],
+  "Kinefinity MAVO Edge 6K":["6K S35 27.60×14.55mm","4K crop","3K S16 crop"],
+  "Kinefinity MAVO LF":["6K LF 36.00×24.00mm","4K S35 crop"],
+  // Z CAM
+  "Z CAM E2-F8":["8K FF 35.10×23.50mm","4K FF","4K S35 crop"],
+  "Z CAM E2-F6":["6K FF 36.00×24.00mm","4K FF","4K S35 crop"],
+  "Z CAM E2-S6":["6K S35 23.10×12.99mm","4K S35","2.8K S16 windowed"],
+  // Phantom
+  "Phantom Flex4K":["4K S35 27.60×15.50mm","2K S35 crop","1K crop"],
+  "Phantom VEO 4K-PL":["4K S35 27.60×15.50mm","2K crop"],
+  "Phantom VEO 4K":["4K S35 27.60×15.50mm","2K crop"],
+};
+function _getSensorOptions(cameraVal){
+  if(cameraVal&&SI_SENSOR_MODES[cameraVal])return SI_SENSOR_MODES[cameraVal];
+  // Try partial match
+  if(cameraVal){
+    for(const[cam,modes] of Object.entries(SI_SENSOR_MODES)){
+      if(cameraVal.includes(cam)||cam.includes(cameraVal))return modes;
+    }
+  }
+  return SI_OPTIONS.sensor;
+}
 function _siField(field,placeholder,value){
   return`<div class="si-input-wrap"><input class="si-input" placeholder="${placeholder}" value="${esc(value)}" data-f="${field}" autocomplete="off"></div>`;
 }
-function _attachSiDropdown(input,options){
+function _attachSiDropdown(input,options,dynamicFn){
   let dd=null;
   function show(){
     close();
+    const opts=dynamicFn?dynamicFn():options;
     const q=input.value.toLowerCase();
-    const filtered=options.filter(o=>o.toLowerCase().includes(q));
+    const filtered=opts.filter(o=>o.toLowerCase().includes(q));
     if(!filtered.length)return;
     dd=document.createElement("div");dd.className="si-dd";
     filtered.slice(0,30).forEach(o=>{
       const d=document.createElement("div");d.className="si-dd-item";d.textContent=o;
-      d.onmousedown=(e)=>{e.preventDefault();input.value=o;close();input.focus();};
+      d.onmousedown=(e)=>{e.preventDefault();input.value=o;close();};
       dd.appendChild(d);
     });
     input.parentElement.appendChild(dd);
@@ -1252,9 +1343,20 @@ function openShotInfoModal(id){
   document.body.appendChild(ov);
   if(canEdit){
     const inputs=ov.querySelectorAll('.si-input');
-    inputs.forEach(inp=>_attachSiDropdown(inp,SI_OPTIONS[inp.dataset.f]||[]));
-    // Don't auto-focus to avoid opening dropdown immediately
-    // Enter to save
+    const cameraInput=ov.querySelector('.si-input[data-f="camera"]');
+    const sensorInput=ov.querySelector('.si-input[data-f="sensor"]');
+    // Attach dropdowns — sensor is dynamic based on camera
+    inputs.forEach(inp=>{
+      if(inp.dataset.f==='sensor'){
+        _attachSiDropdown(inp,_getSensorOptions(cameraInput?.value),()=>_getSensorOptions(cameraInput?.value));
+      } else {
+        _attachSiDropdown(inp,SI_OPTIONS[inp.dataset.f]||[]);
+      }
+    });
+    // When camera changes, update sensor options
+    if(cameraInput&&sensorInput){
+      cameraInput.addEventListener('change',()=>{sensorInput.value='';});
+    }
     inputs.forEach(i=>i.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();saveShotInfoModal(id);}if(e.key==='Escape')closeShotInfoModal();}));
   }
 }
