@@ -81,6 +81,10 @@
   .shot-add-card:hover .shot-add-icon { color: #3fb950; }
   .version-thumb { width: 320px; height: 180px; background: #21262d; display: flex; align-items: center; justify-content: center; }
   .version-num { font-size: 32px; font-weight: 700; color: #30363d; font-family: 'SF Mono', monospace; }
+  .upload-progress-ring { width: 320px; height: 100px; display: flex; align-items: center; justify-content: center; }
+  .upload-pct { font-size: 28px; font-weight: 700; color: #3fb950; font-family: 'SF Mono', monospace; }
+  .upload-bar { width: 100%; height: 4px; background: #21262d; border-radius: 2px; margin: 0 12px 8px; }
+  .upload-bar-fill { height: 100%; background: #3fb950; border-radius: 2px; transition: width 0.2s; }
   td.tc-cell { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; color: #8b949e; white-space: nowrap; }
   td.desc-cell { max-width: 400px; word-break: break-word; white-space: normal; }
   td.gif-cell { width: 80px; padding: 6px; }
@@ -427,7 +431,7 @@
   <tbody id="tbody"></tbody>
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
-<div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v5.4</div>
+<div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v5.5</div>
 
 <script>
 const USERS = {
@@ -1577,7 +1581,14 @@ function _renderShotBody(id){
       <div class="shot-media-label"><span class="play-icon">▶</span> ${esc(v.name||'Version '+(i+1))}<button class="ver-del" onclick="event.stopPropagation();deleteVersion('${id}',${i})" title="Delete">&times;</button></div>
     </div>`;
   });
-  if(isAdmin()){
+  if(_uploads[id]){
+    const up=_uploads[id];
+    html+=`<div class="shot-media-card shot-add-card" id="uploadProgress_${id}">
+      <div class="upload-progress-ring"><span class="upload-pct">${up.pct}%</span></div>
+      <div class="shot-media-label">${esc(up.name)}</div>
+      <div class="upload-bar"><div class="upload-bar-fill" style="width:${up.pct}%"></div></div>
+    </div>`;
+  } else if(isAdmin()){
     html+=`<div class="shot-media-card shot-add-card" onclick="document.getElementById('versionFileInput').click()">
       <div class="shot-add-icon">+</div>
       <div class="shot-media-label">Add Version</div>
@@ -1630,14 +1641,16 @@ async function _getSigningKey(secret,date,region,service){
   let k=await _hmac("AWS4"+secret,date);
   k=await _hmac(k,region);k=await _hmac(k,service);k=await _hmac(k,"aws4_request");return k;
 }
-async function r2Upload(key,file,onProgress){
+const _uploads={};// shotId → {name,pct,done,error}
+
+async function _signR2(key,contentType){
   const now=new Date();
   const amzDate=now.toISOString().replace(/[-:]/g,"").split(".")[0]+"Z";
   const dateStamp=amzDate.substring(0,8);
   const region="auto",service="s3";
   const host=new URL(R2_ENDPOINT).host;
   const path="/"+R2_BUCKET+"/"+key;
-  const headers={"host":host,"x-amz-content-sha256":"UNSIGNED-PAYLOAD","x-amz-date":amzDate,"content-type":file.type||"video/mp4"};
+  const headers={"host":host,"x-amz-content-sha256":"UNSIGNED-PAYLOAD","x-amz-date":amzDate,"content-type":contentType};
   const signedHeaders=Object.keys(headers).sort().join(";");
   const canonicalHeaders=Object.keys(headers).sort().map(k=>k+":"+headers[k]).join("\n")+"\n";
   const canonicalRequest=["PUT",path,"",canonicalHeaders,signedHeaders,"UNSIGNED-PAYLOAD"].join("\n");
@@ -1646,8 +1659,31 @@ async function r2Upload(key,file,onProgress){
   const signingKey=await _getSigningKey(R2_SECRET_KEY,dateStamp,region,service);
   const sig=[...await _hmac(signingKey,stringToSign)].map(b=>b.toString(16).padStart(2,"0")).join("");
   const auth="AWS4-HMAC-SHA256 Credential="+R2_ACCESS_KEY+"/"+scope+", SignedHeaders="+signedHeaders+", Signature="+sig;
-  const resp=await fetch(R2_ENDPOINT+path,{method:"PUT",headers:{...headers,"Authorization":auth},body:file});
-  return resp.ok;
+  return{url:R2_ENDPOINT+path,headers:{...headers,"Authorization":auth}};
+}
+
+function r2UploadXHR(key,file,onProgress){
+  return new Promise(async(resolve)=>{
+    const ct=file.type||"video/mp4";
+    const signed=await _signR2(key,ct);
+    const xhr=new XMLHttpRequest();
+    xhr.open("PUT",signed.url);
+    Object.entries(signed.headers).forEach(([k,v])=>xhr.setRequestHeader(k,v));
+    xhr.upload.onprogress=(e)=>{if(e.lengthComputable&&onProgress)onProgress(Math.round(e.loaded/e.total*100));};
+    xhr.onload=()=>resolve(xhr.status>=200&&xhr.status<300);
+    xhr.onerror=()=>resolve(false);
+    xhr.send(file);
+  });
+}
+
+function _updateUploadUI(shotId){
+  if(_shotCurrentId!==shotId)return;
+  const el=document.getElementById("uploadProgress_"+shotId);
+  const up=_uploads[shotId];
+  if(!el||!up)return;
+  if(up.error){el.innerHTML=`<div class="shot-add-icon" style="font-size:14px;color:#f85149">Failed</div><div class="shot-media-label">${esc(up.name)}</div>`;return;}
+  if(up.done){return;}
+  el.innerHTML=`<div class="upload-progress-ring"><span class="upload-pct">${up.pct}%</span></div><div class="shot-media-label">${esc(up.name)}</div><div class="upload-bar"><div class="upload-bar-fill" style="width:${up.pct}%"></div></div>`;
 }
 
 async function uploadVersion(shotId,input){
@@ -1657,19 +1693,22 @@ async function uploadVersion(shotId,input){
   const ts=Date.now();
   const ext=file.name.split(".").pop()||"mp4";
   const key="versions/"+shotId+"/v_"+ts+"."+ext;
-  // Show uploading state
-  const body=document.getElementById("shotBody");
-  const addCard=body.querySelector(".shot-add-card");
-  if(addCard){addCard.innerHTML=`<div class="shot-add-icon" style="font-size:14px;animation:none">Uploading...</div><div class="shot-media-label">${esc(file.name)}</div>`;}
-  const ok=await r2Upload(key,file);
+  _uploads[shotId]={name:file.name,pct:0,done:false,error:false};
+  if(_shotCurrentId===shotId)_renderShotBody(shotId);
+  const ok=await r2UploadXHR(key,file,(pct)=>{
+    _uploads[shotId].pct=pct;
+    _updateUploadUI(shotId);
+  });
   if(ok){
     if(!state[shotId])state[shotId]={};
     if(!state[shotId].versions)state[shotId].versions=[];
     state[shotId].versions.push({name:file.name,url:CDN_BASE+"/"+key,ts:ts});
     saveState(state);
+    _uploads[shotId].done=true;
   } else {
-    alert("Upload failed");
+    _uploads[shotId].error=true;
   }
+  delete _uploads[shotId];
   if(_shotCurrentId===shotId)_renderShotBody(shotId);
 }
 
