@@ -242,6 +242,13 @@
   td.desc-cell.editable:hover { background: #1c2128; outline: 1px solid #30363d; }
   .shot-info-cell { font-size: 13px; color: #8b949e; cursor: pointer; min-width: 300px; vertical-align: top !important; padding-top: 32px !important; }
   .shot-info-cell:hover { color: #c9d1d9; }
+  .si-tooltip { position: fixed; background: rgba(22,27,34,0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid #30363d; border-radius: 10px; padding: 14px 18px; z-index: 5000; pointer-events: none; min-width: 280px; max-width: 360px; transition: opacity 0.2s; }
+  .si-tooltip.pinned { background: #161b22; opacity: 1 !important; pointer-events: auto; box-shadow: 0 8px 24px rgba(0,0,0,0.6); }
+  .si-tooltip .si-tt-title { font-size: 13px; color: #58a6ff; font-weight: 600; margin-bottom: 10px; font-family: 'SF Mono', monospace; }
+  .si-tooltip .si-tt-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #21262d; }
+  .si-tooltip .si-tt-row:last-child { border-bottom: none; }
+  .si-tooltip .si-tt-label { color: #484f58; font-size: 11px; }
+  .si-tooltip .si-tt-val { color: #c9d1d9; font-size: 12px; text-align: right; max-width: 200px; cursor: text; user-select: text; }
   .si-preview { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px 16px; }
   .si-preview span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #8b949e; }
   .si-preview span.has { color: #c9d1d9; }
@@ -1426,6 +1433,63 @@ function _attachSiDropdown(input,options,dynamicFn){
   input.addEventListener("input",show);
   input.addEventListener("blur",()=>setTimeout(close,150));
 }
+// --- SHOT INFO TOOLTIP ---
+let _siTooltipPinned=false;
+function _siTooltipHtml(id){
+  const si=getShotInfo(id);
+  const fields=[
+    ["Camera",si.camera],["Sensor Mode",si.sensor],["Lens",si.lens],["Focal Length",si.focalLength],
+    ["T-Stop",si.tStop],["Focus Distance",si.focusDistance],["Filters",si.filters],
+    ["Resolution",si.resolution],["Aspect Ratio",si.aspectRatio],["FPS",si.fps],["Shutter",si.shutterAngle],
+    ["Color Space",si.colorSpace],["Gamma",si.gamma],["Bit Depth",si.bitDepth],["Codec",si.codec],["LUT / IDT",si.lut],
+  ];
+  let rows=fields.filter(f=>f[1]).map(f=>`<div class="si-tt-row"><span class="si-tt-label">${f[0]}</span><span class="si-tt-val">${esc(f[1])}</span></div>`).join('');
+  if(!rows)rows='<div style="color:#484f58;font-size:12px">No data</div>';
+  return`<div class="si-tt-title">${id}</div>${rows}`;
+}
+function showSiTooltip(id,e){
+  if(_siTooltipPinned)return;
+  let tt=document.getElementById('siTooltip');
+  if(!tt){tt=document.createElement('div');tt.className='si-tooltip';tt.id='siTooltip';document.body.appendChild(tt);}
+  tt.innerHTML=_siTooltipHtml(id);
+  tt.style.opacity='1';
+  tt.style.top=e.clientY+'px';
+  tt.style.left=(e.clientX+16)+'px';
+  // Keep in viewport
+  requestAnimationFrame(()=>{
+    const r=tt.getBoundingClientRect();
+    if(r.right>window.innerWidth)tt.style.left=(e.clientX-r.width-16)+'px';
+    if(r.bottom>window.innerHeight)tt.style.top=(window.innerHeight-r.height-8)+'px';
+  });
+}
+function moveSiTooltip(e){
+  if(_siTooltipPinned)return;
+  const tt=document.getElementById('siTooltip');
+  if(!tt)return;
+  tt.style.top=e.clientY+'px';
+  tt.style.left=(e.clientX+16)+'px';
+  const r=tt.getBoundingClientRect();
+  if(r.right>window.innerWidth)tt.style.left=(e.clientX-r.width-16)+'px';
+  if(r.bottom>window.innerHeight)tt.style.top=(window.innerHeight-r.height-8)+'px';
+}
+function hideSiTooltip(){
+  if(_siTooltipPinned)return;
+  const tt=document.getElementById('siTooltip');
+  if(tt){tt.style.opacity='0';setTimeout(()=>{if(!_siTooltipPinned&&tt.style.opacity==='0')tt.remove();},200);}
+}
+function pinSiTooltip(id){
+  const tt=document.getElementById('siTooltip');
+  if(_siTooltipPinned){_siTooltipPinned=false;if(tt)tt.remove();return;}
+  if(!tt){showSiTooltip(id,{clientX:0,clientY:0});}
+  const t=document.getElementById('siTooltip');
+  if(!t)return;
+  _siTooltipPinned=true;
+  t.classList.add('pinned');
+  t.innerHTML=_siTooltipHtml(id)+`<div style="text-align:right;margin-top:8px"><button onclick="_siTooltipPinned=false;document.getElementById('siTooltip')?.remove()" style="background:#21262d;border:1px solid #30363d;color:#8b949e;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:11px">Close</button>${isAdmin()?` <button onclick="_siTooltipPinned=false;document.getElementById('siTooltip')?.remove();openShotInfoModal('${id}')" style="background:#1f6feb;border:1px solid #1f6feb;color:#fff;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:11px">Edit</button>`:''}</div>`;
+  function onClickOutside(e){if(!t.contains(e.target)){_siTooltipPinned=false;t.remove();document.removeEventListener('click',onClickOutside);}}
+  setTimeout(()=>document.addEventListener('click',onClickOutside),0);
+}
+
 function openShotInfoModal(id){
   closeShotInfoModal();
   const si=getShotInfo(id);
@@ -2804,7 +2868,7 @@ function _buildRow(r){
     <td><div class="${prioTagClass}" ${prioClick} ${prioStyle}></div></td>
     <td style="color:#484f58">${r.idx}</td>
     <td class="id-preview-cell"><div class="id-label" onclick="openShot('${r.id}')">${r.id}</div>${hasGif(r.id)?`<div class="gif-thumb-wrap" onclick="openGif('${r.id}')"><img class="gif-thumb" src="${CDN_BASE}/thumbs/${r.id}.jpg" loading="lazy"><div class="gif-play-icon"></div></div>`:'<div class="gif-none">—</div>'}</td>
-    <td class="shot-info-cell" onclick="openShotInfoModal('${r.id}')" data-tid="${r.id}">${_renderShotInfo(r.id)}</td>
+    <td class="shot-info-cell" onmouseenter="showSiTooltip('${r.id}',event)" onmousemove="moveSiTooltip(event)" onmouseleave="hideSiTooltip()" onclick="event.stopPropagation();pinSiTooltip('${r.id}')" data-tid="${r.id}">${_renderShotInfo(r.id)}</td>
     <td class="category-cell">${isAdmin()?_catTag(r.id,getCat(r.id)):_catTagHtml(getCat(r.id))}</td>
     <td class="tc-cell">${r.tcIn}</td>
     <td class="tc-cell">${r.tcOut}</td>
