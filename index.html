@@ -1620,6 +1620,7 @@ function _playVersion(id,idx){
 async function deleteVersion(id,idx){
   if(!isAdmin()||!state[id]?.versions)return;
   const v=state[id].versions[idx];
+  if(!v||!confirm("Delete \""+(v.name||"Version "+(idx+1))+"\"?\nThis will permanently remove the file."))return;
   state[id].versions.splice(idx,1);
   saveState(state);
   if(_shotCurrentId===id)_renderShotBody(id);
