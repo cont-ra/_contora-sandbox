@@ -72,6 +72,15 @@
   .shot-media-card img { display: block; width: 320px; height: auto; }
   .shot-media-label { padding: 8px 12px; font-size: 12px; color: #8b949e; display: flex; align-items: center; gap: 6px; }
   .shot-media-label .play-icon { color: #3fb950; }
+  .shot-media-label { display: flex; align-items: center; justify-content: space-between; }
+  .ver-del { background: none; border: none; color: #484f58; cursor: pointer; font-size: 16px; padding: 0 2px; }
+  .ver-del:hover { color: #f85149; }
+  .shot-add-card { border-style: dashed; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 200px; min-height: 140px; }
+  .shot-add-card:hover { border-color: #3fb950; }
+  .shot-add-icon { font-size: 48px; color: #30363d; line-height: 1; }
+  .shot-add-card:hover .shot-add-icon { color: #3fb950; }
+  .version-thumb { width: 320px; height: 180px; background: #21262d; display: flex; align-items: center; justify-content: center; }
+  .version-num { font-size: 32px; font-weight: 700; color: #30363d; font-family: 'SF Mono', monospace; }
   td.tc-cell { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; color: #8b949e; white-space: nowrap; }
   td.desc-cell { max-width: 400px; word-break: break-word; white-space: normal; }
   td.gif-cell { width: 80px; padding: 6px; }
@@ -418,7 +427,7 @@
   <tbody id="tbody"></tbody>
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
-<div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v5.3</div>
+<div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v5.4</div>
 
 <script>
 const USERS = {
@@ -1539,7 +1548,9 @@ function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g
 function trunc(s,n){return !s?"":s.length>n?s.substring(0,n)+"...":s;}
 
 // --- SHOT DETAIL ---
+let _shotCurrentId=null;
 function openShot(id){
+  _shotCurrentId=id;
   const task=TASKS.find(t=>t.id===id);
   if(!task)return;
   const cat=getCat(id);
@@ -1547,21 +1558,119 @@ function openShot(id){
   document.getElementById("shotCatTag").innerHTML=_catTagHtml(cat);
   document.getElementById("shotDesc").textContent=getDesc(id,task.desc);
   document.getElementById("shotTC").textContent=task.tcIn+" → "+task.tcOut;
+  _renderShotBody(id);
+  document.getElementById("shotOverlay").classList.remove("hidden");
+}
+function _renderShotBody(id){
   const body=document.getElementById("shotBody");
+  const versions=state[id]?.versions||[];
   let html="";
   if(hasGif(id)){
     html+=`<div class="shot-media-card" onclick="closeShot();openGif('${id}')">
       <img src="${CDN_BASE}/thumbs/${id}.jpg" alt="${id}">
-      <div class="shot-media-label"><span class="play-icon">▶</span> Preview Video</div>
+      <div class="shot-media-label"><span class="play-icon">▶</span> Original</div>
     </div>`;
-  } else {
-    html+=`<div style="color:#484f58;font-size:14px;padding:20px">No media available for this shot.</div>`;
+  }
+  versions.forEach((v,i)=>{
+    html+=`<div class="shot-media-card" onclick="closeShot();_playVersion('${id}',${i})">
+      <div class="version-thumb"><span class="version-num">V${i+1}</span></div>
+      <div class="shot-media-label"><span class="play-icon">▶</span> ${esc(v.name||'Version '+(i+1))}<button class="ver-del" onclick="event.stopPropagation();deleteVersion('${id}',${i})" title="Delete">&times;</button></div>
+    </div>`;
+  });
+  if(isAdmin()){
+    html+=`<div class="shot-media-card shot-add-card" onclick="document.getElementById('versionFileInput').click()">
+      <div class="shot-add-icon">+</div>
+      <div class="shot-media-label">Add Version</div>
+    </div>`;
+    html+=`<input type="file" id="versionFileInput" accept="video/mp4,video/*" style="display:none" onchange="uploadVersion('${id}',this)">`;
   }
   body.innerHTML=html;
-  document.getElementById("shotOverlay").classList.remove("hidden");
 }
 function closeShot(){
+  _shotCurrentId=null;
   document.getElementById("shotOverlay").classList.add("hidden");
+}
+function _playVersion(id,idx){
+  const v=(state[id]?.versions||[])[idx];
+  if(!v)return;
+  const vid=document.getElementById("gifVideo");
+  _cleanupGif();_gifCurrentId=id;
+  document.getElementById("gifOverlay").classList.remove("hidden");
+  vid.src=v.url;vid.load();
+  vid.addEventListener("loadedmetadata",()=>{
+    const scrub=document.getElementById("gifScrubber");
+    scrub.max=Math.round(vid.duration*1000);scrub.value=0;
+    vid.play();_gifPaused=false;
+    document.getElementById("gifPlayBtn").textContent="❚❚";
+  },{once:true});
+}
+function deleteVersion(id,idx){
+  if(!isAdmin()||!state[id]?.versions)return;
+  state[id].versions.splice(idx,1);
+  saveState(state);
+  if(_shotCurrentId===id)_renderShotBody(id);
+}
+
+// --- R2 UPLOAD ---
+const R2_ACCESS_KEY="daa70cc28fcd3326b99ec99e749c729c";
+const R2_SECRET_KEY="40d6495c4fa90a88db28a2fd9dd46297d5148627db3a582025bd578c95686158";
+const R2_ENDPOINT="https://6b4341dd25b4f283d53ad86424e39e74.r2.cloudflarestorage.com";
+const R2_BUCKET="kh-vfx-video";
+
+async function _hmac(key,msg){
+  const k=typeof key==="string"?new TextEncoder().encode(key):key;
+  const cryptoKey=await crypto.subtle.importKey("raw",k,{name:"HMAC",hash:"SHA-256"},false,["sign"]);
+  return new Uint8Array(await crypto.subtle.sign("HMAC",cryptoKey,new TextEncoder().encode(msg)));
+}
+async function _sha256hex(str){
+  const hash=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(str));
+  return[...new Uint8Array(hash)].map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+async function _getSigningKey(secret,date,region,service){
+  let k=await _hmac("AWS4"+secret,date);
+  k=await _hmac(k,region);k=await _hmac(k,service);k=await _hmac(k,"aws4_request");return k;
+}
+async function r2Upload(key,file,onProgress){
+  const now=new Date();
+  const amzDate=now.toISOString().replace(/[-:]/g,"").split(".")[0]+"Z";
+  const dateStamp=amzDate.substring(0,8);
+  const region="auto",service="s3";
+  const host=new URL(R2_ENDPOINT).host;
+  const path="/"+R2_BUCKET+"/"+key;
+  const headers={"host":host,"x-amz-content-sha256":"UNSIGNED-PAYLOAD","x-amz-date":amzDate,"content-type":file.type||"video/mp4"};
+  const signedHeaders=Object.keys(headers).sort().join(";");
+  const canonicalHeaders=Object.keys(headers).sort().map(k=>k+":"+headers[k]).join("\n")+"\n";
+  const canonicalRequest=["PUT",path,"",canonicalHeaders,signedHeaders,"UNSIGNED-PAYLOAD"].join("\n");
+  const scope=dateStamp+"/"+region+"/"+service+"/aws4_request";
+  const stringToSign=["AWS4-HMAC-SHA256",amzDate,scope,await _sha256hex(canonicalRequest)].join("\n");
+  const signingKey=await _getSigningKey(R2_SECRET_KEY,dateStamp,region,service);
+  const sig=[...await _hmac(signingKey,stringToSign)].map(b=>b.toString(16).padStart(2,"0")).join("");
+  const auth="AWS4-HMAC-SHA256 Credential="+R2_ACCESS_KEY+"/"+scope+", SignedHeaders="+signedHeaders+", Signature="+sig;
+  const resp=await fetch(R2_ENDPOINT+path,{method:"PUT",headers:{...headers,"Authorization":auth},body:file});
+  return resp.ok;
+}
+
+async function uploadVersion(shotId,input){
+  const file=input.files[0];
+  if(!file)return;
+  input.value="";
+  const ts=Date.now();
+  const ext=file.name.split(".").pop()||"mp4";
+  const key="versions/"+shotId+"/v_"+ts+"."+ext;
+  // Show uploading state
+  const body=document.getElementById("shotBody");
+  const addCard=body.querySelector(".shot-add-card");
+  if(addCard){addCard.innerHTML=`<div class="shot-add-icon" style="font-size:14px;animation:none">Uploading...</div><div class="shot-media-label">${esc(file.name)}</div>`;}
+  const ok=await r2Upload(key,file);
+  if(ok){
+    if(!state[shotId])state[shotId]={};
+    if(!state[shotId].versions)state[shotId].versions=[];
+    state[shotId].versions.push({name:file.name,url:CDN_BASE+"/"+key,ts:ts});
+    saveState(state);
+  } else {
+    alert("Upload failed");
+  }
+  if(_shotCurrentId===shotId)_renderShotBody(shotId);
 }
 
 // --- RENDER TABLE ---
