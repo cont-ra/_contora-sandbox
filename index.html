@@ -114,13 +114,65 @@
   .shot-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 2500; display: flex; align-items: center; justify-content: center; }
   .shot-overlay.hidden { display: none; }
   .shot-panel { width: 90vw; max-width: 1200px; max-height: 90vh; background: #161b22; border: 1px solid #30363d; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; }
+  .shot-panel.files-mode { height: 90vh; }
   .shot-header { padding: 16px 20px; border-bottom: 1px solid #30363d; display: flex; align-items: center; gap: 12px; }
   .shot-header-id { font-family: 'SF Mono', monospace; font-size: 18px; color: #58a6ff; font-weight: 600; }
   .shot-header-desc { color: #8b949e; font-size: 14px; flex: 1; }
   .shot-header-tc { font-family: 'SF Mono', monospace; font-size: 12px; color: #8b949e; }
   .shot-close { background: none; border: none; color: #8b949e; font-size: 24px; cursor: pointer; padding: 0 4px; }
   .shot-close:hover { color: #fff; }
-  .shot-body { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-wrap: wrap; gap: 16px; }
+  .shot-tabs { display: flex; gap: 0; padding: 0 20px; border-bottom: 1px solid #30363d; }
+  .shot-tab { padding: 10px 20px; font-size: 13px; color: #8b949e; cursor: pointer; border: none; border-bottom: 2px solid transparent; background: none; transition: .15s; }
+  .shot-tab:hover { color: #c9d1d9; }
+  .shot-tab.active { color: #58a6ff; border-bottom-color: #58a6ff; }
+  .shot-body { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-wrap: wrap; gap: 16px; align-content: flex-start; }
+  .files-panel { width: 100%; display: flex; flex-direction: column; gap: 12px; flex: 1; min-height: 0; justify-content: space-between; }
+  .files-table-wrap { flex: 1; overflow-y: auto; min-height: 0; }
+  .files-toolbar { display: flex; align-items: center; gap: 8px; }
+  .files-toolbar .files-path { flex: 1; font-family: 'SF Mono', monospace; font-size: 12px; color: #8b949e; }
+  .files-btn { background: rgba(255,255,255,0.08); border: 1px solid #30363d; color: #c9d1d9; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 5px; }
+  .files-btn:hover { background: rgba(255,255,255,0.15); }
+  .files-btn.primary { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+  .files-btn.primary:hover { background: #388bfd; }
+  .files-table { width: 100%; border-collapse: collapse; }
+  .files-table th { text-align: left; padding: 8px 10px; font-size: 11px; color: #8b949e; font-weight: 600; border-bottom: 1px solid #30363d; text-transform: uppercase; letter-spacing: .5px; }
+  .files-table td { padding: 8px 10px; font-size: 13px; color: #c9d1d9; border-bottom: 1px solid #21262d; }
+  .files-table tr:hover td { background: #21262d; }
+  .files-table .f-icon { font-size: 16px; margin-right: 6px; }
+  .files-table .f-name { cursor: pointer; }
+  .files-table .f-name:hover { color: #58a6ff; }
+  .files-table .f-size { color: #8b949e; font-family: 'SF Mono', monospace; font-size: 12px; white-space: nowrap; }
+  .files-table .f-date { color: #8b949e; font-size: 12px; white-space: nowrap; }
+  .files-table .f-actions { white-space: nowrap; }
+  .files-table .f-dl { background: none; border: none; color: #58a6ff; cursor: pointer; font-size: 14px; padding: 2px 6px; border-radius: 4px; }
+  .files-table .f-dl:hover { background: rgba(88,166,255,0.15); }
+  .dl-icon { display: inline-block; width: 14px; height: 14px; vertical-align: middle; }
+  .files-btn .dl-icon { width: 12px; height: 12px; }
+  .files-table .f-edit { color: #8b949e; font-size: 12px; position: relative; cursor: default; white-space: nowrap; }
+  .files-table .f-edit-action { font-size: 10px; padding: 1px 5px; border-radius: 3px; margin-right: 4px; font-weight: 600; }
+  .f-act-added { background: rgba(63,185,80,0.15); color: #3fb950; }
+  .f-act-deleted { background: rgba(248,81,73,0.15); color: #f85149; }
+  .f-act-renamed { background: rgba(210,153,34,0.15); color: #d29922; }
+  .f-act-updated { background: rgba(88,166,255,0.15); color: #58a6ff; }
+  .f-act-moved { background: rgba(188,140,255,0.15); color: #bc8cff; }
+  .f-edit-tooltip { display: none; position: absolute; bottom: calc(100% + 6px); right: 0; background: #1c2129; border: 1px solid #30363d; border-radius: 8px; padding: 8px 0; min-width: 280px; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+  .f-edit:hover .f-edit-tooltip { display: block; }
+  .f-edit-tooltip-row { padding: 4px 12px; font-size: 11px; color: #8b949e; display: flex; gap: 6px; align-items: center; white-space: nowrap; }
+  .f-edit-tooltip-row .f-edit-action { font-size: 9px; }
+  .f-edit-tooltip-time { color: #484f58; font-family: 'SF Mono', monospace; font-size: 10px; margin-left: auto; }
+  .f-edit-tooltip-title { padding: 4px 12px 6px; font-size: 10px; color: #484f58; text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid #21262d; margin-bottom: 2px; }
+  .files-drop { border: 2px dashed #30363d; border-radius: 8px; padding: 30px; text-align: center; color: #484f58; font-size: 13px; cursor: pointer; transition: .15s; }
+  .files-drop:hover { border-color: #3fb950; color: #3fb950; }
+  .files-drop.drag-over { border-color: #3fb950; color: #3fb950; background: rgba(63,185,80,0.05); }
+  .files-empty { text-align: center; padding: 60px 20px; color: #484f58; }
+  .files-empty-icon { font-size: 48px; margin-bottom: 12px; }
+  .files-new-folder { display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: #161b22; border: 1px solid #30363d; border-radius: 6px; }
+  .files-new-folder input { background: none; border: none; color: #c9d1d9; font-size: 13px; outline: none; width: 160px; font-family: inherit; }
+  .files-new-folder input::placeholder { color: #484f58; }
+  .files-new-folder button { background: #238636; border: none; color: #fff; padding: 3px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+  .files-new-folder button:hover { background: #2ea043; }
+  .files-new-folder .cancel { background: none; color: #8b949e; padding: 3px 6px; }
+  .files-new-folder .cancel:hover { color: #f85149; }
   .shot-media-card { background: #0d1117; border: 1px solid #21262d; border-radius: 8px; overflow: hidden; cursor: pointer; transition: 0.15s; }
   .shot-media-card:hover { border-color: #58a6ff; transform: scale(1.02); }
   .shot-media-card img { display: block; width: 320px; height: auto; }
@@ -405,6 +457,7 @@
   .export-btn { background: #238636; border: 1px solid #2ea043; color: #fff; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; margin-left: auto; }
   .export-btn:hover { background: #2ea043; }
 </style>
+<script src="ffmpeg/ffmpeg.js"></script>
 </head>
 <body>
 
@@ -428,6 +481,10 @@
       <span class="shot-header-desc" id="shotDesc"></span>
       <span class="shot-header-tc" id="shotTC"></span>
       <button class="shot-close" onclick="closeShot()">&times;</button>
+    </div>
+    <div class="shot-tabs">
+      <button class="shot-tab active" id="shotTabVersions" onclick="switchShotTab('versions')">Versions</button>
+      <button class="shot-tab" id="shotTabFiles" onclick="switchShotTab('files')">Files</button>
     </div>
     <div class="shot-body" id="shotBody"></div>
   </div>
@@ -2752,7 +2809,9 @@ function trunc(s,n){return !s?"":s.length>n?s.substring(0,n)+"...":s;}
 // --- SHOT DETAIL ---
 let _shotCurrentId=null;
 function openShot(id){
-  _shotCurrentId=id;
+  _shotCurrentId=id;_shotTab='versions';_filesPath=[];
+  document.getElementById("shotTabVersions").classList.add("active");
+  document.getElementById("shotTabFiles").classList.remove("active");
   const task=TASKS.find(t=>t.id===id);
   if(!task)return;
   const cat=getCat(id);
@@ -2824,8 +2883,255 @@ async function updateOriginal(shotId,input){
   delete _uploads[shotId];
   if(_shotCurrentId===shotId)_renderShotBody(shotId);
 }
+let _shotTab='versions';
+function switchShotTab(tab){
+  _shotTab=tab;
+  document.getElementById("shotTabVersions").classList.toggle("active",tab==='versions');
+  document.getElementById("shotTabFiles").classList.toggle("active",tab==='files');
+  document.querySelector(".shot-panel").classList.toggle("files-mode",tab==='files');
+  if(_shotCurrentId){
+    if(tab==='versions')_renderShotBody(_shotCurrentId);
+    else _renderShotFiles(_shotCurrentId);
+  }
+}
+let _filesPath=[];
+let _mockFolders={};
+// Mock edit history: {shotId: {folderOrFileName: [{user,action,file,ts}]}}
+const _EDIT_ACTIONS={added:'added',deleted:'deleted',renamed:'renamed',updated:'updated',moved:'moved'};
+const _mockEditHistory={
+  "KH_01_198":{
+    "source":[
+      {user:"Admin",action:"added",file:"KH_01_198.mp4",ts:"2026-04-04 14:10"},
+      {user:"Admin",action:"updated",file:"KH_01_198.mp4",ts:"2026-04-04 18:30"},
+    ],
+    "KH_01_198.mp4":[
+      {user:"Admin",action:"added",file:"KH_01_198.mp4",ts:"2026-04-04 14:10"},
+      {user:"Admin",action:"updated",file:"KH_01_198.mp4",ts:"2026-04-04 18:30"},
+    ],
+  }
+};
+function _getEditHistory(shotId,name){return (_mockEditHistory[shotId]||{})[name]||[];}
+function _lastEdit(shotId,name){const h=_getEditHistory(shotId,name);return h.length?h[h.length-1]:null;}
+function _renderEditCell(shotId,name){
+  const last=_lastEdit(shotId,name);
+  if(!last)return '';
+  const actClass='f-act-'+last.action;
+  const history=_getEditHistory(shotId,name);
+  let tip='';
+  if(isAdmin()&&history.length>0){
+    tip=`<div class="f-edit-tooltip"><div class="f-edit-tooltip-title">History (last 24h)</div>`;
+    for(let i=history.length-1;i>=0;i--){
+      const h=history[i];
+      tip+=`<div class="f-edit-tooltip-row"><span class="f-edit-action f-act-${h.action}">${h.action}</span> ${esc(h.user)} → ${esc(h.file||'')}<span class="f-edit-tooltip-time">${h.ts}</span></div>`;
+    }
+    tip+=`</div>`;
+  } else if(!isAdmin()){
+    tip=`<div class="f-edit-tooltip"><div class="f-edit-tooltip-row">${esc(last.user)}</div></div>`;
+  }
+  return `<span class="f-edit-action ${actClass}">${last.action}</span>${esc(last.user)}${tip}`;
+}
+function _getFilesRoot(id){
+  const hasSrc=hasGif(id);
+  // source: original (raw footage) + preview (source preview video)
+  const sourcePreview=hasSrc?[{name:id+".mp4",size:"—",date:"—",url:CDN_BASE+"/video/"+id+".mp4"}]:[];
+  const sourceChildren=[
+    {name:"original",type:"folder",locked:true,children:[]},
+    {name:"preview",type:"folder",locked:true,children:sourcePreview},
+  ];
+  // versions: preview (artist uploads _v###) + final (approved renders)
+  const versions=state[id]?.versions||[];
+  const versionPreviews=versions.map(v=>({
+    name:v.name||'unknown',
+    size:"—",
+    date:v.ts?new Date(v.ts).toISOString().slice(0,10):"—",
+    url:v.url
+  }));
+  const versionsChildren=[
+    {name:"preview",type:"folder",locked:false,children:versionPreviews},
+    {name:"final",type:"folder",locked:false,children:[]},
+  ];
+  const root=[
+    {name:"source",type:"folder",locked:true,children:sourceChildren},
+    {name:"versions",type:"folder",locked:true,children:versionsChildren},
+  ];
+  const userFolders=(_mockFolders[id]||{})["/"]||[];
+  return root.concat(userFolders);
+}
+function _resolveFilesPath(id){
+  let items=_getFilesRoot(id);
+  let breadcrumb=id;
+  let currentFolder=null;
+  for(const p of _filesPath){
+    const folder=items.find(f=>f.name===p&&f.type==='folder');
+    if(folder){currentFolder=folder;items=folder.children||[];breadcrumb+=" / "+p;}
+    else break;
+  }
+  return {items,breadcrumb,currentFolder};
+}
+function _renderShotFiles(id){
+  const body=document.getElementById("shotBody");
+  const {items,breadcrumb,currentFolder}=_resolveFilesPath(id);
+  const inSource=_filesPath.length>0&&_filesPath[0]==='source';
+  const isLocked=currentFolder?.locked||inSource;
+  const canUp=isLocked?isAdmin():_canUpload(id);
+  const canMkdir=!isLocked&&_canUpload(id);
+  let html=`<div class="files-panel">`;
+  // toolbar
+  html+=`<div class="files-toolbar">`;
+  html+=`<span class="files-path">📁 ${esc(breadcrumb)}</span>`;
+  if(canMkdir) html+=`<button class="files-btn" onclick="_showNewFolderInput('${id}')">📁+ New Folder</button>`;
+  html+=`<button class="files-btn" onclick="_downloadAllFiles('${id}')" title="Download all files"><svg class="dl-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1v9m0 0L4.5 6.5M8 10l3.5-3.5M2 13h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></button>`;
+  html+=`</div>`;
+  // new folder input (hidden by default)
+  html+=`<div class="files-new-folder" id="newFolderRow" style="display:none">`;
+  html+=`<span>📁</span><input id="newFolderName" placeholder="Folder name..." onkeydown="if(event.key==='Enter')_createFolder('${id}');if(event.key==='Escape')_hideNewFolderInput()">`;
+  html+=`<button onclick="_createFolder('${id}')">Create</button>`;
+  html+=`<button class="cancel" onclick="_hideNewFolderInput()">✕</button>`;
+  html+=`</div>`;
+  // table
+  html+=`<div class="files-table-wrap">`;
+  html+=`<table class="files-table"><thead><tr><th>Name</th><th>Size</th><th>Last Edit</th><th>Date</th><th></th></tr></thead><tbody>`;
+  if(_filesPath.length>0){
+    html+=`<tr><td class="f-name" onclick="_filesPath.pop();_renderShotFiles('${id}')"><span class="f-icon">⬆️</span>..</td><td></td><td></td><td></td><td></td></tr>`;
+  }
+  for(const f of items){
+    if(f.type==='folder'){
+      const lock=f.locked?` 🔒`:'';
+      const delBtn=(!f.locked&&_canUpload(id))?`<button class="f-dl" onclick="event.stopPropagation();_deleteFolder('${id}','${esc(f.name)}')" title="Delete folder">🗑</button>`:'';
+      const editCell=_renderEditCell(id,f.name);
+      html+=`<tr>
+        <td class="f-name" onclick="_filesPath.push('${esc(f.name)}');_renderShotFiles('${id}')"><span class="f-icon">📁</span>${esc(f.name)}${lock}</td>
+        <td class="f-size">${f.children?.length||0} items</td>
+        <td class="f-edit">${editCell}</td>
+        <td class="f-date"></td>
+        <td class="f-actions"><button class="f-dl" onclick="event.stopPropagation();_downloadFolderByName('${id}','${esc(f.name)}')" title="Download folder"><svg class="dl-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1v9m0 0L4.5 6.5M8 10l3.5-3.5M2 13h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></button>${delBtn}</td>
+      </tr>`;
+    } else {
+      const dlBtn=f.url?`<a class="f-dl" href="${f.url}" target="_blank" title="Download"><svg class="dl-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1v9m0 0L4.5 6.5M8 10l3.5-3.5M2 13h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></a>`:'';
+      const editCell=_renderEditCell(id,f.name);
+      html+=`<tr>
+        <td><span class="f-icon">${_fileIcon(f.name)}</span>${esc(f.name)}</td>
+        <td class="f-size">${f.size||''}</td>
+        <td class="f-edit">${editCell}</td>
+        <td class="f-date">${f.date||''}</td>
+        <td class="f-actions">${dlBtn}</td>
+      </tr>`;
+    }
+  }
+  html+=`</tbody></table>`;
+  if(items.length===0){
+    html+=`<div class="files-empty"><div class="files-empty-icon">📂</div><div>No files</div></div>`;
+  }
+  html+=`</div>`;// close files-table-wrap
+  // drop zone + hidden file input
+  if(canUp){
+    html+=`<div class="files-drop" id="filesDropZone" onclick="document.getElementById('filesUploadInput').click()">Drop files here or click to upload</div>`;
+    html+=`<input type="file" id="filesUploadInput" multiple style="display:none" onchange="_handleFilesUpload('${id}',this)">`;
+  }
+  html+=`</div>`;
+  body.innerHTML=html;
+  // drag & drop events
+  const dz=document.getElementById("filesDropZone");
+  if(dz){
+    dz.addEventListener("dragover",e=>{e.preventDefault();dz.classList.add("drag-over");});
+    dz.addEventListener("dragleave",()=>dz.classList.remove("drag-over"));
+    dz.addEventListener("drop",e=>{e.preventDefault();dz.classList.remove("drag-over");_handleFilesDrop(id,e.dataTransfer.files);});
+  }
+}
+function _showNewFolderInput(id){
+  const row=document.getElementById("newFolderRow");
+  if(row){row.style.display="flex";document.getElementById("newFolderName").focus();}
+}
+function _hideNewFolderInput(){
+  const row=document.getElementById("newFolderRow");
+  if(row)row.style.display="none";
+}
+function _createFolder(id){
+  const input=document.getElementById("newFolderName");
+  const name=(input?.value||'').trim().replace(/[\/\\<>:"|?*]/g,'');
+  if(!name)return;
+  if(!_mockFolders[id])_mockFolders[id]={};
+  const pathKey=_filesPath.length===0?"/":"/"+_filesPath.join("/");
+  if(pathKey==="/"){
+    if(!_mockFolders[id]["/"])_mockFolders[id]["/"]=[];
+    if(_mockFolders[id]["/"].some(f=>f.name===name))return;
+    _mockFolders[id]["/"].push({name,type:"folder",children:[]});
+  } else {
+    // find parent folder in tree and add child
+    const {currentFolder}=_resolveFilesPath(id);
+    if(currentFolder){
+      if(!currentFolder.children)currentFolder.children=[];
+      if(currentFolder.children.some(f=>f.name===name))return;
+      currentFolder.children.push({name,type:"folder",children:[]});
+    }
+  }
+  _renderShotFiles(id);
+}
+function _deleteFolder(id,name){
+  if(!confirm('Delete folder "'+name+'"?'))return;
+  const pathKey=_filesPath.length===0?"/":"/"+_filesPath.join("/");
+  if(pathKey==="/"&&_mockFolders[id]?.["/"]) {
+    _mockFolders[id]["/"]=_mockFolders[id]["/"].filter(f=>f.name!==name);
+  } else {
+    const {currentFolder}=_resolveFilesPath(id);
+    if(currentFolder?.children) currentFolder.children=currentFolder.children.filter(f=>f.name!==name);
+  }
+  _renderShotFiles(id);
+}
+function _handleFilesUpload(id,input){
+  const files=input.files;
+  if(!files.length)return;
+  alert('Mock upload: '+Array.from(files).map(f=>f.name).join(', '));
+  input.value='';
+}
+function _handleFilesDrop(id,files){
+  if(!files.length)return;
+  alert('Mock drop: '+Array.from(files).map(f=>f.name).join(', '));
+}
+function _collectFileUrls(items){
+  let urls=[];
+  for(const f of items){
+    if(f.type==='folder'&&f.children) urls=urls.concat(_collectFileUrls(f.children));
+    else if(f.url) urls.push({name:f.name,url:f.url});
+  }
+  return urls;
+}
+function _downloadFolderByName(id,name){
+  const {items}=_resolveFilesPath(id);
+  const folder=items.find(f=>f.name===name&&f.type==='folder');
+  if(!folder||!folder.children){alert('Folder is empty');return;}
+  const files=_collectFileUrls(folder.children);
+  if(!files.length){alert('Folder is empty');return;}
+  for(const f of files){
+    const a=document.createElement('a');
+    a.href=f.url;a.download=f.name;a.target='_blank';
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+  }
+}
+function _downloadAllFiles(id){
+  const root=_getFilesRoot(id);
+  const files=_collectFileUrls(root);
+  if(!files.length){alert('No files to download');return;}
+  // download each file via hidden <a>
+  for(const f of files){
+    const a=document.createElement('a');
+    a.href=f.url;a.download=f.name;a.target='_blank';
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+  }
+}
+function _fileIcon(name){
+  const ext=(name.split('.').pop()||'').toLowerCase();
+  if(['nk','nuke'].includes(ext))return'🔶';
+  if(['aep','aet'].includes(ext))return'🟣';
+  if(['mov','mp4','avi','mxf'].includes(ext))return'🎬';
+  if(['exr','dpx','tif','tiff','png','jpg','jpeg'].includes(ext))return'🖼️';
+  if(['pdf'].includes(ext))return'📄';
+  return'📎';
+}
 function closeShot(){
-  _shotCurrentId=null;
+  _shotCurrentId=null;_shotTab='versions';_filesPath=[];
+  document.getElementById("shotTabVersions").classList.add("active");
+  document.getElementById("shotTabFiles").classList.remove("active");
   document.getElementById("shotOverlay").classList.add("hidden");
 }
 function _playVersion(id,idx){
@@ -2902,15 +3208,27 @@ function switchVersion(idx){
   renderPlayerNotes();
   renderVersionsPanel();
 }
-function _showConfirm(title,msg){
+function _showConfirm(title,msg,yesLabel){
   return new Promise((resolve)=>{
     const ov=document.createElement("div");
     ov.className="confirm-overlay";
-    ov.innerHTML=`<div class="confirm-box"><div class="confirm-title">${title}</div><div class="confirm-msg">${msg}</div><div class="confirm-btns"><button class="confirm-btn cancel" id="confirmNo">Cancel</button><button class="confirm-btn danger" id="confirmYes">Delete</button></div></div>`;
+    const btn=yesLabel||'Delete';
+    const btnClass=btn==='OK'?'confirm-btn cancel':'confirm-btn danger';
+    ov.innerHTML=`<div class="confirm-box"><div class="confirm-title">${title}</div><div class="confirm-msg">${msg}</div><div class="confirm-btns"><button class="confirm-btn cancel" id="confirmNo">Cancel</button><button class="${btnClass}" id="confirmYes">${btn}</button></div></div>`;
     document.body.appendChild(ov);
     ov.querySelector("#confirmYes").onclick=()=>{ov.remove();resolve(true);};
     ov.querySelector("#confirmNo").onclick=()=>{ov.remove();resolve(false);};
     ov.addEventListener("click",(e)=>{if(e.target===ov){ov.remove();resolve(false);}});
+  });
+}
+function _showAlert(title,msg){
+  return new Promise((resolve)=>{
+    const ov=document.createElement("div");
+    ov.className="confirm-overlay";
+    ov.innerHTML=`<div class="confirm-box"><div class="confirm-title">${title}</div><div class="confirm-msg">${msg}</div><div class="confirm-btns"><button class="confirm-btn cancel" id="confirmOk">OK</button></div></div>`;
+    document.body.appendChild(ov);
+    ov.querySelector("#confirmOk").onclick=()=>{ov.remove();resolve();};
+    ov.addEventListener("click",(e)=>{if(e.target===ov){ov.remove();resolve();}});
   });
 }
 async function deleteVersion(id,idx){
@@ -3009,28 +3327,184 @@ function _updateUploadUI(shotId){
   if(!el||!up)return;
   if(up.error){el.innerHTML=`<div class="shot-add-icon" style="font-size:14px;color:#f85149">Failed</div><div class="shot-media-label">${esc(up.name)}</div>`;return;}
   if(up.done){return;}
-  el.innerHTML=`<div class="upload-progress-ring"><span class="upload-pct">${up.pct}%</span></div><div class="shot-media-label">${esc(up.name)}</div><div class="upload-bar"><div class="upload-bar-fill" style="width:${up.pct}%"></div></div>`;
+  const stageLabel=up.stage==='transcoding'?'Transcoding...':'Uploading...';
+  el.innerHTML=`<div class="upload-progress-ring"><span class="upload-pct">${up.pct}%</span></div><div class="shot-media-label">${stageLabel} ${esc(up.name)}</div><div class="upload-bar"><div class="upload-bar-fill" style="width:${up.pct}%"></div></div>`;
+}
+
+// === Version Naming System ===
+// Format: {shotId}_{task}_v001.{ext}  (industry standard _v### padding)
+// File MUST start with shotId prefix, version gaps allowed (v001→v022 OK)
+// but going backwards forbidden (after v022, can't upload v015)
+
+function _parseVersionName(filename){
+  const ext=filename.split('.').pop()||'mp4';
+  const noExt=filename.replace(/\.[^.]+$/,'');
+  const match=noExt.match(/^(.+?)_v(\d{3,4})$/i);
+  return {baseName:match?match[1]:noExt, vNum:match?parseInt(match[2],10):0, ext};
+}
+function _getMaxVersion(shotId,baseName){
+  const versions=state[shotId]?.versions||[];
+  let max=0;
+  for(const v of versions){
+    const p=_parseVersionName(v.name||'');
+    if(p.baseName.toLowerCase()===baseName.toLowerCase()){
+      const m=(v.name||'').match(/_v(\d{3,4})/i);
+      if(m) max=Math.max(max,parseInt(m[1],10));
+    }
+  }
+  return max;
+}
+function _formatVersion(num){return '_v'+String(num).padStart(3,'0');}
+
+function _highlightError(filename,errorParts){
+  // errorParts: array of {text,error:bool}
+  return errorParts.map(p=>p.error?`<span style="color:#f85149;background:rgba(248,81,73,0.15);padding:0 2px;border-radius:2px">${esc(p.text)}</span>`:`<span style="color:#8b949e">${esc(p.text)}</span>`).join('');
+}
+function _validateVersionFile(shotId,filename){
+  const {baseName,vNum,ext}=_parseVersionName(filename);
+  const errors=[];
+  const warnings=[];
+  const nextV=_getMaxVersion(shotId,shotId)+1;
+  const correctName=shotId+_formatVersion(nextV)+'.'+ext;
+
+  // 1. baseName must be exactly shotId
+  if(baseName.toLowerCase()!==shotId.toLowerCase()){
+    const current=_highlightError(filename,[
+      {text:baseName,error:true},
+      {text:vNum?_formatVersion(vNum):''},{text:'.'+ext}
+    ]);
+    errors.push({type:'wrong_name',suggest:correctName,current});
+    return {ok:false,errors,warnings,baseName,vNum,ext};
+  }
+
+  // 2. Check _v### suffix present
+  if(vNum===0){
+    const current=_highlightError(filename,[
+      {text:baseName},
+      {text:'_v???',error:true},
+      {text:'.'+ext}
+    ]);
+    errors.push({type:'no_version',suggest:correctName,current,detail:'Missing <b>_v###</b> suffix'});
+    return {ok:false,errors,warnings,baseName,vNum,ext};
+  }
+
+  // 3. Check version not going backwards
+  const maxV=_getMaxVersion(shotId,shotId);
+  if(vNum<=maxV){
+    const current=_highlightError(filename,[
+      {text:baseName},
+      {text:_formatVersion(vNum),error:true},
+      {text:'.'+ext}
+    ]);
+    errors.push({type:'version_backwards',suggest:shotId+_formatVersion(maxV+1)+'.'+ext,current,detail:`Latest is <b>_v${String(maxV).padStart(3,'0')}</b>, next must be <b>_v${String(maxV+1).padStart(3,'0')}</b>+`});
+    return {ok:false,errors,warnings,baseName,vNum,ext};
+  }
+
+  // 4. Warn on large gap
+  if(maxV>0&&vNum>maxV+10){
+    warnings.push(`Large version gap: _v${String(maxV).padStart(3,'0')} → _v${String(vNum).padStart(3,'0')}`);
+  }
+
+  return {ok:true,errors,warnings,baseName,vNum,ext,versionName:shotId+_formatVersion(vNum)+'.'+ext};
 }
 
 async function uploadVersion(shotId,input){
   const file=input.files[0];
   if(!file)return;
   input.value="";
+
+  // === Format classification ===
+  // Browser-native: upload directly
+  // Transcodable: ffmpeg.wasm → mp4 then upload
+  // Blocked: proprietary, can't decode
+  const fileExt=(file.name.split('.').pop()||'').toLowerCase();
+  const NATIVE=['mp4','webm'];
+  const TRANSCODE=['mov','avi','mkv','wmv','flv','mxf','ts','m4v','mpg','mpeg','3gp'];
+  const BLOCKED=['r3d','ari','braw','dng','crm','nef','cr2','cr3'];
+
+  if(BLOCKED.includes(fileExt)){
+    await _showAlert('Unsupported format','<b>.'+esc(fileExt)+'</b> is a proprietary RAW format and cannot be transcoded in browser.<br><br>Please render a preview in <b>H.264 .mp4</b> from your NLE/compositing app and upload that.<br><br>The original file can go to <b>Files → versions/final/</b>');
+    return;
+  }
+  if(!NATIVE.includes(fileExt)&&!TRANSCODE.includes(fileExt)){
+    await _showAlert('Wrong format','<b>.'+esc(fileExt)+'</b> is not a video file.<br><br>Supported: <b>'+NATIVE.concat(TRANSCODE).join(', ')+'</b><br><br>For project files (.nk, .aep) and renders (.exr, .dpx) use <b>Files → versions/final/</b>');
+    return;
+  }
+
+  // Validate naming
+  const v=_validateVersionFile(shotId,file.name);
+  if(!v.ok){
+    const err=v.errors[0];
+    let msg='';
+    if(err.detail) msg+=err.detail+'<br><br>';
+    msg+=`<div style="font-family:'SF Mono',monospace;font-size:14px;margin:8px 0">`;
+    msg+=`<div style="background:rgba(248,81,73,0.08);border:1px solid rgba(248,81,73,0.2);border-radius:6px;padding:8px 12px;margin-bottom:6px">Your file: ${err.current}</div>`;
+    msg+=`<div style="background:rgba(63,185,80,0.08);border:1px solid rgba(63,185,80,0.2);border-radius:6px;padding:8px 12px;color:#3fb950">Correct: ${esc(err.suggest)}</div>`;
+    msg+=`</div>`;
+    // wrong_name = hard block (wrong shot), others = offer auto-rename
+    if(err.type==='wrong_name'){
+      await _showAlert('Wrong shot',msg);
+      return;
+    }
+    // Offer auto-rename with warning
+    msg+=`<br><div style="background:rgba(210,153,34,0.1);border:1px solid rgba(210,153,34,0.3);border-radius:6px;padding:8px 12px;color:#d29922;font-size:12px">⚠ Auto-rename will upload as <b>${esc(err.suggest)}</b>.<br>Make sure this is the correct file for this shot!</div>`;
+    const ok=await _showConfirm('Naming error',msg,'Rename & Upload');
+    if(!ok)return;
+    // Override version info with corrected name
+    v.ok=true;
+    v.versionName=err.suggest;
+    const corrected=_parseVersionName(err.suggest);
+    v.vNum=corrected.vNum;
+    v.ext=corrected.ext;
+  }
+  if(v.warnings.length>0){
+    const ok=await _showConfirm('Warning',v.warnings[0]+'<br><br>Continue anyway?');
+    if(!ok)return;
+  }
+
+  // Transcode if needed
+  let uploadFile=file;
+  let versionName=v.versionName;
+  const needsTranscode=TRANSCODE.includes(fileExt);
+
+  if(needsTranscode){
+    _uploads[shotId]={name:file.name,pct:0,done:false,error:false,stage:'transcoding'};
+    if(_shotCurrentId===shotId)_renderShotBody(shotId);
+    try{
+      uploadFile=await _transcodeToMp4(file,(pct)=>{
+        _uploads[shotId].pct=pct;
+        _uploads[shotId].stage='transcoding';
+        _updateUploadUI(shotId);
+      });
+      // fix extension in versionName
+      versionName=versionName.replace(/\.[^.]+$/,'.mp4');
+    }catch(e){
+      console.error('Transcode failed:',e);
+      _uploads[shotId].error=true;
+      _uploads[shotId].stage='transcode_failed';
+      _updateUploadUI(shotId);
+      await _showAlert('Transcode failed','Could not convert <b>.'+esc(fileExt)+'</b> to mp4.<br><br>'+esc(e.message||'Unknown error')+'<br><br>Please convert manually to H.264 .mp4 and try again.');
+      delete _uploads[shotId];
+      if(_shotCurrentId===shotId)_renderShotBody(shotId);
+      return;
+    }
+  }
+
   const ts=Date.now();
-  const ext=file.name.split(".").pop()||"mp4";
-  const key="versions/"+shotId+"/v_"+ts+"."+ext;
-  _uploads[shotId]={name:file.name,pct:0,done:false,error:false};
+  const key="versions/"+shotId+"/"+versionName;
+  _uploads[shotId]={name:versionName,pct:0,done:false,error:false,stage:'uploading'};
   if(_shotCurrentId===shotId)_renderShotBody(shotId);
-  const ok=await r2UploadXHR(key,file,(pct)=>{
+  const ok=await r2UploadXHR(key,uploadFile,(pct)=>{
     _uploads[shotId].pct=pct;
+    _uploads[shotId].stage='uploading';
     _updateUploadUI(shotId);
   });
   if(ok){
     if(!state[shotId])state[shotId]={};
     if(!state[shotId].versions)state[shotId].versions=[];
-    const thumbKey="versions/"+shotId+"/thumb_"+ts+".jpg";
+    const thumbKey="versions/"+shotId+"/thumb_"+v.baseName+_formatVersion(v.vNum)+".jpg";
     const thumbUrl=await _generateThumbnail(CDN_BASE+"/"+key,thumbKey);
-    state[shotId].versions.push({name:file.name,url:CDN_BASE+"/"+key,thumb:thumbUrl||null,ts:ts});
+    state[shotId].versions.push({name:versionName,baseName:v.baseName,url:CDN_BASE+"/"+key,thumb:thumbUrl||null,ts:ts});
     saveState(state);
     _uploads[shotId].done=true;
   } else {
@@ -3038,6 +3512,42 @@ async function uploadVersion(shotId,input){
   }
   delete _uploads[shotId];
   if(_shotCurrentId===shotId)_renderShotBody(shotId);
+}
+
+// === ffmpeg.wasm transcoder ===
+let _ffmpegInstance=null;
+async function _toBlobURL(url,type){
+  const resp=await fetch(url);
+  const buf=await resp.arrayBuffer();
+  const blob=new Blob([buf],{type});
+  return URL.createObjectURL(blob);
+}
+async function _getFFmpeg(){
+  if(_ffmpegInstance)return _ffmpegInstance;
+  const ffmpeg=new FFmpegWASM.FFmpeg();
+  ffmpeg.on('log',({message})=>console.log('[ffmpeg]',message));
+  const localBase=location.origin+'/ffmpeg';
+  const coreURL=await _toBlobURL(localBase+'/ffmpeg-core.js','text/javascript');
+  const wasmURL=await _toBlobURL(CDN_BASE+'/static/ffmpeg-core.wasm','application/wasm');
+  const workerURL=await _toBlobURL(localBase+'/814.ffmpeg.js','text/javascript');
+  await ffmpeg.load({coreURL,wasmURL,workerURL});
+  _ffmpegInstance=ffmpeg;
+  return ffmpeg;
+}
+async function _transcodeToMp4(file,onProgress){
+  const ffmpeg=await _getFFmpeg();
+  const inputName='input.'+file.name.split('.').pop();
+  const outputName='output.mp4';
+  const data=new Uint8Array(await file.arrayBuffer());
+  await ffmpeg.writeFile(inputName,data);
+  ffmpeg.on('progress',({progress})=>{
+    if(onProgress)onProgress(Math.round(progress*100));
+  });
+  await ffmpeg.exec(['-i',inputName,'-c:v','libx264','-preset','fast','-crf','23','-c:a','aac','-movflags','+faststart','-y',outputName]);
+  const result=await ffmpeg.readFile(outputName);
+  await ffmpeg.deleteFile(inputName);
+  await ffmpeg.deleteFile(outputName);
+  return new File([result],file.name.replace(/\.[^.]+$/,'.mp4'),{type:'video/mp4'});
 }
 
 async function _generateThumbnail(videoUrl,thumbKey){
