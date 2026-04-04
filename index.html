@@ -85,6 +85,16 @@
   .upload-pct { font-size: 28px; font-weight: 700; color: #3fb950; font-family: 'SF Mono', monospace; }
   .upload-bar { width: 100%; height: 4px; background: #21262d; border-radius: 2px; margin: 0 12px 8px; }
   .upload-bar-fill { height: 100%; background: #3fb950; border-radius: 2px; transition: width 0.2s; }
+  .confirm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 9999; display: flex; align-items: center; justify-content: center; }
+  .confirm-box { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 24px; max-width: 400px; width: 90vw; text-align: center; }
+  .confirm-title { color: #f85149; font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+  .confirm-msg { color: #8b949e; font-size: 14px; margin-bottom: 20px; line-height: 1.5; }
+  .confirm-btns { display: flex; gap: 10px; justify-content: center; }
+  .confirm-btn { padding: 8px 24px; border-radius: 6px; border: none; font-size: 14px; cursor: pointer; font-weight: 500; }
+  .confirm-btn.cancel { background: #21262d; color: #c9d1d9; }
+  .confirm-btn.cancel:hover { background: #30363d; }
+  .confirm-btn.danger { background: #da3633; color: #fff; }
+  .confirm-btn.danger:hover { background: #f85149; }
   td.tc-cell { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; color: #8b949e; white-space: nowrap; }
   td.desc-cell { max-width: 400px; word-break: break-word; white-space: normal; }
   td.gif-cell { width: 80px; padding: 6px; }
@@ -1617,10 +1627,23 @@ function _playVersion(id,idx){
     document.getElementById("gifPlayBtn").textContent="❚❚";
   },{once:true});
 }
+function _showConfirm(title,msg){
+  return new Promise((resolve)=>{
+    const ov=document.createElement("div");
+    ov.className="confirm-overlay";
+    ov.innerHTML=`<div class="confirm-box"><div class="confirm-title">${title}</div><div class="confirm-msg">${msg}</div><div class="confirm-btns"><button class="confirm-btn cancel" id="confirmNo">Cancel</button><button class="confirm-btn danger" id="confirmYes">Delete</button></div></div>`;
+    document.body.appendChild(ov);
+    ov.querySelector("#confirmYes").onclick=()=>{ov.remove();resolve(true);};
+    ov.querySelector("#confirmNo").onclick=()=>{ov.remove();resolve(false);};
+    ov.addEventListener("click",(e)=>{if(e.target===ov){ov.remove();resolve(false);}});
+  });
+}
 async function deleteVersion(id,idx){
   if(!isAdmin()||!state[id]?.versions)return;
   const v=state[id].versions[idx];
-  if(!v||!confirm("Delete \""+(v.name||"Version "+(idx+1))+"\"?\nThis will permanently remove the file."))return;
+  if(!v)return;
+  const ok=await _showConfirm("Delete version?",esc(v.name||"Version "+(idx+1))+"<br>This will permanently remove the file.");
+  if(!ok)return;
   state[id].versions.splice(idx,1);
   saveState(state);
   if(_shotCurrentId===id)_renderShotBody(id);
