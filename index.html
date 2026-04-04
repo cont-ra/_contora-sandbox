@@ -1654,13 +1654,26 @@ function _collectPlayerNotes(id){
   const notes=[];
   // Source notes
   const src=state[id]?.playerNotes||[];
-  src.forEach(n=>{notes.push({...n,_isPlayerNote:true,_version:'Source'});});
+  src.forEach(n=>{notes.push({...n,_isPlayerNote:true,_version:'Source',_versionIdx:-1});});
   // Version notes
   const versions=state[id]?.versions||[];
   versions.forEach((v,i)=>{
-    (v.notes||[]).forEach(n=>{notes.push({...n,_isPlayerNote:true,_version:v.name||'Version '+(i+1)});});
+    (v.notes||[]).forEach(n=>{notes.push({...n,_isPlayerNote:true,_version:v.name||'Version '+(i+1),_versionIdx:i});});
   });
   return notes;
+}
+function jumpToPlayerNote(id,versionIdx,frame){
+  closeNote();
+  if(versionIdx>=0){
+    _playVersion(id,versionIdx);
+  } else {
+    openGif(id);
+  }
+  // Wait for video to load then seek to frame
+  const vid=document.getElementById("gifVideo");
+  function doSeek(){seekToNoteFrame(frame);}
+  if(vid&&vid.readyState>=1)setTimeout(doSeek,300);
+  else vid?.addEventListener('loadedmetadata',()=>setTimeout(doSeek,100),{once:true});
 }
 function renderChat(){
   const chatMsgs=getChat(noteTaskId),canSend=canChat(noteTaskId);
@@ -1678,7 +1691,8 @@ function renderChat(){
     if(m._isPlayerNote){
       const tc=m.tc||'';
       const drawHtml=m.drawing?`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${m.drawing.color};margin-right:4px"></span>`:'';
-      html+=`<div class="chat-msg from-note"><div class="chat-msg-header">${esc(m.author||'')}<span style="opacity:0.4;margin-left:6px">${esc(m._version)}</span>${tc?` &nbsp;<span style="color:#58a6ff;font-size:11px">${esc(tc)}</span>`:''}</div>`;
+      const tcClick=tc&&m.frame!=null?`onclick="jumpToPlayerNote('${noteTaskId}',${m._versionIdx},${m.frame})" style="color:#58a6ff;font-size:11px;cursor:pointer;text-decoration:underline;text-decoration-style:dotted"`:`style="color:#58a6ff;font-size:11px"`;
+      html+=`<div class="chat-msg from-note"><div class="chat-msg-header">${esc(m.author||'')}<span style="opacity:0.4;margin-left:6px">${esc(m._version)}</span>${tc?` &nbsp;<span ${tcClick}>${esc(tc)}</span>`:''}</div>`;
       html+=`<div class="chat-msg-body" style="color:#8b949e">${drawHtml}${esc(m.text||'(drawing)')}</div></div>`;
       return;
     }
