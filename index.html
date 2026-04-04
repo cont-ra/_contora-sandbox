@@ -343,6 +343,7 @@
   .chat-msg.from-admin { background: #2a0000; color: #f85149; margin-left: auto; border-bottom-right-radius: 3px; }
   .chat-msg.from-artist { background: #0a1929; color: #c9d1d9; margin-right: auto; border-bottom-left-radius: 3px; }
   .chat-msg.from-client { background: #1a1400; color: #d29922; margin-left: auto; border-bottom-right-radius: 3px; }
+  .chat-msg.from-note { background: #0d1117; border: 1px solid #21262d; border-left: 3px solid #3fb950; color: #8b949e; margin-right: auto; font-size: 12px; opacity: 0.8; }
   .chat-msg.deleted { opacity: 0.4; font-style: italic; }
   .chat-msg-header { font-size: 10px; font-weight: 600; margin-bottom: 4px; opacity: 0.7; }
   .chat-msg-reply { font-size: 12px; padding: 4px 8px; border-radius: 4px; margin-bottom: 6px; border-left: 2px solid; cursor: pointer; }
@@ -1649,12 +1650,38 @@ function toggleTodo(mid, lineIdx) {
   render();
 }
 
+function _collectPlayerNotes(id){
+  const notes=[];
+  // Source notes
+  const src=state[id]?.playerNotes||[];
+  src.forEach(n=>{notes.push({...n,_isPlayerNote:true,_version:'Source'});});
+  // Version notes
+  const versions=state[id]?.versions||[];
+  versions.forEach((v,i)=>{
+    (v.notes||[]).forEach(n=>{notes.push({...n,_isPlayerNote:true,_version:v.name||'Version '+(i+1)});});
+  });
+  return notes;
+}
 function renderChat(){
-  const msgs=getChat(noteTaskId),canSend=canChat(noteTaskId);
+  const chatMsgs=getChat(noteTaskId),canSend=canChat(noteTaskId);
+  const playerNotes=_collectPlayerNotes(noteTaskId);
+  // Merge: chat msgs get ts from .ts, player notes too
+  const all=[];
+  chatMsgs.forEach(m=>all.push({...m,_isPlayerNote:false}));
+  playerNotes.forEach(n=>all.push(n));
+  all.sort((a,b)=>(a.ts||0)-(b.ts||0));
+  const msgs=chatMsgs; // keep for reply lookups
   const body=document.getElementById("notePanelBody");
   let html='<div class="chat-messages" id="chatMessages">';
-  if(!msgs.length) html+='<div class="chat-empty">No messages yet</div>';
-  else msgs.forEach(m=>{
+  if(!all.length) html+='<div class="chat-empty">No messages yet</div>';
+  else all.forEach(m=>{
+    if(m._isPlayerNote){
+      const tc=m.tc||'';
+      const drawHtml=m.drawing?`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${m.drawing.color};margin-right:4px"></span>`:'';
+      html+=`<div class="chat-msg from-note"><div class="chat-msg-header">${esc(m.author||'')}<span style="opacity:0.4;margin-left:6px">${esc(m._version)}</span>${tc?` &nbsp;<span style="color:#58a6ff;font-size:11px">${esc(tc)}</span>`:''}</div>`;
+      html+=`<div class="chat-msg-body" style="color:#8b949e">${drawHtml}${esc(m.text||'(drawing)')}</div></div>`;
+      return;
+    }
     const isAdm=m.author==="admin",isCli=m.author==="client",cls=isAdm?"from-admin":isCli?"from-client":"from-artist";
     const del=m.deleted;
     html+=`<div class="chat-msg ${cls}${del?' deleted':''}" data-mid="${m.id}">`;
