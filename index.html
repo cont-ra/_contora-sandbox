@@ -892,11 +892,13 @@ const USER_COLORS=[
 const _defaultRoleColors={admin:"#f85149",artist:"#79c0ff",client:"#3fb950"};
 function getUserColor(id){return state.__users?.[id]?.color||_defaultRoleColors[USERS[id]?.role]||"#8b949e";}
 function openColorPicker(userId,el){
-  closeColorPicker();
+  const existing=document.getElementById("colorPickerDD");
+  if(existing){existing.remove();return;}
   const cur=getUserColor(userId);
   const rect=el.getBoundingClientRect();
   const dd=document.createElement("div");
   dd.className="color-picker-dd";dd.id="colorPickerDD";
+  dd.onclick=(e)=>e.stopPropagation();
   USER_COLORS.forEach(c=>{
     const d=document.createElement("div");
     d.className="cp-dot"+(cur===c?" sel":"");
@@ -906,9 +908,9 @@ function openColorPicker(userId,el){
   });
   dd.style.top=(rect.bottom+4)+"px";dd.style.left=rect.left+"px";
   document.body.appendChild(dd);
-  setTimeout(()=>document.addEventListener("click",_closeColorHandler,{once:true}),0);
+  function onClickOutside(e){if(!dd.contains(e.target)&&e.target!==el){dd.remove();document.removeEventListener("click",onClickOutside);}}
+  setTimeout(()=>document.addEventListener("click",onClickOutside),0);
 }
-function _closeColorHandler(){closeColorPicker();}
 function closeColorPicker(){const d=document.getElementById("colorPickerDD");if(d)d.remove();}
 function setUserColor(id,color){
   if(!state.__users)state.__users={};
@@ -2296,7 +2298,7 @@ function _buildRow(r){
     <td class="category-cell">${isAdmin()?_catTag(r.id,getCat(r.id)):_catTagHtml(getCat(r.id))}</td>
     <td class="tc-cell">${r.tcIn}</td>
     <td class="tc-cell">${r.tcOut}</td>
-    <td><select class="assign-select${assignCls}" onchange="setAssignee('${r.id}',this.value)" ${adm?"":"disabled"}><option value="" ${!r.assignee?"selected":""}>—</option>${artistOpts}</select></td>
+    <td><select class="assign-select" ${r.assignee?`style="border-color:${getUserColor(r.assignee)};color:${getUserColor(r.assignee)}"`:''}  onchange="setAssignee('${r.id}',this.value)" ${adm?"":"disabled"}><option value="" ${!r.assignee?"selected":""}>—</option>${artistOpts}</select></td>
     <td><select class="status-select ${stClass}" onchange="setStatus('${r.id}',this.value,this)" ${editSt?"":"disabled"}>
       <option value="todo" ${st==="todo"?"selected":""}>TODO</option><option value="progress" ${st==="progress"?"selected":""}>In Progress</option>
       <option value="review" ${st==="review"?"selected":""}>Review</option><option value="done" ${st==="done"?"selected":""}>Done</option>
