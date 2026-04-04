@@ -52,9 +52,25 @@
   table { width: 100%; border-collapse: collapse; background: #161b22; border-radius: 8px; overflow: hidden; border: 1px solid #30363d; }
   thead th { background: #21262d; padding: 10px 14px; text-align: left; font-size: 12px; font-weight: 600; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #30363d; cursor: pointer; user-select: none; white-space: nowrap; }
   thead th:hover { color: #c9d1d9; }
-  tbody tr { border-bottom: 1px solid #21262d; transition: 0.1s; }
+  table.hide-admin .admin-col { display: none; }
+  tbody tr { border-bottom: 4px solid #0d1117; transition: 0.1s; }
   tbody tr:hover { background: #1c2128; }
-  tbody td { padding: 10px 14px; font-size: 14px; vertical-align: top; }
+  tbody td { padding: 10px 14px; font-size: 14px; vertical-align: middle; }
+  .prio-tag { display: inline-block; width: 18px; height: 18px; border-radius: 4px; cursor: pointer; border: 1px solid #30363d; background: transparent; transition: .15s; }
+  .prio-tag:hover { border-color: #8b949e; }
+  .prio-tag.prio-red { background: #f85149; border-color: #f85149; }
+  .prio-tag.prio-yellow { background: #d29922; border-color: #d29922; }
+  .prio-tag.prio-green { background: #3fb950; border-color: #3fb950; }
+  .prio-dropdown { position: fixed; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 6px; z-index: 5000; display: flex; gap: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+  .prio-dropdown .prio-opt { width: 24px; height: 24px; border-radius: 4px; cursor: pointer; border: 2px solid transparent; transition: .1s; }
+  .prio-dropdown .prio-opt:hover { transform: scale(1.2); }
+  .prio-dropdown .prio-opt.sel { border-color: #fff; }
+  tr.row-prio-red { background: rgba(248,81,73,0.08) !important; }
+  tr.row-prio-red:hover { background: rgba(248,81,73,0.15) !important; }
+  tr.row-prio-yellow { background: rgba(210,153,34,0.08) !important; }
+  tr.row-prio-yellow:hover { background: rgba(210,153,34,0.15) !important; }
+  tr.row-prio-green { background: rgba(63,185,80,0.08) !important; }
+  tr.row-prio-green:hover { background: rgba(63,185,80,0.15) !important; }
   td.id-cell { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 13px; color: #58a6ff; white-space: nowrap; cursor: pointer; }
   td.id-cell:hover { text-decoration: underline; }
   .shot-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 2500; display: flex; align-items: center; justify-content: center; }
@@ -453,16 +469,17 @@
 
 <table>
   <thead><tr>
-    <th onclick="sortTable(0)">#</th>
-    <th onclick="sortTable(1)">ID</th>
+    <th style="width:30px;cursor:pointer" onclick="togglePrioSort()" id="prioSortTh" title="Sort by priority">⚑</th>
+    <th onclick="sortTable(0)" data-col="0" data-label="#">#</th>
+    <th onclick="sortTable(1)" data-col="1" data-label="ID">ID</th>
     <th>Preview</th>
-    <th onclick="sortTable(2)">Description</th>
-    <th onclick="sortTable(3)">Category</th>
-    <th onclick="sortTable(4)">TC In</th>
-    <th onclick="sortTable(5)">TC Out</th>
-    <th onclick="sortTable(6)">Artist</th>
-    <th onclick="sortTable(7)">Status</th>
-    <th>Admin</th>
+    <th onclick="sortTable(2)" data-col="2" data-label="Description">Description</th>
+    <th onclick="sortTable(3)" data-col="3" data-label="Category">Category</th>
+    <th onclick="sortTable(4)" data-col="4" data-label="TC In">TC In</th>
+    <th onclick="sortTable(5)" data-col="5" data-label="TC Out">TC Out</th>
+    <th onclick="sortTable(6)" data-col="6" data-label="Artist">Artist</th>
+    <th onclick="sortTable(7)" data-col="7" data-label="Status">Status</th>
+    <th class="admin-col">Admin</th>
     <th>Chat</th>
   </tr></thead>
   <tbody id="tbody"></tbody>
@@ -485,6 +502,7 @@ document.getElementById("loginPass").addEventListener("keydown",e=>{if(e.key==="
 async function showLoggedIn(){document.getElementById("loginOverlay").classList.add("hidden");document.getElementById("userBadge").style.display="inline-flex";document.getElementById("userName").textContent=currentUser.display;document.getElementById("userDot").className="dot dot-"+currentUser.id;
   // Pull latest data from remote
   const pulled=await _pullRemote();if(pulled)runMigrations();
+  document.querySelector("table").classList.toggle("hide-admin",!isAdmin());
   render();
 }
 function logout(){sessionStorage.removeItem("kh_user");currentUser=null;document.getElementById("loginOverlay").classList.remove("hidden");document.getElementById("userBadge").style.display="none";document.getElementById("loginPass").value="";document.getElementById("loginError").textContent="";render();}
@@ -730,6 +748,48 @@ _loadCustomCats();
 
 let currentFilter="all",artistFilter="all",searchQuery="",sortCol=-1,sortAsc=true;
 function getStatus(id){return state[id]?.status||"todo";}
+let _prioSort=false;
+const _prioOrder={"red":0,"yellow":1,"green":2,"":3};
+function togglePrioSort(){
+  _prioSort=!_prioSort;
+  const th=document.getElementById("prioSortTh");
+  if(th)th.style.color=_prioSort?'#58a6ff':'';
+  render();
+}
+function getPriority(id){return state[id]?.priority||"";}
+function setPriority(id,val){
+  if(!state[id])state[id]={};
+  state[id].priority=val;
+  saveState(state);
+  closePrioDropdown();
+  render();
+}
+function openPrioDropdown(id,el){
+  closePrioDropdown();
+  const cur=getPriority(id);
+  const rect=el.getBoundingClientRect();
+  const dd=document.createElement("div");
+  dd.className="prio-dropdown";dd.id="prioDropdown";
+  const opts=[
+    {val:"red",color:"#f85149"},
+    {val:"yellow",color:"#d29922"},
+    {val:"green",color:"#3fb950"},
+    {val:"",color:"transparent",border:"#30363d"}
+  ];
+  opts.forEach(o=>{
+    const d=document.createElement("div");
+    d.className="prio-opt"+(cur===o.val?" sel":"");
+    d.style.background=o.color;
+    if(o.border)d.style.border="2px solid "+o.border;
+    d.onclick=(e)=>{e.stopPropagation();setPriority(id,o.val);};
+    dd.appendChild(d);
+  });
+  dd.style.top=(rect.bottom+4)+"px";dd.style.left=rect.left+"px";
+  document.body.appendChild(dd);
+  setTimeout(()=>document.addEventListener("click",_closePrioHandler,{once:true}),0);
+}
+function _closePrioHandler(){closePrioDropdown();}
+function closePrioDropdown(){const d=document.getElementById("prioDropdown");if(d)d.remove();}
 function getAdminNote(id){return state[id]?.adminNote||"";}
 function getChat(id){return state[id]?.artistNotes||[];}
 function getAssignee(id){return state[id]?.assignee||"";}
@@ -1983,6 +2043,7 @@ function render(){
   if(currentFilter!=="all")rows=rows.filter(r=>r.status===currentFilter);
   if(artistFilter!=="all"){if(artistFilter==="unassigned")rows=rows.filter(r=>!r.assignee);else rows=rows.filter(r=>r.assignee===artistFilter);}
   if(sortCol>=0){const keys=["idx","id","desc","cat","tcIn","tcOut","assignee","status"];const k=keys[sortCol];rows.sort((a,b)=>{let va=a[k],vb=b[k];if(typeof va==="string")va=va.toLowerCase();if(typeof vb==="string")vb=vb.toLowerCase();return va<vb?(sortAsc?-1:1):va>vb?(sortAsc?1:-1):0;});}
+  if(_prioSort){rows.sort((a,b)=>{const pa=_prioOrder[getPriority(a.id)]??3,pb=_prioOrder[getPriority(b.id)]??3;return pa-pb;});}
 
   // Build row data for comparison
   const newIds=rows.map(r=>r.id).join(",");
@@ -2002,18 +2063,20 @@ function render(){
       const an=getAdminNote(r.id);
       const cp=chatPreview(r.id);const cpPrev=trunc(cp.text,20);
       const artistOpts=ARTISTS.map(a=>`<option value="${a.id}" ${r.assignee===a.id?"selected":""}>${a.display}</option>`).join("");
-      // [0]=# [1]=ID [2]=gif(skip) [3]=desc [4]=cat [5]=tcIn [6]=tcOut [7]=artist [8]=status [9]=admin [10]=chat
-      // Skip cells 0,1,2,4,5,6 — they never change
+      // [0]=prio [1]=# [2]=ID [3]=gif(skip) [4]=desc [5]=cat [6]=tcIn [7]=tcOut [8]=artist [9]=status [10]=admin [11]=chat
+      const prio=getPriority(r.id);const prioTagClass=prio?'prio-tag prio-'+prio:'prio-tag';
+      if(cells[0]){const box=cells[0].querySelector('.prio-tag');if(box)box.className=prioTagClass;}
+      tr.className=prio?'row-prio-'+prio:'';
       const descHtml=getDesc(r.id,r.desc);
-      if(cells[3]&&cells[3].dataset.tid===r.id){
-        const descTd=cells[3];
+      if(cells[4]&&cells[4].dataset.tid===r.id){
+        const descTd=cells[4];
         if(!descTd.querySelector('.desc-edit-ta'))descTd.innerHTML=descHtml;
       }
-      if(cells[4]){const rc=getCat(r.id);cells[4].innerHTML=isAdmin()?_catTag(r.id,rc):_catTagHtml(rc);}
-      if(cells[7]){const sel=cells[7].querySelector('select');if(sel&&sel.value!==r.assignee)sel.value=r.assignee||"";}
-      if(cells[8]){const sel=cells[8].querySelector('select');if(sel&&sel.value!==st){sel.value=st;sel.className="status-select s-"+st;}}
-      if(cells[9]&&!cells[9].querySelector('.desc-edit-ta'))cells[9].innerHTML=an||'<span style="color:#484f58">...</span>';
-      if(cells[10])cells[10].innerHTML=`<div class="note-cell type-artist${cp.text?' has-text':''}" onclick="openNote('${r.id}','chat')">${cpPrev||'...'} ${cp.count?'<span class="msg-count" style="font-size:10px;color:#58a6ff">('+cp.count+')</span>':''}</div>`;
+      if(cells[5]){const rc=getCat(r.id);cells[5].innerHTML=isAdmin()?_catTag(r.id,rc):_catTagHtml(rc);}
+      if(cells[8]){const sel=cells[8].querySelector('select');if(sel&&sel.value!==r.assignee)sel.value=r.assignee||"";}
+      if(cells[9]){const sel=cells[9].querySelector('select');if(sel&&sel.value!==st){sel.value=st;sel.className="status-select s-"+st;}}
+      if(cells[10]&&!cells[10].querySelector('.desc-edit-ta'))cells[10].innerHTML=an||'<span style="color:#484f58">...</span>';
+      if(cells[11])cells[11].innerHTML=`<div class="note-cell type-artist${cp.text?' has-text':''}" onclick="openNote('${r.id}','chat')">${cpPrev||'...'} ${cp.count?'<span class="msg-count" style="font-size:10px;color:#58a6ff">('+cp.count+')</span>':''}</div>`;
     });
   }
   updateStats();
@@ -2025,7 +2088,11 @@ function _buildRow(r){
   const an=getAdminNote(r.id);
   const cp=chatPreview(r.id);const cpPrev=trunc(cp.text,20);
   const artistOpts=ARTISTS.map(a=>`<option value="${a.id}" ${r.assignee===a.id?"selected":""}>${a.display}</option>`).join("");
-  return `<tr>
+  const prio=getPriority(r.id);
+  const prioTagClass=prio?'prio-tag prio-'+prio:'prio-tag';
+  const rowPrioClass=prio?'row-prio-'+prio:'';
+  return `<tr class="${rowPrioClass}">
+    <td><div class="${prioTagClass}" onclick="event.stopPropagation();openPrioDropdown('${r.id}',this)"></div></td>
     <td style="color:#484f58">${r.idx}</td>
     <td class="id-cell" onclick="openShot('${r.id}')">${r.id}</td>
     <td class="gif-cell">${hasGif(r.id)?`<div class="gif-thumb-wrap" onclick="openGif('${r.id}')"><img class="gif-thumb" src="${CDN_BASE}/thumbs/${r.id}.jpg" loading="lazy"><div class="gif-play-icon"></div></div>`:'<div class="gif-none">—</div>'}</td>
@@ -2038,7 +2105,7 @@ function _buildRow(r){
       <option value="todo" ${st==="todo"?"selected":""}>TODO</option><option value="progress" ${st==="progress"?"selected":""}>In Progress</option>
       <option value="review" ${st==="review"?"selected":""}>Review</option><option value="done" ${st==="done"?"selected":""}>Done</option>
       <option value="skip" ${st==="skip"?"selected":""}>Skip</option></select></td>
-    <td class="desc-cell${canEditAdminNote()?' editable':''}" ${canEditAdminNote()?`onclick="startEditAdmin('${r.id}',this,event)"`:''} data-tid="${r.id}">${an||'<span style="color:#484f58">...</span>'}</td>
+    <td class="desc-cell admin-col${canEditAdminNote()?' editable':''}" ${canEditAdminNote()?`onclick="startEditAdmin('${r.id}',this,event)"`:''} data-tid="${r.id}">${an||'<span style="color:#484f58">...</span>'}</td>
     <td><div class="note-cell type-artist${cp.text?' has-text':''}" onclick="openNote('${r.id}','chat')">${cpPrev||'...'} ${cp.count?'<span class="msg-count" style="font-size:10px;color:#58a6ff">('+cp.count+')</span>':''}</div></td>
   </tr>`;
 }
@@ -2104,7 +2171,15 @@ function saveAdmin(tid,ta){
 
 function setStatus(id,val,el){if(!canEditStatus(id))return;if(!state[id])state[id]={};state[id].status=val;saveState(state);el.className="status-select s-"+val;updateStats();}
 function setAssignee(id,val){if(!canAssign())return;if(!state[id])state[id]={};state[id].assignee=val;saveState(state);render();}
-function sortTable(col){if(sortCol===col)sortAsc=!sortAsc;else{sortCol=col;sortAsc=true;}render();}
+function sortTable(col){if(sortCol===col)sortAsc=!sortAsc;else{sortCol=col;sortAsc=true;}_updateSortArrows();render();}
+const _arrowCols=new Set([1,4,5]); // ID, TC In, TC Out
+function _updateSortArrows(){
+  document.querySelectorAll('thead th[data-col]').forEach(th=>{
+    const c=parseInt(th.dataset.col);
+    const base=th.dataset.label||'';
+    th.innerHTML=(c===sortCol&&_arrowCols.has(c))?base+' '+(sortAsc?'▼':'▲'):base;
+  });
+}
 document.getElementById("search").addEventListener("input",e=>{searchQuery=e.target.value;render();});
 document.querySelectorAll(".filter-btn").forEach(b=>{b.addEventListener("click",()=>{document.querySelectorAll(".filter-btn").forEach(x=>x.classList.remove("active"));b.classList.add("active");currentFilter=b.dataset.filter;render();});});
 document.querySelectorAll(".artist-filter-btn").forEach(b=>{b.addEventListener("click",()=>{document.querySelectorAll(".artist-filter-btn").forEach(x=>x.classList.remove("active"));b.classList.add("active");artistFilter=b.dataset.artist;render();});});
