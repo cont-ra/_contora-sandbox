@@ -242,7 +242,7 @@
   td.desc-cell.editable:hover { background: #1c2128; outline: 1px solid #30363d; }
   .shot-info-cell { font-size: 13px; color: #8b949e; cursor: pointer; min-width: 300px; vertical-align: top !important; padding-top: 32px !important; }
   .shot-info-cell:hover { color: #c9d1d9; }
-  .si-tooltip { position: fixed; background: rgba(22,27,34,0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid #30363d; border-radius: 10px; padding: 14px 18px; z-index: 5000; pointer-events: none; min-width: 280px; max-width: 360px; transition: opacity 0.2s; }
+  .si-tooltip { position: fixed; background: rgba(22,27,34,0.65); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(48,54,61,0.6); border-radius: 10px; padding: 16px 20px; z-index: 5000; pointer-events: none; min-width: 340px; max-width: 420px; transition: top 0.4s ease-out, left 0.4s ease-out, opacity 0.3s; }
   .si-tooltip.pinned { background: #161b22; opacity: 1 !important; pointer-events: auto; box-shadow: 0 8px 24px rgba(0,0,0,0.6); }
   .si-tooltip .si-tt-title { font-size: 13px; color: #58a6ff; font-weight: 600; margin-bottom: 10px; font-family: 'SF Mono', monospace; }
   .si-tooltip .si-tt-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #21262d; }
@@ -1447,30 +1447,35 @@ function _siTooltipHtml(id){
   if(!rows)rows='<div style="color:#484f58;font-size:12px">No data</div>';
   return`<div class="si-tt-title">${id}</div>${rows}`;
 }
+function _clampTooltip(tt,x,y){
+  const pad=60;
+  let left=x+pad;
+  let top=y;
+  requestAnimationFrame(()=>{
+    const r=tt.getBoundingClientRect();
+    if(left+r.width>window.innerWidth-12)left=x-r.width-20;
+    if(left<8)left=8;
+    if(top+r.height>window.innerHeight-12)top=window.innerHeight-r.height-12;
+    if(top<8)top=8;
+    tt.style.left=left+'px';
+    tt.style.top=top+'px';
+  });
+  tt.style.left=left+'px';
+  tt.style.top=top+'px';
+}
 function showSiTooltip(id,e){
   if(_siTooltipPinned)return;
   let tt=document.getElementById('siTooltip');
   if(!tt){tt=document.createElement('div');tt.className='si-tooltip';tt.id='siTooltip';document.body.appendChild(tt);}
   tt.innerHTML=_siTooltipHtml(id);
   tt.style.opacity='1';
-  tt.style.top=e.clientY+'px';
-  tt.style.left=(e.clientX+16)+'px';
-  // Keep in viewport
-  requestAnimationFrame(()=>{
-    const r=tt.getBoundingClientRect();
-    if(r.right>window.innerWidth)tt.style.left=(e.clientX-r.width-16)+'px';
-    if(r.bottom>window.innerHeight)tt.style.top=(window.innerHeight-r.height-8)+'px';
-  });
+  _clampTooltip(tt,e.clientX,e.clientY);
 }
 function moveSiTooltip(e){
   if(_siTooltipPinned)return;
   const tt=document.getElementById('siTooltip');
   if(!tt)return;
-  tt.style.top=e.clientY+'px';
-  tt.style.left=(e.clientX+16)+'px';
-  const r=tt.getBoundingClientRect();
-  if(r.right>window.innerWidth)tt.style.left=(e.clientX-r.width-16)+'px';
-  if(r.bottom>window.innerHeight)tt.style.top=(window.innerHeight-r.height-8)+'px';
+  _clampTooltip(tt,e.clientX,e.clientY);
 }
 function hideSiTooltip(){
   if(_siTooltipPinned)return;
