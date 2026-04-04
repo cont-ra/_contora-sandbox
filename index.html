@@ -109,6 +109,7 @@
   .gif-player-area { display: flex; flex-direction: column; align-items: center; gap: 12px; }
   .player-with-notes { display: flex; align-items: stretch; gap: 16px; max-width: 95vw; max-height: 90vh; }
   .video-with-versions { display: flex; align-items: stretch; gap: 10px; }
+  .video-col-inner { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
   .player-versions-panel { width: 160px; min-width: 140px; background: #161b22; border: 1px solid #30363d; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0; }
   .pv-header { padding: 8px 10px; border-bottom: 1px solid #30363d; color: #8b949e; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
   .pv-list { flex: 1; overflow-y: auto; padding: 4px; display: flex; flex-direction: column; gap: 2px; }
@@ -174,7 +175,9 @@
   /* Drawing overlay */
   #drawCanvas { position: absolute; top: 0; left: 0; border-radius: 8px; z-index: 5; pointer-events: none; }
   #drawCanvas.active { pointer-events: auto; cursor: crosshair; }
-  .draw-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .draw-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; width: 100%; }
+  .draw-tools { display: none; align-items: center; gap: 8px; }
+  .draw-tools.visible { display: flex; }
   .draw-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 5px; }
   .draw-btn:hover { background: rgba(255,255,255,0.2); }
   .draw-btn.active { background: #f85149; border-color: #f85149; }
@@ -339,30 +342,33 @@
   <div class="gif-player-area" id="gifPlayerArea">
     <div class="player-with-notes">
       <div class="player-video-col">
-        <div class="draw-toolbar">
-          <button class="draw-btn active" id="drawTool_pen" onclick="setDrawTool('pen',this)">&#9998; Pen</button>
-          <button class="draw-btn" id="drawTool_triangle" onclick="setDrawTool('triangle',this)">△ Triangle</button>
-          <button class="draw-btn" id="drawTool_rect" onclick="setDrawTool('rect',this)">▭ Rect</button>
-          <button class="draw-btn" id="drawTool_circle" onclick="setDrawTool('circle',this)">○ Circle</button>
-          <button class="draw-btn" id="drawTool_arrow" onclick="setDrawTool('arrow',this)">→ Arrow</button>
-          <span style="color:#30363d;font-size:18px">|</span>
-          <button class="draw-btn" id="drawToggle" onclick="toggleDraw()">&#9998; Draw</button>
-          <button class="draw-color selected" id="dc_red" style="background:#f85149" onclick="setDrawColor('#f85149',this)"></button>
-          <button class="draw-color" id="dc_yellow" style="background:#d29922" onclick="setDrawColor('#d29922',this)"></button>
-          <button class="draw-color" id="dc_green" style="background:#3fb950" onclick="setDrawColor('#3fb950',this)"></button>
-          <button class="draw-color" id="dc_blue" style="background:#58a6ff" onclick="setDrawColor('#58a6ff',this)"></button>
-          <button class="draw-color" id="dc_white" style="background:#ffffff" onclick="setDrawColor('#ffffff',this)"></button>
-          <input type="range" class="draw-size" id="drawSize" min="2" max="16" value="4" title="Brush size">
-          <button class="draw-btn" onclick="undoDraw()">&#8617; Undo</button>
-          <button class="draw-btn" onclick="clearDraw()">&#10005; Clear</button>
-        </div>
         <div class="video-with-versions">
           <div class="player-versions-panel" id="playerVersionsPanel">
             <div class="pv-header">Versions</div>
             <div class="pv-list" id="pvList"></div>
           </div>
-          <div class="video-wrap" id="videoWrap">
-            <video id="gifVideo" loop muted playsinline onclick="toggleGifPause()"></video>
+          <div class="video-col-inner">
+            <div class="draw-toolbar">
+              <button class="draw-btn" id="drawToggle" onclick="toggleDraw()">&#9998; Draw</button>
+              <span class="draw-tools" id="drawTools">
+                <button class="draw-btn active" id="drawTool_pen" onclick="setDrawTool('pen',this)">&#9998; Pen</button>
+                <button class="draw-btn" id="drawTool_triangle" onclick="setDrawTool('triangle',this)">△ Triangle</button>
+                <button class="draw-btn" id="drawTool_rect" onclick="setDrawTool('rect',this)">▭ Rect</button>
+                <button class="draw-btn" id="drawTool_circle" onclick="setDrawTool('circle',this)">○ Circle</button>
+                <button class="draw-btn" id="drawTool_arrow" onclick="setDrawTool('arrow',this)">→ Arrow</button>
+                <button class="draw-color selected" id="dc_red" style="background:#f85149" onclick="setDrawColor('#f85149',this)"></button>
+                <button class="draw-color" id="dc_yellow" style="background:#d29922" onclick="setDrawColor('#d29922',this)"></button>
+                <button class="draw-color" id="dc_green" style="background:#3fb950" onclick="setDrawColor('#3fb950',this)"></button>
+                <button class="draw-color" id="dc_blue" style="background:#58a6ff" onclick="setDrawColor('#58a6ff',this)"></button>
+                <button class="draw-color" id="dc_white" style="background:#ffffff" onclick="setDrawColor('#ffffff',this)"></button>
+                <input type="range" class="draw-size" id="drawSize" min="2" max="16" value="4" title="Brush size">
+                <button class="draw-btn" onclick="undoDraw()">&#8617; Undo</button>
+                <button class="draw-btn" onclick="clearDraw()">&#10005; Clear</button>
+              </span>
+            </div>
+            <div class="video-wrap" id="videoWrap">
+              <video id="gifVideo" loop muted playsinline onclick="toggleGifPause()"></video>
+            </div>
           </div>
         </div>
         <div class="gif-controls">
@@ -1321,18 +1327,20 @@ function _redrawAll(){
 function toggleDraw(){
   _drawMode=!_drawMode;
   const btn=document.getElementById("drawToggle");
+  const tools=document.getElementById("drawTools");
   let cv=document.getElementById("drawCanvas");
   if(_drawMode){
     btn.classList.add("active");
-    // Ensure drawCanvas exists and sized correctly
+    if(tools)tools.classList.add("visible");
     if(!cv){_initDrawCanvas();cv=document.getElementById("drawCanvas");}
     if(cv){
-      const vid=_vid();
-      if(vid){const r=vid.getBoundingClientRect();cv.style.width=r.width+"px";cv.style.height=r.height+"px";}
+      const vr=_getVideoRect();
+      if(vr){cv.style.left=vr.left+"px";cv.style.top=vr.top+"px";cv.style.width=vr.width+"px";cv.style.height=vr.height+"px";}
       cv.classList.add("active");
     }
   } else {
     btn.classList.remove("active");
+    if(tools)tools.classList.remove("visible");
     if(cv)cv.classList.remove("active");
   }
 }
