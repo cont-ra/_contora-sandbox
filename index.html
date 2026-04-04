@@ -48,6 +48,12 @@
   .add-artist-form input:focus { border-color: #1f6feb; outline: none; }
   .user-regen { background: none; border: none; color: #484f58; cursor: pointer; font-size: 13px; padding: 2px 4px; flex-shrink: 0; }
   .user-regen:hover { color: #d29922; }
+  .artist-dot.clickable { cursor: pointer; transition: .15s; }
+  .artist-dot.clickable:hover { transform: scale(1.3); }
+  .color-picker-dd { position: fixed; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 8px; z-index: 7000; display: flex; flex-wrap: wrap; gap: 6px; width: 174px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+  .color-picker-dd .cp-dot { width: 22px; height: 22px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: .1s; }
+  .color-picker-dd .cp-dot:hover { transform: scale(1.2); }
+  .color-picker-dd .cp-dot.sel { border-color: #fff; }
   .generated-key { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 10px 12px; margin-top: 12px; display: flex; align-items: center; gap: 8px; }
   .generated-key code { color: #3fb950; font-family: 'SF Mono', monospace; font-size: 14px; flex: 1; word-break: break-all; }
   .generated-key button { background: #21262d; border: 1px solid #30363d; color: #c9d1d9; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; }
@@ -855,16 +861,15 @@ function _renderUserList(){
   const allUsers=Object.entries(USERS);
   allUsers.forEach(([id,u])=>{
     const key=state.__users?.[id]?.plainKey||"";
-    const roleColors={admin:"#f97583",artist:"#79c0ff",client:"#7ee787"};
-    const rc=roleColors[u.role]||"#8b949e";
+    const rc=getUserColor(id);
     html+=`<div class="artist-row">`;
-    html+=`<div class="artist-dot" style="background:${rc}"></div>`;
+    html+=`<div class="artist-dot clickable" style="background:${rc}" onclick="openColorPicker('${id}',this)"></div>`;
     html+=`<span class="artist-name">${esc(u.display)}</span>`;
     if(u.role==='admin'){
-      html+=`<span style="color:${rc};font-size:11px;text-transform:uppercase;font-weight:600">admin</span>`;
+      html+=`<span style="color:#f85149;font-size:11px;text-transform:uppercase;font-weight:600">admin</span>`;
     } else {
       const roleOpts=["artist","client"].map(r=>`<option value="${r}"${u.role===r?' selected':''}>${r}</option>`).join("");
-      html+=`<select class="user-role-select" onchange="changeUserRole('${id}',this.value)" style="background:#0d1117;border:1px solid #30363d;color:${rc};padding:2px 6px;border-radius:4px;font-size:11px;text-transform:uppercase">${roleOpts}</select>`;
+      html+=`<select class="user-role-select" onchange="changeUserRole('${id}',this.value)" style="background:#0d1117;border:1px solid #30363d;color:#8b949e;padding:2px 6px;border-radius:4px;font-size:11px;text-transform:uppercase">${roleOpts}</select>`;
     }
     if(key){
       html+=`<code class="user-key" onclick="navigator.clipboard.writeText('${key}');this.style.color='#3fb950';setTimeout(()=>this.style.color='',800)" title="Click to copy">${key}</code>`;
@@ -878,6 +883,42 @@ function _renderUserList(){
   return html;
 }
 function closeUserManager(){const d=document.getElementById("artistManagerOverlay");if(d)d.remove();}
+const USER_COLORS=[
+  "#f85149","#ff7b72","#ffa657","#d29922","#e3b341",
+  "#3fb950","#56d364","#39d353","#2ea043","#0d8a6a",
+  "#58a6ff","#79c0ff","#388bfd","#1f6feb","#6e7681",
+  "#d2a8ff","#bc8cff","#f778ba","#ff9bce","#c9d1d9"
+];
+const _defaultRoleColors={admin:"#f85149",artist:"#79c0ff",client:"#3fb950"};
+function getUserColor(id){return state.__users?.[id]?.color||_defaultRoleColors[USERS[id]?.role]||"#8b949e";}
+function openColorPicker(userId,el){
+  closeColorPicker();
+  const cur=getUserColor(userId);
+  const rect=el.getBoundingClientRect();
+  const dd=document.createElement("div");
+  dd.className="color-picker-dd";dd.id="colorPickerDD";
+  USER_COLORS.forEach(c=>{
+    const d=document.createElement("div");
+    d.className="cp-dot"+(cur===c?" sel":"");
+    d.style.background=c;
+    d.onclick=(e)=>{e.stopPropagation();setUserColor(userId,c);};
+    dd.appendChild(d);
+  });
+  dd.style.top=(rect.bottom+4)+"px";dd.style.left=rect.left+"px";
+  document.body.appendChild(dd);
+  setTimeout(()=>document.addEventListener("click",_closeColorHandler,{once:true}),0);
+}
+function _closeColorHandler(){closeColorPicker();}
+function closeColorPicker(){const d=document.getElementById("colorPickerDD");if(d)d.remove();}
+function setUserColor(id,color){
+  if(!state.__users)state.__users={};
+  if(!state.__users[id])state.__users[id]={...USERS[id]};
+  state.__users[id].color=color;
+  saveState(state);
+  closeColorPicker();
+  document.getElementById("userList").innerHTML=_renderUserList();
+  render();
+}
 function _generateKey(len){
   const chars="ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
   let r="";for(let i=0;i<len;i++)r+=chars[Math.floor(Math.random()*chars.length)];
