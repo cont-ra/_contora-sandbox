@@ -1066,7 +1066,8 @@ function changeUserRole(id,role){
 function copyAuthLink(id){
   const lt=state.__users?.[id]?.linkToken;
   if(!lt)return;
-  const url=window.location.origin+window.location.pathname+'?auth='+lt;
+  const base=window.location.hostname==='localhost'?'https://spark700.github.io/kh-vfx-tracker/':window.location.origin+window.location.pathname;
+  const url=base+'?auth='+lt;
   navigator.clipboard.writeText(url);
   // Flash feedback
   const btn=event.target;
