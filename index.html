@@ -1438,8 +1438,8 @@ let _siTooltipPinned=false,_siTargetX=0,_siTargetY=0,_siCurX=0,_siCurY=0,_siRaf=
 function _siLerp(){
   const tt=document.getElementById('siTooltip');
   if(!tt||_siTooltipPinned){_siRaf=null;return;}
-  _siCurX+=(_siTargetX-_siCurX)*0.06;
-  _siCurY+=(_siTargetY-_siCurY)*0.06;
+  _siCurX+=(_siTargetX-_siCurX)*0.03;
+  _siCurY+=(_siTargetY-_siCurY)*0.03;
   tt.style.left=Math.round(_siCurX)+'px';
   tt.style.top=Math.round(_siCurY)+'px';
   if(Math.abs(_siTargetX-_siCurX)>0.5||Math.abs(_siTargetY-_siCurY)>0.5){
@@ -1462,12 +1462,12 @@ function _calcTooltipPos(tt,mx,my){
   const r=tt.getBoundingClientRect();
   const h=r.height||200;
   const w=r.width||340;
-  let left=mx+150;
+  let left=mx+250;
   let top=my-h/2;
-  if(left+w>window.innerWidth-12)left=mx-w-20;
-  if(left<8)left=8;
-  if(top+h>window.innerHeight-12)top=window.innerHeight-h-12;
-  if(top<8)top=8;
+  if(left+w>window.innerWidth-40)left=mx-w-80;
+  if(left<40)left=40;
+  if(top+h>window.innerHeight-40)top=window.innerHeight-h-40;
+  if(top<40)top=40;
   return{left,top};
 }
 function showSiTooltip(id,e){
