@@ -1019,65 +1019,185 @@ function _renderShotInfo(id){
 }
 const SI_OPTIONS={
   camera:[
-    "ARRI Alexa Mini","ARRI Alexa Mini LF","ARRI Alexa 35","ARRI Alexa SXT","ARRI Alexa LF",
-    "RED V-Raptor","RED V-Raptor XL","RED DSMC2 Monstro 8K","RED DSMC2 Helium 8K","RED DSMC2 Gemini 5K","RED Komodo 6K","RED Komodo-X",
-    "Sony Venice","Sony Venice 2","Sony FX9","Sony FX6","Sony FX3","Sony A7S III","Sony A1",
-    "Canon C500 Mark II","Canon C300 Mark III","Canon C70","Canon R5 C","Canon R5",
-    "Blackmagic URSA Mini Pro 12K","Blackmagic URSA Mini Pro G2","Blackmagic Pocket 6K Pro","Blackmagic Pocket 4K",
-    "Panasonic VariCam LT","Panasonic S1H","Panasonic GH6",
-    "Nikon Z9","Nikon Z8",
-    "DJI Ronin 4D","DJI Inspire 3","DJI Mavic 3 Cine",
-    "GoPro Hero 12","GoPro Hero 11","Insta360 X4",
-    "iPhone 15 Pro Max","iPhone 16 Pro Max",
-    "Phantom Flex4K","Phantom VEO 4K",
+    // ARRI
+    "ARRI Alexa 35","ARRI Alexa Mini LF","ARRI Alexa Mini","ARRI Alexa LF","ARRI Alexa SXT W","ARRI Alexa SXT Plus","ARRI Alexa Plus 4:3","ARRI Alexa Studio","ARRI Alexa XT","ARRI Alexa Classic","ARRI Amira","ARRI Alexa 65","ARRI 416","ARRI 235","ARRI 535",
+    // RED
+    "RED V-Raptor [X]","RED V-Raptor XL","RED V-Raptor","RED DSMC2 Monstro 8K VV","RED DSMC2 Helium 8K S35","RED DSMC2 Gemini 5K S35","RED DSMC2 Dragon-X 6K S35","RED Komodo 6K","RED Komodo-X 6K","RED Ranger Monstro","RED Ranger Gemini","RED Epic Dragon","RED Epic-W","RED Scarlet-W","RED Raven","RED One MX","RED One",
+    // Sony
+    "Sony Venice 2","Sony Venice","Sony FX9","Sony FX6","Sony FX3","Sony FX30","Sony FS7 II","Sony FS7","Sony FS5 II","Sony FS5","Sony F65","Sony F55","Sony F5","Sony F35","Sony F23","Sony A7S III","Sony A7S II","Sony A7 IV","Sony A7R V","Sony A1","Sony A9 III","Sony ZV-E1","Sony FR7",
+    // Canon
+    "Canon C500 Mark II","Canon C300 Mark III","Canon C300 Mark II","Canon C300","Canon C200","Canon C100 Mark II","Canon C70","Canon R5 C","Canon R5","Canon R5 Mark II","Canon R6 Mark II","Canon R3","Canon R7","Canon 1D X Mark III","Canon C700 FF","Canon C700",
+    // Blackmagic
+    "Blackmagic URSA Mini Pro 12K","Blackmagic URSA Mini Pro G2","Blackmagic URSA Mini Pro","Blackmagic URSA Mini 4.6K","Blackmagic URSA 12K","Blackmagic URSA Cine 12K","Blackmagic Pocket 6K G2","Blackmagic Pocket 6K Pro","Blackmagic Pocket 6K","Blackmagic Pocket 4K","Blackmagic Micro Cinema","Blackmagic Production Camera 4K","Blackmagic PYXIS 6K",
+    // Panasonic
+    "Panasonic VariCam 35","Panasonic VariCam LT","Panasonic VariCam Pure","Panasonic EVA1","Panasonic S1H","Panasonic S5 II","Panasonic S5 IIX","Panasonic GH6","Panasonic GH5S","Panasonic GH5 Mark II","Panasonic GH5","Panasonic BGH1","Panasonic BS1H",
+    // Nikon
+    "Nikon Z9","Nikon Z8","Nikon Z6 III","Nikon Z6 II","Nikon Z5","Nikon D6","Nikon D850",
+    // Fujifilm
+    "Fujifilm X-H2S","Fujifilm X-H2","Fujifilm X-T5","Fujifilm GFX 100 II","Fujifilm GFX 100S","Fujifilm GFX 50S II",
+    // Kinefinity
+    "Kinefinity MAVO Edge 8K","Kinefinity MAVO Edge 6K","Kinefinity MAVO LF","Kinefinity MAVO S35","Kinefinity Terra 4K",
+    // Z CAM
+    "Z CAM E2-F8","Z CAM E2-F6","Z CAM E2-S6","Z CAM E2-M4","Z CAM E2","Z CAM E2-S6G",
+    // Sigma
+    "Sigma fp L","Sigma fp",
+    // Hasselblad
+    "Hasselblad X2D 100C","Hasselblad X1D II","Hasselblad H6D-100c",
+    // Phantom / High-Speed
+    "Phantom Flex4K","Phantom VEO 4K-PL","Phantom VEO 4K","Phantom VEO 1310","Phantom VEO 710","Phantom v2640","Phantom v2512","Phantom v2012","Phantom v1840","Phantom v1612","Phantom v1210","Phantom v711","Phantom Miro M320S","Photron FASTCAM SA-Z","Photron FASTCAM Nova S","Chronos 2.1-HD","Chronos 1.4",
+    // Panavision
+    "Panavision Millennium DXL2","Panavision Millennium DXL","Panavision Genesis",
+    // DJI
+    "DJI Ronin 4D-8K","DJI Ronin 4D-6K","DJI Inspire 3","DJI Inspire 2 (X7)","DJI Mavic 3 Cine","DJI Mavic 3 Pro","DJI Air 3","DJI Mini 4 Pro","DJI Avata 2","DJI FPV","DJI Action 4",
+    // GoPro
+    "GoPro Hero 13","GoPro Hero 12","GoPro Hero 11","GoPro Hero 10","GoPro Hero 9","GoPro Max",
+    // 360 / Action
+    "Insta360 X4","Insta360 X3","Insta360 One RS","Insta360 Titan","Insta360 Pro 2",
+    // Mobile
+    "iPhone 16 Pro Max","iPhone 16 Pro","iPhone 15 Pro Max","iPhone 15 Pro","iPhone 14 Pro Max","iPhone 13 Pro Max","Samsung Galaxy S24 Ultra","Samsung Galaxy S23 Ultra","Google Pixel 8 Pro",
+    // IMAX
+    "ARRI Alexa IMAX","IMAX MSM 9802","Panavision Panaflex System 65",
+    // Film
+    "Arricam ST","Arricam LT","Aaton Penelope","Aaton XTR Prod","Panavision Panaflex Platinum","Panavision Panaflex Gold II","Mitchell BNC","Eclair NPR",
   ],
   sensor:[
-    "FF 36×24mm","LF 36.7×25.54mm","S35 23.76×13.365mm","S35 25.12×18.84mm",
-    "RED Monstro 40.96×21.6mm","RED Helium 29.9×15.77mm","RED Gemini 30.72×18mm","RED Komodo 27.03×14.26mm",
-    "ARRI ALEV III S35 28.17×18.13mm","ARRI ALEV IV LF 36.7×25.54mm","ARRI ALEV 35 27.99×19.22mm",
-    "Sony Venice FF 36×24mm","Sony S35 23.3×13.1mm",
-    "Canon DGO S35 26.2×13.8mm","Canon FF 36×24mm",
-    "MFT 17.3×13mm","APS-C 23.5×15.6mm","1\" 13.2×8.8mm",
-    "1/1.3\" 9.8×7.3mm","1/2.3\" 6.17×4.55mm",
+    // Large Format / Full Frame
+    "VistaVision 37.72×25.17mm","FF 36×24mm","LF 36.7×25.54mm","ARRI ALEV IV LF 36.7×25.54mm","Sony Venice FF 36×24mm","Canon FF 36×24mm",
+    // ARRI
+    "ARRI ALEV 35 (Alexa 35) 27.99×19.22mm","ARRI ALEV III S35 28.17×18.13mm","ARRI ALEV III Open Gate 28.17×18.13mm","ARRI 65 54.12×25.59mm",
+    // RED
+    "RED Monstro 8K VV 40.96×21.6mm","RED Helium 8K S35 29.9×15.77mm","RED Dragon 6K S35 30.72×15.12mm","RED Gemini 5K S35 30.72×18mm","RED Komodo 6K S35 27.03×14.26mm",
+    // Sony
+    "Sony Venice FF 36×24mm","Sony Venice 2 FF 36×24mm","Sony S35 23.3×13.1mm","Sony F65 S35 24.7×13.1mm",
+    // Canon
+    "Canon DGO S35 26.2×13.8mm","Canon C500II FF 38.1×20.1mm","Canon C70 S35 26.2×13.8mm",
+    // Blackmagic
+    "BMD 12K S35 27.03×14.26mm","BMD 6K S35 23.1×12.99mm","BMD 4K MFT 18.96×10mm",
+    // Standard formats
+    "S35 24.89×18.66mm (3-perf)","S35 24.89×13.86mm (2-perf)","S16 12.52×7.41mm","16mm 10.26×7.49mm",
+    "APS-H 27.9×18.6mm","APS-C 23.5×15.6mm","APS-C Canon 22.3×14.9mm",
+    "MFT 17.3×13mm","1\" 13.2×8.8mm","1/1.3\" 9.8×7.3mm","2/3\" 8.8×6.6mm","1/2\" 6.4×4.8mm","1/2.3\" 6.17×4.55mm",
+    // Medium / Large
+    "Medium Format 43.8×32.9mm","Medium Format 44×33mm","Fuji GFX 43.8×32.9mm","Hasselblad 43.8×32.9mm",
+    "65mm film 52.48×23.01mm","IMAX 15/70 69.6×48.5mm","IMAX 70mm 48.5×22.1mm",
   ],
   lens:[
-    "ARRI Signature Prime","ARRI Master Prime","ARRI Ultra Prime","ARRI/Zeiss Master Anamorphic",
-    "Zeiss Supreme Prime","Zeiss CP.3","Zeiss Compact Prime CP.2",
-    "Cooke S7/i Full Frame","Cooke S4/i","Cooke 5/i","Cooke Anamorphic/i",
-    "Canon CN-E Prime","Canon CN-R Prime","Canon Sumire Prime",
-    "Sony CineAlta Prime","Sigma Cine FF Classic","Sigma Cine FF High Speed",
-    "Leica Summicron-C","Leica Summilux-C","Leica Thalia",
-    "Panavision Primo 70","Panavision Ultra Vista","Panavision Anamorphic G-series",
-    "Angenieux EZ-1 30-90mm","Angenieux EZ-2 15-40mm","Angenieux Optimo 24-290mm","Angenieux Optimo Prime",
-    "Canon CN-E 30-300mm","Canon CN20×50 50-1000mm",
-    "Fujinon Premista 28-100mm","Fujinon Premista 80-250mm",
-    "Tokina Vista Prime","Atlas Orion Anamorphic","Tribe7 Blackwing7",
-    "DJI DL 24mm","DJI DL 35mm","DJI DL 50mm",
-    "14mm","16mm","18mm","21mm","24mm","25mm","28mm","32mm","35mm","40mm","50mm","65mm","75mm","85mm","100mm","135mm","150mm","200mm","300mm",
+    // ARRI Primes
+    "ARRI Signature Prime","ARRI Master Prime","ARRI Ultra Prime","ARRI/Zeiss Standard Speed","ARRI/Zeiss Super Speed","ARRI/Zeiss High Speed",
+    // ARRI Zooms
+    "ARRI Signature Zoom 24-75mm","ARRI Signature Zoom 45-135mm","ARRI Alura 18-80mm","ARRI Alura 30-80mm","ARRI Alura 45-250mm","ARRI Alura 15.5-45mm",
+    // ARRI Anamorphic
+    "ARRI/Zeiss Master Anamorphic","ARRI Master Anamorphic Flare",
+    // Zeiss
+    "Zeiss Supreme Prime","Zeiss Supreme Prime Radiance","Zeiss CP.3","Zeiss CP.3 XD","Zeiss Compact Prime CP.2","Zeiss DigiPrime","Zeiss Ultra 16","Zeiss Standard Speed MK2","Zeiss Super Speed MK2","Zeiss Super Speed MK3",
+    // Cooke
+    "Cooke S8/i Full Frame","Cooke S7/i Full Frame","Cooke S4/i","Cooke 5/i","Cooke Panchro/i Classic","Cooke miniS4/i","Cooke Speed Panchro (vintage)","Cooke Anamorphic/i Full Frame","Cooke Anamorphic/i","Cooke Anamorphic/i SF","Cooke Varotal 18-100mm","Cooke CXX 15-40mm","Cooke Zoom 25-250mm",
+    // Canon
+    "Canon CN-E Prime","Canon CN-R Prime","Canon Sumire Prime","Canon CN-E 14.5-60mm","Canon CN-E 30-300mm","Canon CN-E 15.5-47mm","Canon CN-E 30-105mm","Canon CN7×17 17-120mm","Canon CN10×25 25-250mm","Canon CN20×50 50-1000mm","Canon K-35 (vintage)","Canon FD (vintage)",
+    // Sony
+    "Sony CineAlta Prime","Sony CineAlta 4K Zoom 18-252mm",
+    // Sigma
+    "Sigma Cine FF Classic Art","Sigma Cine FF High Speed","Sigma 18-35mm T2 Cine","Sigma 50-100mm T2 Cine","Sigma Cine Zoom 24-35mm","Sigma Art (photo)",
+    // Leica
+    "Leica Summicron-C","Leica Summilux-C","Leica Thalia","Leica M 0.8 (cine-mod)","Leitz Prime (vintage)",
+    // Panavision
+    "Panavision Primo 70","Panavision Primo","Panavision Ultra Vista","Panavision Anamorphic G-series","Panavision Anamorphic E-series","Panavision Anamorphic C-series","Panavision Sphero 65","Panavision Ultra Speed MKII","Panavision Standard Prime","Panavision PVintage","Panavision Primo Zoom 17.5-75mm","Panavision Primo Zoom 24-275mm","Panavision 3:1 Primo Zoom 75-225mm","Panavision Anamorphic Zoom 48-550mm (ALZ11)","Panavision ATZ 70-200mm","Panavision T-series Anamorphic",
+    // Angenieux
+    "Angenieux Optimo Prime","Angenieux Optimo 15-40mm","Angenieux Optimo 28-76mm","Angenieux Optimo 24-290mm","Angenieux Optimo 19.5-94mm","Angenieux Optimo 45-120mm","Angenieux Optimo 56-152mm","Angenieux EZ-1 30-90mm","Angenieux EZ-2 15-40mm","Angenieux Type EZ 22-60mm","Angenieux Optimo Anamorphic 30-72mm","Angenieux Optimo Anamorphic 42-420mm","Angenieux Optimo Anamorphic 56-152mm",
+    // Fujinon
+    "Fujinon Premista 19-45mm","Fujinon Premista 28-100mm","Fujinon Premista 80-250mm","Fujinon MK 18-55mm","Fujinon MK 50-135mm","Fujinon Cabrio 14-35mm","Fujinon Cabrio 19-90mm","Fujinon Cabrio 25-300mm","Fujinon Cabrio 85-300mm",
+    // Tokina
+    "Tokina Vista Prime","Tokina Vista One","Tokina Cinema ATX 11-20mm","Tokina Cinema ATX 50-135mm",
+    // Atlas
+    "Atlas Orion Anamorphic","Atlas Orion 2x Anamorphic","Atlas Mercury Anamorphic 1.5x",
+    // Tribe7
+    "Tribe7 Blackwing7",
+    // Hawk / Vantage
+    "Hawk V-Lite 2x Anam","Hawk V-Plus 2x Anam","Hawk C-series Anam","Hawk V-Lite Vintage 74","Hawk Class-X Anam","Hawk 65 Vintage",
+    // Kowa
+    "Kowa Prominar Anamorphic","Kowa Cine Prominar (vintage)","Kowa Evolution 2x Anam",
+    // Lomo / Soviet
+    "LOMO Anamorphic (vintage)","LOMO Standard Speed (vintage)","LOMO Round Front Anam","Helios 44 58mm (vintage)","Mir-1 37mm (vintage)","Jupiter-9 85mm (vintage)",
+    // P+S Technik
+    "P+S Technik Evolution 2x","P+S Technik Technovision 1.5x",
+    // SLR Magic
+    "SLR Magic MicroPrime Cine","SLR Magic Anamorphot 1.33x","SLR Magic Anamorphot 2x",
+    // DZOFilm
+    "DZOFilm Vespid Prime","DZOFilm Pictor Zoom","DZOFilm Catta Ace 2x Anam","DZOFilm Catta Zoom 2x Anam","DZOFilm Pavo 2x Anam",
+    // Laowa
+    "Laowa Proteus 2x Anam","Laowa Nanomorph 1.5x Anam","Laowa OOOM 25-100mm","Laowa 12mm T2.9 Zero-D Cine","Laowa Ranger 28-75mm","Laowa Ranger 75-180mm",
+    // Viltrox
+    "Viltrox Epic Anamorphic 1.33x",
+    // DJI
+    "DJI DL 18mm","DJI DL 24mm","DJI DL 35mm","DJI DL 50mm","DJI DL 24-70mm",
+    // Vintage / Special
+    "Bausch & Lomb Super Baltar","Bausch & Lomb Baltar","Kino Precision Kiron","Todd-AO Anamorphic","Clairmont Swing Shift Anam",
+    // Focal lengths
+    "8mm","10mm","12mm","14mm","16mm","18mm","20mm","21mm","24mm","25mm","27mm","28mm","29mm","32mm","35mm","40mm","45mm","50mm","55mm","58mm","65mm","75mm","85mm","100mm","105mm","120mm","135mm","150mm","180mm","200mm","250mm","300mm","400mm","500mm","600mm","800mm","1000mm",
   ],
   colorSpace:[
-    "ACES AP0","ACEScg (AP1)","ACEScct",
-    "ARRI Wide Gamut 3","ARRI Wide Gamut 4",
-    "REDWideGamutRGB","RED IPP2",
-    "Sony S-Gamut3","Sony S-Gamut3.Cine",
-    "Canon Cinema Gamut","Canon Log Gamut",
-    "Blackmagic Wide Gamut","Blackmagic Design Film Gen 5",
-    "Panasonic V-Gamut",
+    // ACES
+    "ACES AP0 (ACES 2065-1)","ACEScg (AP1)","ACEScct","ACEScc","ACESproxy",
+    // ARRI
+    "ARRI Wide Gamut 3","ARRI Wide Gamut 4","ARRI Rec.709",
+    // RED
+    "REDWideGamutRGB","RED IPP2","REDcolor","REDcolor2","REDcolor3","REDcolor4","DragonColor","DragonColor2",
+    // Sony
+    "Sony S-Gamut","Sony S-Gamut3","Sony S-Gamut3.Cine","Sony Rec.709",
+    // Canon
+    "Canon Cinema Gamut","Canon Log Gamut","Canon BT.2020","Canon DCI-P3",
+    // Blackmagic
+    "Blackmagic Wide Gamut","Blackmagic Design Film Gen 5","Blackmagic 4K Film","Blackmagic 4.6K Film",
+    // Panasonic
+    "Panasonic V-Gamut","Panasonic Rec.709","Panasonic Rec.2020",
+    // DJI
     "DJI D-Gamut",
-    "Rec.709 / sRGB","Rec.2020","DCI-P3","Display P3",
-    "Linear / Scene Referred",
+    // Nikon
+    "Nikon N-Gamut",
+    // Fujifilm
+    "Fujifilm F-Gamut",
+    // Kinefinity
+    "KineMAX Wide Gamut","KineColor",
+    // Z CAM
+    "Z CAM zRAW","Z CAM Natural",
+    // Display / Delivery
+    "Rec.709 / sRGB","Rec.2020","Rec.2100","DCI-P3","DCI-P3 D65","Display P3","Adobe RGB","ProPhoto RGB",
+    // Scene / Working
+    "Linear / Scene Referred","CIE XYZ","CIE Lab",
+    // Film
+    "ADX (Academy Density Exchange)","Kodak Print Film","Fuji Print Film",
   ],
   gamma:[
-    "ARRI LogC3","ARRI LogC4",
-    "REDLog3G10","REDLogFilm",
-    "Sony S-Log3","Sony S-Log2",
-    "Canon Log 2","Canon Log 3",
-    "Blackmagic Film Gen 5","Blackmagic Video Gen 5",
-    "Panasonic V-Log","Panasonic V-Log L",
-    "DJI D-Log M","DJI D-Log",
-    "Nikon N-Log",
-    "Rec.709 (2.4)","sRGB (2.2)","Linear","PQ (ST 2084)","HLG",
-    "Cineon Film Log",
+    // ARRI
+    "ARRI LogC3","ARRI LogC4","ARRI LogC3 EI 800","ARRI Rec.709",
+    // RED
+    "REDLog3G10","REDLogFilm","REDgamma3","REDgamma4","Log3G12",
+    // Sony
+    "Sony S-Log3","Sony S-Log2","Sony S-Log","Sony Cine EI","Sony HLG","Sony Rec.709 (800%)",
+    // Canon
+    "Canon Log","Canon Log 2","Canon Log 3","Canon Wide DR","Canon PQ","Canon HLG",
+    // Blackmagic
+    "Blackmagic Film Gen 5","Blackmagic Video Gen 5","Blackmagic Film Gen 4","Blackmagic Film","Blackmagic Extended Video","Blackmagic Video",
+    // Panasonic
+    "Panasonic V-Log","Panasonic V-Log L","Panasonic Cine-Like D","Panasonic Cine-Like V","Panasonic HLG","Panasonic V-709",
+    // DJI
+    "DJI D-Log M","DJI D-Log","DJI HLG","DJI Normal",
+    // Nikon
+    "Nikon N-Log","Nikon HLG",
+    // Fujifilm
+    "Fujifilm F-Log","Fujifilm F-Log2","Fujifilm HLG","Fujifilm Eterna Cinema",
+    // Kinefinity
+    "KineLog","KineLog3",
+    // Z CAM
+    "Z CAM zLog2","Z CAM zLog",
+    // Phantom
+    "Phantom Log",
+    // Display / Delivery
+    "Rec.709 (BT.1886, 2.4)","sRGB (2.2)","Gamma 2.2","Gamma 2.4","Gamma 2.6","Linear","PQ (ST 2084)","PQ (Rec.2100)","HLG (Rec.2100)","HLG",
+    // Film
+    "Cineon Film Log","Kodak Log","Fuji Film Log","Printing Density","ADX 10","ADX 16",
+    // ACES
+    "ACEScct","ACEScc",
   ],
 };
 function _siField(field,placeholder,value){
@@ -1091,7 +1211,7 @@ function _attachSiDropdown(input,options){
     const filtered=options.filter(o=>o.toLowerCase().includes(q));
     if(!filtered.length)return;
     dd=document.createElement("div");dd.className="si-dd";
-    filtered.slice(0,15).forEach(o=>{
+    filtered.slice(0,30).forEach(o=>{
       const d=document.createElement("div");d.className="si-dd-item";d.textContent=o;
       d.onmousedown=(e)=>{e.preventDefault();input.value=o;close();input.focus();};
       dd.appendChild(d);
