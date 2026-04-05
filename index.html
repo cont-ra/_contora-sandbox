@@ -443,7 +443,8 @@
   .chat-files-body .files-table td:nth-child(2) { display: none; }
   .chat-files-body .files-drop { padding: 16px; font-size: 11px; min-height: 40px; }
   .chat-files-body .f-grip { font-size: 14px; width: 18px; padding-right: 4px; }
-  .cf-tip { position: fixed; z-index: 9999; background: #161b22; border: 1px solid #58a6ff; border-radius: 6px; padding: 6px 12px; display: flex; align-items: center; gap: 10px; font-size: 12px; color: #c9d1d9; pointer-events: none; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.5); max-width: 90vw; }
+  .cf-tip { position: fixed; z-index: 9999; background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 6px 12px; display: flex; align-items: center; gap: 10px; font-size: 12px; color: #c9d1d9; pointer-events: none; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.5); max-width: 90vw; transition: border-color 0.3s, box-shadow 0.3s, transform 0.2s; }
+  .cf-tip.drag-active { border-color: #58a6ff; box-shadow: 0 4px 16px rgba(88,166,255,0.3); }
   .cf-tip .cft-icon { flex-shrink: 0; }
   .cf-tip .cft-name { flex-shrink: 1; overflow: hidden; text-overflow: ellipsis; }
   .cf-tip .cft-size { color: #8b949e; font-family: 'SF Mono', monospace; font-size: 11px; flex-shrink: 0; }
@@ -4123,23 +4124,45 @@ function _renderShotFiles(id){
 }
 let _cfTipEl=null;
 function _setupChatFileTips(container){
+  let _cfDragging=false;
   container.querySelectorAll('tr[data-tip]').forEach(row=>{
     row.addEventListener('mouseenter',e=>{
+      if(_cfDragging)return;
       _removeCfTip();
-      const name=row.dataset.tip,size=row.dataset.tipSize,edit=row.dataset.tipEdit,date=row.dataset.tipDate,icon=row.dataset.tipIcon;
-      const tip=document.createElement('div');tip.className='cf-tip';
-      tip.innerHTML=`<span class="cft-icon">${icon}</span><span class="cft-name">${esc(name)}</span>${size?'<span class="cft-size">'+size+'</span>':''}${edit?'<span class="cft-edit">'+edit+'</span>':''}${date?'<span class="cft-date">'+date+'</span>':''}`;
-      document.body.appendChild(tip);
-      const rr=row.getBoundingClientRect();
-      tip.style.left=rr.left+'px';tip.style.top=(rr.bottom+4)+'px';
-      // Clamp to viewport
-      const tr=tip.getBoundingClientRect();
-      if(tr.right>window.innerWidth)tip.style.left=Math.max(0,window.innerWidth-tr.width-8)+'px';
-      if(tr.bottom>window.innerHeight){tip.style.top=(rr.top-tr.height-4)+'px';}
-      _cfTipEl=tip;
+      _showCfTip(row,false);
     });
-    row.addEventListener('mouseleave',_removeCfTip);
+    row.addEventListener('mouseleave',()=>{if(!_cfDragging)_removeCfTip();});
+    // Grip drag → transition tooltip to drag mode
+    const grip=row.querySelector('.f-grip');
+    if(grip){
+      grip.addEventListener('dragstart',()=>{
+        _cfDragging=true;
+        if(_cfTipEl){
+          // Animate to drag style
+          _cfTipEl.classList.add('drag-active');
+        } else {
+          _showCfTip(row,true);
+        }
+      });
+      grip.addEventListener('dragend',()=>{
+        _cfDragging=false;
+        _removeCfTip();
+      });
+    }
   });
+  function _showCfTip(row,isDrag){
+    _removeCfTip();
+    const name=row.dataset.tip,size=row.dataset.tipSize,edit=row.dataset.tipEdit,date=row.dataset.tipDate,icon=row.dataset.tipIcon;
+    const tip=document.createElement('div');tip.className='cf-tip'+(isDrag?' drag-active':'');
+    tip.innerHTML=`<span class="cft-icon">${icon}</span><span class="cft-name">${esc(name)}</span>${size?'<span class="cft-size">'+size+'</span>':''}${edit?'<span class="cft-edit">'+edit+'</span>':''}${date?'<span class="cft-date">'+date+'</span>':''}`;
+    document.body.appendChild(tip);
+    const rr=row.getBoundingClientRect();
+    tip.style.left=rr.left+'px';tip.style.top=(rr.bottom+4)+'px';
+    const tr=tip.getBoundingClientRect();
+    if(tr.right>window.innerWidth)tip.style.left=Math.max(0,window.innerWidth-tr.width-8)+'px';
+    if(tr.bottom>window.innerHeight)tip.style.top=(rr.top-tr.height-4)+'px';
+    _cfTipEl=tip;
+  }
 }
 function _removeCfTip(){if(_cfTipEl){_cfTipEl.remove();_cfTipEl=null;}}
 function _showNewFolderInput(id){
