@@ -181,7 +181,7 @@
   .files-sel-bar button.sel-danger:hover { background: rgba(248,81,73,0.15); }
   .files-table tr.f-locked-sep td { border-bottom: 2px solid #21262d; }
   .files-rect-sel { position: absolute; border: 1px solid rgba(88,166,255,0.5); background: rgba(88,166,255,0.08); pointer-events: none; z-index: 5; }
-  .f-drag-ghost { position: fixed; pointer-events: none; z-index: 9999; background: #1c2129; border: 1px solid #58a6ff; border-radius: 6px; padding: 6px 14px; font-size: 13px; color: #c9d1d9; box-shadow: 0 8px 24px rgba(0,0,0,0.5); transition: transform 0.05s ease-out; white-space: nowrap; }
+  .f-drag-ghost { position: fixed; left: 0; top: 0; pointer-events: none; z-index: 9999; background: #161b22; border: 1px solid #58a6ff; border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); transition: transform 0.08s ease-out; opacity: 0.92; }
   .files-empty { text-align: center; padding: 60px 20px; color: #484f58; }
   .files-empty-icon { font-size: 48px; margin-bottom: 12px; }
   .files-new-folder { display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: #161b22; border: 1px solid #30363d; border-radius: 6px; }
@@ -3223,21 +3223,30 @@ function _renderShotFiles(id){
       // Hide native drag image
       const blank=document.createElement("canvas");blank.width=1;blank.height=1;
       e.dataTransfer.setDragImage(blank,0,0);
-      // Show custom ghost
+      // Clone row as ghost
       _dragGhost=document.createElement("div");
       _dragGhost.className="f-drag-ghost";
-      const icon=dataKey==='dragFile'?'📄':'📁';
-      _dragGhost.innerHTML=isMulti?`${_fileSelection.size} items`:`${icon} ${name}`;
-      _dragGhost.style.left=e.clientX+12+"px";
-      _dragGhost.style.top=e.clientY-12+"px";
+      if(isMulti){
+        _dragGhost.style.padding="8px 16px";
+        _dragGhost.style.fontSize="13px";
+        _dragGhost.style.color="#c9d1d9";
+        _dragGhost.textContent=_fileSelection.size+" items";
+      } else {
+        const clone=row.cloneNode(true);
+        const table=document.createElement("table");table.className="files-table";
+        table.style.cssText="margin:0;width:auto;min-width:200px";
+        table.appendChild(clone);
+        clone.querySelectorAll(".f-grip,.f-dl,.f-actions button").forEach(el=>el.remove());
+        _dragGhost.appendChild(table);
+      }
+      _dragGhost.style.transform=`translate(${e.clientX+14}px,${e.clientY-14}px)`;
       document.body.appendChild(_dragGhost);
       row.classList.add("f-dragging");
       if(isMulti) body.querySelectorAll("tr.f-selected").forEach(r=>r.classList.add("f-dragging"));
     });
     grip.addEventListener("drag",e=>{
       if(_dragGhost&&e.clientX>0){
-        _dragGhost.style.left=e.clientX+12+"px";
-        _dragGhost.style.top=e.clientY-12+"px";
+        _dragGhost.style.transform=`translate(${e.clientX+14}px,${e.clientY-14}px)`;
       }
     });
     grip.addEventListener("dragend",()=>{
