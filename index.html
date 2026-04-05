@@ -2248,7 +2248,7 @@ function pinSiTooltip(id){
   if(!t)return;
   _siTooltipPinned=true;
   t.classList.add('pinned');
-  t.innerHTML=_siTooltipHtml(id)+`<div style="text-align:right;margin-top:8px"><button onclick="_siTooltipPinned=false;document.getElementById('siTooltip')?.remove()" style="background:#21262d;border:1px solid #30363d;color:#8b949e;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:11px">Close</button>${isAdmin()?` <button onclick="_siTooltipPinned=false;document.getElementById('siTooltip')?.remove();openShotInfoModal('${id}')" style="background:#1f6feb;border:1px solid #1f6feb;color:#fff;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:11px">Edit</button>`:''}</div>`;
+  t.innerHTML=_siTooltipHtml(id)+`<div style="text-align:right;margin-top:8px"><button onclick="_siTooltipPinned=false;document.getElementById('siTooltip')?.remove()" style="background:#21262d;border:1px solid #30363d;color:#8b949e;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:11px">Close</button>${isAdmin()&&isEditMode()?` <button onclick="_siTooltipPinned=false;document.getElementById('siTooltip')?.remove();openShotInfoModal('${id}')" style="background:#1f6feb;border:1px solid #1f6feb;color:#fff;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:11px">Edit</button>`:''}</div>`;
   function onClickOutside(e){if(!t.contains(e.target)){_siTooltipPinned=false;t.remove();document.removeEventListener('click',onClickOutside);}}
   setTimeout(()=>document.addEventListener('click',onClickOutside),0);
 }
