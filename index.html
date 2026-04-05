@@ -166,8 +166,17 @@
   .files-drop.drag-over { border-color: #3fb950; color: #3fb950; background: rgba(63,185,80,0.05); }
   .files-table tr.f-dragging { opacity: 0.4; }
   .files-table tr.f-drop-target td { background: rgba(63,185,80,0.12) !important; }
+  .files-table tr.f-selected td { background: rgba(88,166,255,0.1) !important; }
+  .files-table tr.f-selected td:first-child { box-shadow: inset 3px 0 0 #58a6ff; }
   .files-table tr[draggable="true"] { cursor: grab; }
   .files-table tr[draggable="true"]:active { cursor: grabbing; }
+  .files-table tr.f-selectable { user-select: none; }
+  .files-sel-bar { display: flex; align-items: center; gap: 10px; padding: 6px 12px; background: #1c2129; border: 1px solid #30363d; border-radius: 6px; font-size: 12px; color: #c9d1d9; }
+  .files-sel-bar .sel-count { color: #58a6ff; font-weight: 600; }
+  .files-sel-bar button { background: rgba(255,255,255,0.08); border: 1px solid #30363d; color: #c9d1d9; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; }
+  .files-sel-bar button:hover { background: rgba(255,255,255,0.15); }
+  .files-sel-bar button.sel-danger { color: #f85149; }
+  .files-sel-bar button.sel-danger:hover { background: rgba(248,81,73,0.15); }
   .files-empty { text-align: center; padding: 60px 20px; color: #484f58; }
   .files-empty-icon { font-size: 48px; margin-bottom: 12px; }
   .files-new-folder { display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: #161b22; border: 1px solid #30363d; border-radius: 6px; }
@@ -3003,7 +3012,92 @@ function _resolveFilesPath(id){
   }
   return {items,breadcrumb,currentFolder};
 }
+// === Multi-select state ===
+let _fileSelection=new Set();// set of file/folder names
+let _lastClickedItem=null;
+function _clearSelection(){_fileSelection.clear();_lastClickedItem=null;}
+function _toggleSelect(name){if(_fileSelection.has(name))_fileSelection.delete(name);else _fileSelection.add(name);_lastClickedItem=name;}
+function _getSelectableItems(id){
+  const {items}=_resolveFilesPath(id);
+  return items.filter(f=>!f.locked).map(f=>f.name);
+}
+function _rangeSelect(id,name){
+  const all=_getSelectableItems(id);
+  const from=all.indexOf(_lastClickedItem);
+  const to=all.indexOf(name);
+  if(from<0||to<0)return;
+  const [lo,hi]=from<to?[from,to]:[to,from];
+  for(let i=lo;i<=hi;i++)_fileSelection.add(all[i]);
+  _lastClickedItem=name;
+}
+function _updateSelectionUI(id){
+  const body=document.getElementById("shotBody");
+  if(!body)return;
+  body.querySelectorAll("tr[data-sel-name]").forEach(row=>{
+    row.classList.toggle("f-selected",_fileSelection.has(row.dataset.selName));
+  });
+  // Selection toolbar
+  let bar=document.getElementById("filesSelBar");
+  if(_fileSelection.size>0){
+    if(!bar){
+      bar=document.createElement("div");bar.id="filesSelBar";bar.className="files-sel-bar";
+      const toolbar=body.querySelector(".files-toolbar");
+      if(toolbar)toolbar.after(bar);
+    }
+    bar.innerHTML=`<span class="sel-count">${_fileSelection.size} selected</span>`+
+      `<button onclick="_selectAll('${id}')">Select All</button>`+
+      `<button onclick="_clearSelection();_updateSelectionUI('${id}')">Deselect</button>`+
+      `<button class="sel-danger" onclick="_deleteSelected('${id}')">Delete</button>`;
+  } else if(bar){
+    bar.remove();
+  }
+}
+function _selectAll(id){
+  _getSelectableItems(id).forEach(n=>_fileSelection.add(n));
+  _updateSelectionUI(id);
+}
+async function _deleteSelected(id){
+  const names=[..._fileSelection];
+  if(!names.length)return;
+  const ok=await _showConfirm('Delete '+names.length+' items?','This will delete:<br><br>'+names.map(n=>'• '+esc(n)).join('<br>'));
+  if(!ok)return;
+  const stateKey=_getCurrentStateKey();
+  for(const name of names){
+    // Check if folder
+    const {items}=_resolveFilesPath(id);
+    const item=items.find(f=>f.name===name);
+    if(item?.type==='folder'&&!item.locked){
+      // Delete folder contents from R2
+      const files=state[id]?.files?.[name]||[];
+      for(const f of files){if(f.r2key)await r2Delete(f.r2key).catch(()=>{});}
+      if(state[id]?.userFolders)state[id].userFolders=state[id].userFolders.filter(f=>f.name!==name);
+      if(state[id]?.files)delete state[id].files[name];
+      _addFileHistory(id,'deleted',name,'');
+    } else if(!item?.type||item?.type!=='folder'){
+      // Delete file
+      if(stateKey==='versions/preview'){
+        const versions=state[id]?.versions||[];
+        const idx=versions.findIndex(v=>v.name===name);
+        if(idx>=0){
+          const v=versions[idx];
+          if(v.url)await r2Delete(v.url.replace(CDN_BASE+'/','') ).catch(()=>{});
+          if(v.thumb)await r2Delete(v.thumb.replace(CDN_BASE+'/','') ).catch(()=>{});
+          versions.splice(idx,1);
+        }
+      } else if(stateKey){
+        const entry=(state[id]?.files?.[stateKey]||[]).find(f=>f.name===name);
+        if(entry?.r2key)await r2Delete(entry.r2key).catch(()=>{});
+        if(state[id]?.files?.[stateKey])state[id].files[stateKey]=state[id].files[stateKey].filter(f=>f.name!==name);
+      }
+      _addFileHistory(id,'deleted',name,stateKey||'');
+    }
+  }
+  _clearSelection();
+  saveState(state);
+  _renderShotFiles(id);
+}
 function _renderShotFiles(id){
+  _clearSelection();
   const body=document.getElementById("shotBody");
   const {items,breadcrumb,currentFolder}=_resolveFilesPath(id);
   const inSource=_filesPath.length>0&&_filesPath[0]==='source';
@@ -3037,7 +3131,8 @@ function _renderShotFiles(id){
       const editCell=_renderEditCell(id,f.name);
       const dropAttr=!f.locked?` data-drop-folder="${esc(f.name)}"`:'';
       const dragFolderAttr=!f.locked?` draggable="true" data-drag-folder="${esc(f.name)}"`:'';
-      html+=`<tr${dropAttr}${dragFolderAttr}>
+      const selAttr=!f.locked?` data-sel-name="${esc(f.name)}" class="f-selectable${_fileSelection.has(f.name)?' f-selected':''}"`:'';
+      html+=`<tr${dropAttr}${dragFolderAttr}${selAttr}>
         <td class="f-name" onclick="_filesPath.push('${esc(f.name)}');_renderShotFiles('${id}')"><span class="f-icon">📁</span>${esc(f.name)}${lock}</td>
         <td class="f-size">${f.children?.length||0} items</td>
         <td class="f-edit">${editCell}</td>
@@ -3049,7 +3144,8 @@ function _renderShotFiles(id){
       const fileDelBtn=canDel?`<button class="f-dl" onclick="event.stopPropagation();_deleteFile('${id}','${esc(f.name)}')" title="Delete">🗑</button>`:'';
       const editCell=_renderEditCell(id,f.name);
       const dragAttr=!isLocked?` draggable="true" data-drag-file="${esc(f.name)}"`:'';
-      html+=`<tr${dragAttr}>
+      const selAttr2=!isLocked?` data-sel-name="${esc(f.name)}" class="f-selectable${_fileSelection.has(f.name)?' f-selected':''}"`:'';
+      html+=`<tr${dragAttr}${selAttr2}>
         <td><span class="f-icon">${_fileIcon(f.name)}</span>${esc(f.name)}</td>
         <td class="f-size">${f.size||''}</td>
         <td class="f-edit">${editCell}</td>
@@ -3116,6 +3212,49 @@ function _renderShotFiles(id){
       if(fileName)_moveFile(id,fileName,row.dataset.dropFolder);
       if(folderName)_moveFolder(id,folderName,row.dataset.dropFolder);
     });
+  });
+  // Multi-select click handlers
+  body.querySelectorAll("tr[data-sel-name]").forEach(row=>{
+    row.addEventListener("click",e=>{
+      // Ignore clicks on buttons/links
+      if(e.target.closest("button,a,.f-name"))return;
+      const name=row.dataset.selName;
+      if(e.shiftKey){_rangeSelect(id,name);}
+      else if(e.metaKey||e.ctrlKey){_toggleSelect(name);}
+      else{_clearSelection();_toggleSelect(name);}
+      _updateSelectionUI(id);
+    });
+    // Multi-drag: set all selected items
+    row.addEventListener("dragstart",e=>{
+      if(_fileSelection.size>1&&_fileSelection.has(row.dataset.selName)){
+        e.dataTransfer.setData("text/x-multi-move",JSON.stringify([..._fileSelection]));
+        e.dataTransfer.effectAllowed="move";
+        body.querySelectorAll("tr.f-selected").forEach(r=>r.classList.add("f-dragging"));
+      }
+    });
+  });
+  // Drop handler for multi-move
+  body.querySelectorAll("tr[data-drop-folder]").forEach(row=>{
+    const origDragover=row.ondragover;
+    row.addEventListener("dragover",e=>{
+      if(e.dataTransfer.types.includes("text/x-multi-move")){
+        e.preventDefault();e.dataTransfer.dropEffect="move";
+        row.classList.add("f-drop-target");
+      }
+    });
+    row.addEventListener("drop",e=>{
+      const multi=e.dataTransfer.getData("text/x-multi-move");
+      if(multi){
+        e.preventDefault();row.classList.remove("f-drop-target");
+        const names=JSON.parse(multi);
+        _moveMultiple(id,names,row.dataset.dropFolder);
+      }
+    });
+  });
+  // Click on empty area clears selection
+  body.querySelector(".files-table-wrap")?.addEventListener("click",e=>{
+    if(e.target.closest("tr"))return;
+    _clearSelection();_updateSelectionUI(id);
   });
 }
 function _showNewFolderInput(id){
@@ -3477,6 +3616,19 @@ async function _moveFile(id,fileName,targetFolder){
   state[id].files[destKey].push(fileEntry);
   _addFileHistory(id,'moved',fileName,srcKey+' → '+destKey);
   saveState(state);
+  _renderShotFiles(id);
+}
+async function _moveMultiple(id,names,targetFolder){
+  for(const name of names){
+    const {items}=_resolveFilesPath(id);
+    const item=items.find(f=>f.name===name);
+    if(item?.type==='folder'&&!item.locked){
+      await _moveFolder(id,name,targetFolder);
+    } else if(item&&!item.locked){
+      await _moveFile(id,name,targetFolder);
+    }
+  }
+  _clearSelection();
   _renderShotFiles(id);
 }
 async function _moveFolder(id,folderName,targetFolder){
