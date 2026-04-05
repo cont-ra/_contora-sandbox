@@ -769,13 +769,13 @@
   <thead><tr>
     <th style="width:30px;cursor:pointer" onclick="togglePrioSort()" id="prioSortTh" title="Sort by priority">⚑</th>
     <th onclick="sortTable(0)" data-col="0" data-label="#">#</th>
-    <th onclick="sortTable(1)" data-col="1" data-label="ID">ID <button class="col-filter-btn" onclick="event.stopPropagation();toggleColFilter('id',this)" title="Filter IDs">&#9662;</button><div class="col-filter-drop" id="cf-id"></div></th>
+    <th onclick="sortTable(1)" data-col="1" data-label="ID">ID <button class="col-filter-btn" onclick="event.stopPropagation();toggleColFilter('id',this)" title="Filter IDs">&#9662;</button><div class="col-filter-drop" id="cf-id" onclick="event.stopPropagation()"></div></th>
     <th>Shot Info</th>
-    <th onclick="sortTable(3)" data-col="3" data-label="Category">Category <button class="col-filter-btn" onclick="event.stopPropagation();toggleColFilter('cat',this)" title="Filter categories">&#9662;</button><div class="col-filter-drop" id="cf-cat"></div></th>
+    <th onclick="sortTable(3)" data-col="3" data-label="Category">Category <button class="col-filter-btn" onclick="event.stopPropagation();toggleColFilter('cat',this)" title="Filter categories">&#9662;</button><div class="col-filter-drop" id="cf-cat" onclick="event.stopPropagation()"></div></th>
     <th onclick="sortTable(4)" data-col="4" data-label="TC In">TC In</th>
     <th onclick="sortTable(5)" data-col="5" data-label="TC Out">TC Out</th>
-    <th onclick="sortTable(6)" data-col="6" data-label="Artist">Artist <button class="col-filter-btn" onclick="event.stopPropagation();toggleColFilter('artist',this)" title="Filter artists">&#9662;</button><div class="col-filter-drop" id="cf-artist"></div></th>
-    <th onclick="sortTable(7)" data-col="7" data-label="Status">Status <button class="col-filter-btn" onclick="event.stopPropagation();toggleColFilter('status',this)" title="Filter statuses">&#9662;</button><div class="col-filter-drop" id="cf-status"></div></th>
+    <th onclick="sortTable(6)" data-col="6" data-label="Artist">Artist <button class="col-filter-btn" onclick="event.stopPropagation();toggleColFilter('artist',this)" title="Filter artists">&#9662;</button><div class="col-filter-drop" id="cf-artist" onclick="event.stopPropagation()"></div></th>
+    <th onclick="sortTable(7)" data-col="7" data-label="Status">Status <button class="col-filter-btn" onclick="event.stopPropagation();toggleColFilter('status',this)" title="Filter statuses">&#9662;</button><div class="col-filter-drop" id="cf-status" onclick="event.stopPropagation()"></div></th>
     <th class="admin-col">Admin</th>
     <th>Chat</th>
   </tr></thead>
@@ -4225,7 +4225,7 @@ function _buildFileTip(id,name,size,editCell,date,icon){
 }
 let _chatFileMode=false;
 function _renderShotFiles(id){
-  _clearSelection();
+  _clearSelection();_removeCfTip();
   const body=_chatFileMode?document.getElementById("chatFilesBody"):document.getElementById("shotBody");
   const {items,breadcrumb,currentFolder}=_resolveFilesPath(id);
   // Check if current folder or any ancestor in path is locked
