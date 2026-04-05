@@ -761,10 +761,7 @@
   <button class="filter-btn" data-filter="done">Done</button>
   <button class="filter-btn" data-filter="skip">Skip</button>
   <span class="separator">|</span>
-  <button class="artist-filter-btn active" data-artist="all">All Artists</button>
-  <button class="artist-filter-btn" data-artist="nikita">Nikita</button>
-  <button class="artist-filter-btn" data-artist="igor">Igor</button>
-  <button class="artist-filter-btn" data-artist="unassigned">Unassigned</button>
+  <span id="artistFilterBtns"><button class="artist-filter-btn active" data-artist="all">All Artists</button><button class="artist-filter-btn" data-artist="unassigned">Unassigned</button></span>
   <button class="export-btn" id="editModeBtn" onclick="toggleEditMode()">Edit Shots</button>
 </div>
 
@@ -806,6 +803,7 @@ async function showLoggedIn(){document.getElementById("loginOverlay").classList.
   document.getElementById("adminGear").style.display=isAdmin()?'':'none';
   _loadColFilters();
   _loadEditMode();
+  _buildArtistFilterBtns();
   render();
 }
 function logout(){sessionStorage.removeItem("kh_user");currentUser=null;document.getElementById("loginOverlay").classList.remove("hidden");document.getElementById("userBadge").style.display="none";document.getElementById("loginPass").value="";document.getElementById("loginError").textContent="";render();}
@@ -1266,6 +1264,17 @@ function _loadEditMode(){
   if(btn){btn.classList.toggle("edit-active",_editMode);btn.textContent=_editMode?"Editing...":"Edit Shots";}
 }
 function isEditMode(){return _editMode;}
+
+function _buildArtistFilterBtns(){
+  const wrap=document.getElementById("artistFilterBtns");
+  if(!wrap) return;
+  const artists=_getArtists();
+  let html=`<button class="artist-filter-btn${artistFilter==='all'?' active':''}" data-artist="all">All Artists</button>`;
+  artists.forEach(a=>{html+=`<button class="artist-filter-btn${artistFilter===a.id?' active':''}" data-artist="${a.id}">${a.display}</button>`;});
+  html+=`<button class="artist-filter-btn${artistFilter==='unassigned'?' active':''}" data-artist="unassigned">Unassigned</button>`;
+  wrap.innerHTML=html;
+  wrap.querySelectorAll(".artist-filter-btn").forEach(b=>{b.addEventListener("click",()=>{wrap.querySelectorAll(".artist-filter-btn").forEach(x=>x.classList.remove("active"));b.classList.add("active");artistFilter=b.dataset.artist;render();});});
+}
 
 function getStatus(id){return state[id]?.status||"todo";}
 let _prioSort=false;
