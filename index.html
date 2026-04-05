@@ -769,11 +769,14 @@
 </div>
 <p class="subtitle">Declined tasks (Coffeepost) — 28 shots to review</p>
 
-<div class="stats">
-  <div class="stat-card"><div class="num red" id="stat-todo">0</div><div class="label">TODO</div></div>
-  <div class="stat-card"><div class="num yellow" id="stat-progress">0</div><div class="label">IN PROGRESS</div></div>
-  <div class="stat-card"><div class="num blue" id="stat-review">0</div><div class="label">REVIEW</div></div>
-  <div class="stat-card"><div class="num green" id="stat-done">0</div><div class="label">DONE</div></div>
+<div class="stats" style="display:flex;justify-content:space-between;align-items:flex-start">
+  <div style="display:flex;gap:12px">
+    <div class="stat-card"><div class="num red" id="stat-todo">0</div><div class="label">TODO</div></div>
+    <div class="stat-card"><div class="num yellow" id="stat-progress">0</div><div class="label">IN PROGRESS</div></div>
+    <div class="stat-card"><div class="num blue" id="stat-review">0</div><div class="label">REVIEW</div></div>
+    <div class="stat-card"><div class="num green" id="stat-done">0</div><div class="label">DONE</div></div>
+  </div>
+  <div id="artistStats" style="display:flex;gap:8px;flex-wrap:wrap"></div>
 </div>
 
 <div class="filters">
@@ -2421,7 +2424,32 @@ function chatPreview(id){
   return{text:all[all.length-1].text||'',count:all.length,lines};
 }
 
-function updateStats(){let c={todo:0,progress:0,review:0,done:0,skip:0};TASKS.forEach(t=>{c[getStatus(t.id)]++;});document.getElementById("stat-todo").textContent=c.todo;document.getElementById("stat-progress").textContent=c.progress;document.getElementById("stat-review").textContent=c.review;document.getElementById("stat-done").textContent=c.done;}
+function updateStats(){
+  let c={todo:0,progress:0,review:0,done:0,skip:0};
+  const ac={};
+  TASKS.forEach(t=>{
+    const st=getStatus(t.id);c[st]++;
+    const a=getAssignee(t.id);
+    if(a){if(!ac[a])ac[a]={total:0,done:0,todo:0,progress:0,review:0};ac[a].total++;ac[a][st]=(ac[a][st]||0)+1;}
+  });
+  document.getElementById("stat-todo").textContent=c.todo;
+  document.getElementById("stat-progress").textContent=c.progress;
+  document.getElementById("stat-review").textContent=c.review;
+  document.getElementById("stat-done").textContent=c.done;
+  const el=document.getElementById("artistStats");
+  if(el){
+    const artists=_getArtists();
+    el.innerHTML=artists.map(a=>{
+      const s=ac[a.id]||{total:0,done:0,todo:0,progress:0,review:0};
+      const col=getUserColor(a.id)||'#8b949e';
+      return `<div style="background:#161b22;border:1px solid ${col}44;border-radius:8px;padding:6px 12px;text-align:center;min-width:80px">
+        <div style="font-size:18px;font-weight:700;color:${col}">${s.total}</div>
+        <div style="font-size:10px;color:#8b949e;margin:2px 0">${esc(a.display)}</div>
+        <div style="font-size:9px;color:#484f58">${s.done}✓ ${s.progress}◉ ${s.todo}○</div>
+      </div>`;
+    }).join('');
+  }
+}
 
 // --- NOTE / CHAT PANEL ---
 let noteTaskId=null,noteType=null,replyToId=null,todoMode=false,editingMsgId=null;
