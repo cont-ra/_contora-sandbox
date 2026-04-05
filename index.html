@@ -434,6 +434,11 @@
   .chat-files-body .files-btn { padding: 4px 8px; font-size: 11px; }
   .chat-files-body .files-table th { font-size: 10px; padding: 4px 6px; }
   .chat-files-body .files-table td { padding: 6px 6px; font-size: 11px; }
+  .chat-files-body .files-table td:first-child { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; -webkit-mask-image: linear-gradient(to right, #000 80%, transparent); mask-image: linear-gradient(to right, #000 80%, transparent); }
+  .chat-files-body .files-table .f-edit,
+  .chat-files-body .files-table .f-date,
+  .chat-files-body .files-table th:nth-child(4),
+  .chat-files-body .files-table th:nth-child(5) { display: none; }
   .chat-files-body .files-drop { padding: 16px; font-size: 11px; min-height: 40px; }
   .chat-files-body .f-grip { font-size: 14px; width: 18px; padding-right: 4px; }
   .chat-files-panel:not([style*="display: none"]) + .note-panel { border-radius: 0 12px 12px 0; }
