@@ -488,6 +488,8 @@
   .chat-file-card .cfc-btn:hover { color: #c9d1d9; border-color: #484f58; }
   .chat-messages.drop-highlight { outline: 2px dashed #58a6ff; outline-offset: -4px; border-radius: 8px; }
   .chat-files-panel:not([style*="display: none"]) + .note-panel { border-radius: 0 12px 12px 0; }
+  .chat-upload-queue .upload-queue-panel { position: static; border-radius: 0 12px 12px 0; border-left: none; max-height: none; width: 280px; flex-shrink: 0; }
+  .note-panel:has(+ .chat-upload-queue:not([style*="display: none"])) { border-radius: 0 !important; }
   .note-panel-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px 16px; border-bottom: 1px solid #21262d; flex-shrink: 0; }
   .note-panel-title { display: flex; align-items: center; gap: 10px; }
   .note-panel-title h3 { color: #f0f6fc; font-size: 16px; font-weight: 600; }
@@ -4308,6 +4310,7 @@ function _renderUploadQueue(){
   const active=_uploadQueue.items.filter(i=>i.status!=='cancelled');
   if(active.length===0){
     if(panel)panel.remove();
+    const cq=document.getElementById("chatUploadQueue");if(cq)cq.style.display='none';
     return;
   }
   if(!panel){
