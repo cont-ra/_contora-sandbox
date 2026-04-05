@@ -3121,22 +3121,99 @@ function _getCurrentStateKey(){
   if(_filesPath.length>=1&&_filesPath[0]!=='source'&&_filesPath[0]!=='versions')return _filesPath[0];
   return null;
 }
+const _VIDEO_NATIVE=['mp4','webm'];
+const _VIDEO_TRANSCODE=['mov','avi','mkv','wmv','flv','mxf','ts','m4v','mpg','mpeg','3gp'];
+const _VIDEO_BLOCKED=['r3d','ari','braw','dng','crm','nef','cr2','cr3'];
+
+// Validate + transcode a version preview file. Returns {ok, file, versionName} or {ok:false}
+async function _validateAndPrepareVersion(shotId,file){
+  const fileExt=(file.name.split('.').pop()||'').toLowerCase();
+  if(_VIDEO_BLOCKED.includes(fileExt)){
+    await _showAlert('Unsupported format','<b>.'+esc(fileExt)+'</b> is a proprietary RAW format and cannot be transcoded in browser.<br><br>Please render a preview in <b>H.264 .mp4</b> from your NLE/compositing app.<br><br>The original file can go to <b>Files → versions/final/</b>');
+    return {ok:false};
+  }
+  if(!_VIDEO_NATIVE.includes(fileExt)&&!_VIDEO_TRANSCODE.includes(fileExt)){
+    await _showAlert('Wrong format','<b>.'+esc(fileExt)+'</b> is not a video file.<br><br>Supported: <b>'+_VIDEO_NATIVE.concat(_VIDEO_TRANSCODE).join(', ')+'</b><br><br>For project files (.nk, .aep) and renders (.exr, .dpx) use <b>Files → versions/final/</b>');
+    return {ok:false};
+  }
+  // Validate naming
+  const v=_validateVersionFile(shotId,file.name);
+  if(!v.ok){
+    const err=v.errors[0];
+    let msg='';
+    if(err.detail) msg+=err.detail+'<br><br>';
+    msg+=`<div style="font-family:'SF Mono',monospace;font-size:14px;margin:8px 0">`;
+    msg+=`<div style="background:rgba(248,81,73,0.08);border:1px solid rgba(248,81,73,0.2);border-radius:6px;padding:8px 12px;margin-bottom:6px">Your file: ${err.current}</div>`;
+    msg+=`<div style="background:rgba(63,185,80,0.08);border:1px solid rgba(63,185,80,0.2);border-radius:6px;padding:8px 12px;color:#3fb950">Correct: ${esc(err.suggest)}</div>`;
+    msg+=`</div>`;
+    if(err.type==='wrong_name'){
+      await _showAlert('Wrong shot',msg);
+      return {ok:false};
+    }
+    msg+=`<br><div style="background:rgba(210,153,34,0.1);border:1px solid rgba(210,153,34,0.3);border-radius:6px;padding:8px 12px;color:#d29922;font-size:12px">⚠ Auto-rename will upload as <b>${esc(err.suggest)}</b>.<br>Make sure this is the correct file for this shot!</div>`;
+    const confirm=await _showConfirm('Naming error',msg,'Rename & Upload');
+    if(!confirm)return {ok:false};
+    v.ok=true;v.versionName=err.suggest;
+    const corrected=_parseVersionName(err.suggest);
+    v.vNum=corrected.vNum;v.ext=corrected.ext;
+  }
+  if(v.warnings.length>0){
+    const confirm=await _showConfirm('Warning',v.warnings[0]+'<br><br>Continue anyway?');
+    if(!confirm)return {ok:false};
+  }
+  // Transcode if needed
+  let uploadFile=file;
+  let versionName=v.versionName;
+  if(_VIDEO_TRANSCODE.includes(fileExt)){
+    try{
+      uploadFile=await _transcodeToMp4(file,(pct)=>{});
+      versionName=versionName.replace(/\.[^.]+$/,'.mp4');
+    }catch(e){
+      await _showAlert('Transcode failed','Could not convert <b>.'+esc(fileExt)+'</b> to mp4.<br><br>'+esc(e.message||'Unknown error')+'<br><br>Please convert manually to H.264 .mp4 and try again.');
+      return {ok:false};
+    }
+  }
+  return {ok:true,file:uploadFile,versionName,baseName:v.baseName,vNum:v.vNum};
+}
+
 async function _uploadFilesToR2(id,fileList){
   const stateKey=_getCurrentStateKey();
   if(!stateKey)return;
   const r2Folder=_getCurrentR2Folder(id);
   if(!r2Folder)return;
+
+  // Version preview uploads — full validation pipeline
+  if(stateKey==='versions/preview'){
+    for(const file of fileList){
+      const result=await _validateAndPrepareVersion(id,file);
+      if(!result.ok)continue;
+      const ts=Date.now();
+      const key="versions/"+id+"/"+result.versionName;
+      const ok=await r2UploadXHR(key,result.file,()=>{});
+      if(ok){
+        if(!state[id])state[id]={};
+        if(!state[id].versions)state[id].versions=[];
+        const thumbKey="versions/"+id+"/thumb_"+result.baseName+_formatVersion(result.vNum)+".jpg";
+        const thumbUrl=await _generateThumbnail(CDN_BASE+"/"+key,thumbKey);
+        state[id].versions.push({name:result.versionName,baseName:result.baseName,url:CDN_BASE+"/"+key,thumb:thumbUrl||null,ts});
+        _addFileHistory(id,'added',result.versionName,stateKey);
+        saveState(state);
+      }
+    }
+    _renderShotFiles(id);
+    return;
+  }
+
+  // Regular file uploads
   if(!state[id])state[id]={};
   if(!state[id].files)state[id].files={};
   if(!state[id].files[stateKey])state[id].files[stateKey]=[];
   for(const file of fileList){
-    // check duplicate
     if(state[id].files[stateKey].some(f=>f.name===file.name)){
       await _showAlert('Duplicate','File <b>'+esc(file.name)+'</b> already exists in this folder.');
       continue;
     }
     const r2key=r2Folder+'/'+file.name;
-    // upload with progress (simple, no UI progress for file tab uploads yet)
     const ok=await r2UploadXHR(r2key,file,()=>{});
     if(ok){
       state[id].files[stateKey].push({
@@ -3551,88 +3628,14 @@ async function uploadVersion(shotId,input){
   if(!file)return;
   input.value="";
 
-  // === Format classification ===
-  // Browser-native: upload directly
-  // Transcodable: ffmpeg.wasm → mp4 then upload
-  // Blocked: proprietary, can't decode
-  const fileExt=(file.name.split('.').pop()||'').toLowerCase();
-  const NATIVE=['mp4','webm'];
-  const TRANSCODE=['mov','avi','mkv','wmv','flv','mxf','ts','m4v','mpg','mpeg','3gp'];
-  const BLOCKED=['r3d','ari','braw','dng','crm','nef','cr2','cr3'];
-
-  if(BLOCKED.includes(fileExt)){
-    await _showAlert('Unsupported format','<b>.'+esc(fileExt)+'</b> is a proprietary RAW format and cannot be transcoded in browser.<br><br>Please render a preview in <b>H.264 .mp4</b> from your NLE/compositing app and upload that.<br><br>The original file can go to <b>Files → versions/final/</b>');
-    return;
-  }
-  if(!NATIVE.includes(fileExt)&&!TRANSCODE.includes(fileExt)){
-    await _showAlert('Wrong format','<b>.'+esc(fileExt)+'</b> is not a video file.<br><br>Supported: <b>'+NATIVE.concat(TRANSCODE).join(', ')+'</b><br><br>For project files (.nk, .aep) and renders (.exr, .dpx) use <b>Files → versions/final/</b>');
-    return;
-  }
-
-  // Validate naming
-  const v=_validateVersionFile(shotId,file.name);
-  if(!v.ok){
-    const err=v.errors[0];
-    let msg='';
-    if(err.detail) msg+=err.detail+'<br><br>';
-    msg+=`<div style="font-family:'SF Mono',monospace;font-size:14px;margin:8px 0">`;
-    msg+=`<div style="background:rgba(248,81,73,0.08);border:1px solid rgba(248,81,73,0.2);border-radius:6px;padding:8px 12px;margin-bottom:6px">Your file: ${err.current}</div>`;
-    msg+=`<div style="background:rgba(63,185,80,0.08);border:1px solid rgba(63,185,80,0.2);border-radius:6px;padding:8px 12px;color:#3fb950">Correct: ${esc(err.suggest)}</div>`;
-    msg+=`</div>`;
-    // wrong_name = hard block (wrong shot), others = offer auto-rename
-    if(err.type==='wrong_name'){
-      await _showAlert('Wrong shot',msg);
-      return;
-    }
-    // Offer auto-rename with warning
-    msg+=`<br><div style="background:rgba(210,153,34,0.1);border:1px solid rgba(210,153,34,0.3);border-radius:6px;padding:8px 12px;color:#d29922;font-size:12px">⚠ Auto-rename will upload as <b>${esc(err.suggest)}</b>.<br>Make sure this is the correct file for this shot!</div>`;
-    const ok=await _showConfirm('Naming error',msg,'Rename & Upload');
-    if(!ok)return;
-    // Override version info with corrected name
-    v.ok=true;
-    v.versionName=err.suggest;
-    const corrected=_parseVersionName(err.suggest);
-    v.vNum=corrected.vNum;
-    v.ext=corrected.ext;
-  }
-  if(v.warnings.length>0){
-    const ok=await _showConfirm('Warning',v.warnings[0]+'<br><br>Continue anyway?');
-    if(!ok)return;
-  }
-
-  // Transcode if needed
-  let uploadFile=file;
-  let versionName=v.versionName;
-  const needsTranscode=TRANSCODE.includes(fileExt);
-
-  if(needsTranscode){
-    _uploads[shotId]={name:file.name,pct:0,done:false,error:false,stage:'transcoding'};
-    if(_shotCurrentId===shotId)_renderShotBody(shotId);
-    try{
-      uploadFile=await _transcodeToMp4(file,(pct)=>{
-        _uploads[shotId].pct=pct;
-        _uploads[shotId].stage='transcoding';
-        _updateUploadUI(shotId);
-      });
-      // fix extension in versionName
-      versionName=versionName.replace(/\.[^.]+$/,'.mp4');
-    }catch(e){
-      console.error('Transcode failed:',e);
-      _uploads[shotId].error=true;
-      _uploads[shotId].stage='transcode_failed';
-      _updateUploadUI(shotId);
-      await _showAlert('Transcode failed','Could not convert <b>.'+esc(fileExt)+'</b> to mp4.<br><br>'+esc(e.message||'Unknown error')+'<br><br>Please convert manually to H.264 .mp4 and try again.');
-      delete _uploads[shotId];
-      if(_shotCurrentId===shotId)_renderShotBody(shotId);
-      return;
-    }
-  }
+  const result=await _validateAndPrepareVersion(shotId,file);
+  if(!result.ok)return;
 
   const ts=Date.now();
-  const key="versions/"+shotId+"/"+versionName;
-  _uploads[shotId]={name:versionName,pct:0,done:false,error:false,stage:'uploading'};
+  const key="versions/"+shotId+"/"+result.versionName;
+  _uploads[shotId]={name:result.versionName,pct:0,done:false,error:false,stage:'uploading'};
   if(_shotCurrentId===shotId)_renderShotBody(shotId);
-  const ok=await r2UploadXHR(key,uploadFile,(pct)=>{
+  const ok=await r2UploadXHR(key,result.file,(pct)=>{
     _uploads[shotId].pct=pct;
     _uploads[shotId].stage='uploading';
     _updateUploadUI(shotId);
@@ -3640,9 +3643,9 @@ async function uploadVersion(shotId,input){
   if(ok){
     if(!state[shotId])state[shotId]={};
     if(!state[shotId].versions)state[shotId].versions=[];
-    const thumbKey="versions/"+shotId+"/thumb_"+v.baseName+_formatVersion(v.vNum)+".jpg";
+    const thumbKey="versions/"+shotId+"/thumb_"+result.baseName+_formatVersion(result.vNum)+".jpg";
     const thumbUrl=await _generateThumbnail(CDN_BASE+"/"+key,thumbKey);
-    state[shotId].versions.push({name:versionName,baseName:v.baseName,url:CDN_BASE+"/"+key,thumb:thumbUrl||null,ts:ts});
+    state[shotId].versions.push({name:result.versionName,baseName:result.baseName,url:CDN_BASE+"/"+key,thumb:thumbUrl||null,ts});
     saveState(state);
     _uploads[shotId].done=true;
   } else {
