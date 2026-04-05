@@ -5199,14 +5199,20 @@ async function _downloadAsZip(files,zipName){
   let done=0,ok=0;
   const panel=_showOperationProgress('Downloading files',files.length);
   const WORKER='https://killhouse-vfx.contora.workers.dev/r2/';
-  for(const f of files){
-    try{
+  const PARALLEL=6;
+  for(let i=0;i<files.length;i+=PARALLEL){
+    const batch=files.slice(i,i+PARALLEL);
+    const results=await Promise.allSettled(batch.map(async f=>{
       const proxyUrl=f.url.startsWith(CDN_BASE)?WORKER+f.url.substring(CDN_BASE.length+1):f.url;
       const resp=await fetch(proxyUrl);
-      if(resp.ok){zip.file(f.path,await resp.blob());ok++;}
-    }catch(e){}
-    done++;
-    _updateOperationProgress(panel,done,files.length,f.name||f.path);
+      if(resp.ok){const blob=await resp.blob();return{path:f.path,blob};}
+      throw new Error('fetch failed');
+    }));
+    for(const r of results){
+      done++;
+      if(r.status==='fulfilled'){zip.file(r.value.path,r.value.blob);ok++;}
+      _updateOperationProgress(panel,done,files.length,batch[0]?.name||'');
+    }
   }
   if(ok===0){
     _removeOperationProgress(panel);
@@ -5219,8 +5225,8 @@ async function _downloadAsZip(files,zipName){
     return;
   }
   _updateOperationLabel(panel,'Packing ZIP...');
-  const content=await zip.generateAsync({type:'blob',compression:'DEFLATE'}, (meta)=>{
-    _updateOperationProgress(panel,Math.round(meta.percent),100,'Compressing...');
+  const content=await zip.generateAsync({type:'blob',compression:'STORE'}, (meta)=>{
+    _updateOperationProgress(panel,Math.round(meta.percent),100,'Packing...');
   });
   const a=document.createElement('a');
   a.href=URL.createObjectURL(content);
