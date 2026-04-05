@@ -4017,7 +4017,7 @@ function _getFilesRoot(id){
   // source: original (raw footage) + preview (source preview video)
   const srcUrl=CDN_BASE+"/video/"+id+"_prev.mp4";
   const srcBytes=_sizeCache[srcUrl]>0?_sizeCache[srcUrl]:0;
-  const sourcePreview=hasSrc?[{name:id+".mp4",size:srcBytes?_formatSize(srcBytes):'…',_bytes:srcBytes,date:"—",url:srcUrl}]:[];
+  const sourcePreview=hasSrc?[{name:id+"_prev.mp4",size:srcBytes?_formatSize(srcBytes):'…',_bytes:srcBytes,date:"—",url:srcUrl}]:[];
   if(hasSrc&&!_sizeCache[srcUrl])_fetchSize(srcUrl,()=>{if(_shotCurrentId===id&&_shotTab==='files')_renderShotFiles(id);});
   const sourceChildren=[
     {name:"original",type:"folder",locked:true,children:[]},
