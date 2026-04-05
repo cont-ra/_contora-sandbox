@@ -3049,8 +3049,9 @@ function _renderShotFiles(id){
     html+=`<div class="files-empty"><div class="files-empty-icon">📂</div><div>No files</div></div>`;
   }
   html+=`</div>`;// close files-table-wrap
-  // drop zone + hidden file input
-  if(canUp){
+  // drop zone + hidden file input — only inside a folder, not at root
+  const canDrop=canUp&&_filesPath.length>0;
+  if(canDrop){
     html+=`<div class="files-drop" id="filesDropZone" onclick="document.getElementById('filesUploadInput').click()">Drop files here or click to upload</div>`;
     html+=`<input type="file" id="filesUploadInput" multiple style="display:none" onchange="_handleFilesUpload('${id}',this)">`;
   }
