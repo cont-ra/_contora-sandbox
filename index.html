@@ -3121,6 +3121,30 @@ function _getCurrentStateKey(){
   if(_filesPath.length>=1&&_filesPath[0]!=='source'&&_filesPath[0]!=='versions')return _filesPath[0];
   return null;
 }
+// Detect if a file looks like a version preview (fuzzy match)
+function _detectVersionFile(shotId,filename){
+  const noExt=filename.replace(/\.[^.]+$/,'');
+  const ext=(filename.split('.').pop()||'').toLowerCase();
+  // Must be a video format
+  const videoExts=['mp4','webm','mov','avi','mkv','wmv','flv','mxf','ts','m4v','mpg','mpeg','3gp'];
+  if(!videoExts.includes(ext))return false;
+  // Check for _v### pattern anywhere in name
+  if(!/_v\d{2,4}/i.test(noExt))return false;
+  // Fuzzy match shotId: case-insensitive, allow minor differences
+  const shotLower=shotId.toLowerCase().replace(/[_\-\s]/g,'');
+  const fileLower=noExt.toLowerCase().replace(/[_\-\s]/g,'');
+  // File starts with something similar to shotId
+  if(fileLower.startsWith(shotLower))return true;
+  // Or contains shotId
+  if(fileLower.includes(shotLower))return true;
+  // Partial match: at least 60% of shotId chars match at the start
+  let matchLen=0;
+  for(let i=0;i<Math.min(shotLower.length,fileLower.length);i++){
+    if(shotLower[i]===fileLower[i])matchLen++;else break;
+  }
+  if(matchLen>=shotLower.length*0.6)return true;
+  return false;
+}
 const _VIDEO_NATIVE=['mp4','webm'];
 const _VIDEO_TRANSCODE=['mov','avi','mkv','wmv','flv','mxf','ts','m4v','mpg','mpeg','3gp'];
 const _VIDEO_BLOCKED=['r3d','ari','braw','dng','crm','nef','cr2','cr3'];
@@ -3209,6 +3233,41 @@ async function _uploadFilesToR2(id,fileList){
   if(!state[id].files)state[id].files={};
   if(!state[id].files[stateKey])state[id].files[stateKey]=[];
   for(const file of fileList){
+    // Smart detection: does this look like a version preview file?
+    if(stateKey!=='versions/preview'){
+      const looksLikeVersion=_detectVersionFile(id,file.name);
+      if(looksLikeVersion){
+        const choice=await _showChoice(
+          'Version file detected',
+          'This file looks like a version preview:<br><br>'+
+          `<div style="font-family:'SF Mono',monospace;font-size:14px;background:#21262d;padding:8px 12px;border-radius:6px;margin:8px 0">${esc(file.name)}</div>`+
+          '<br>It matches the pattern <b>'+esc(id)+'_v###</b><br><br>'+
+          'Where should it go?',
+          'Upload to versions/preview',
+          'Upload here anyway'
+        );
+        if(choice===null)continue;// cancel
+        if(choice==='a'){
+          // Redirect to version pipeline
+          const result=await _validateAndPrepareVersion(id,file);
+          if(!result.ok)continue;
+          const ts=Date.now();
+          const key="versions/"+id+"/"+result.versionName;
+          const ok=await r2UploadXHR(key,result.file,()=>{});
+          if(ok){
+            if(!state[id].versions)state[id].versions=[];
+            const thumbKey="versions/"+id+"/thumb_"+result.baseName+_formatVersion(result.vNum)+".jpg";
+            const thumbUrl=await _generateThumbnail(CDN_BASE+"/"+key,thumbKey);
+            state[id].versions.push({name:result.versionName,baseName:result.baseName,url:CDN_BASE+"/"+key,thumb:thumbUrl||null,ts});
+            _addFileHistory(id,'added',result.versionName,'versions/preview');
+            saveState(state);
+          }
+          continue;
+        }
+        // choice==='b' → fall through to regular upload
+      }
+    }
+    // Duplicate check
     if(state[id].files[stateKey].some(f=>f.name===file.name)){
       await _showAlert('Duplicate','File <b>'+esc(file.name)+'</b> already exists in this folder.');
       continue;
@@ -3433,6 +3492,19 @@ function _showConfirm(title,msg,yesLabel){
     ov.querySelector("#confirmYes").onclick=()=>{ov.remove();resolve(true);};
     ov.querySelector("#confirmNo").onclick=()=>{ov.remove();resolve(false);};
     ov.addEventListener("click",(e)=>{if(e.target===ov){ov.remove();resolve(false);}});
+  });
+}
+// 3-button choice dialog. Returns 'a','b', or null (cancel/backdrop)
+function _showChoice(title,msg,btnA,btnB){
+  return new Promise((resolve)=>{
+    const ov=document.createElement("div");
+    ov.className="confirm-overlay";
+    ov.innerHTML=`<div class="confirm-box"><div class="confirm-title">${title}</div><div class="confirm-msg">${msg}</div><div class="confirm-btns"><button class="confirm-btn cancel" id="choiceCancel">Cancel</button><button class="confirm-btn cancel" id="choiceB">${btnB}</button><button class="confirm-btn danger" id="choiceA" style="background:#1f6feb;border-color:#1f6feb">${btnA}</button></div></div>`;
+    document.body.appendChild(ov);
+    ov.querySelector("#choiceA").onclick=()=>{ov.remove();resolve('a');};
+    ov.querySelector("#choiceB").onclick=()=>{ov.remove();resolve('b');};
+    ov.querySelector("#choiceCancel").onclick=()=>{ov.remove();resolve(null);};
+    ov.addEventListener("click",(e)=>{if(e.target===ov){ov.remove();resolve(null);}});
   });
 }
 function _showAlert(title,msg){
