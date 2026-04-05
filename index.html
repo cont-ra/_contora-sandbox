@@ -3028,7 +3028,7 @@ function _renderShotFiles(id){
   html+=`<div class="files-table-wrap">`;
   html+=`<table class="files-table"><thead><tr><th>Name</th><th>Size</th><th>Last Edit</th><th>Date</th><th></th></tr></thead><tbody>`;
   if(_filesPath.length>0){
-    html+=`<tr><td class="f-name" onclick="_filesPath.pop();_renderShotFiles('${id}')"><span class="f-icon">⬆️</span>..</td><td></td><td></td><td></td><td></td></tr>`;
+    html+=`<tr data-drop-folder=".." ><td class="f-name" onclick="_filesPath.pop();_renderShotFiles('${id}')"><span class="f-icon">⬆️</span>..</td><td></td><td></td><td></td><td></td></tr>`;
   }
   for(const f of items){
     if(f.type==='folder'){
@@ -3435,8 +3435,11 @@ async function _moveFile(id,fileName,targetFolder){
   if(!srcKey)return;
   // Determine target state key
   let destKey;
-  if(_filesPath.length===0){
-    // At root, dropping into a root-level folder
+  if(targetFolder==='..'){
+    // Move to parent
+    if(_filesPath.length<=1) destKey='_root';
+    else destKey=_filesPath.slice(0,-1).join('/');
+  } else if(_filesPath.length===0){
     destKey=targetFolder;
   } else {
     destKey=_filesPath.concat(targetFolder).join('/');
