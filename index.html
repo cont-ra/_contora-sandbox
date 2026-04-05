@@ -4465,6 +4465,7 @@ function _commitUploadedFile(item){
     // Version preview
     if(!state[id].versions)state[id].versions=[];
     state[id].versions.push({name:item.meta.versionName,baseName:item.meta.baseName,url:CDN_BASE+'/'+item.r2Key,thumb:null,ts:Date.now(),size:item.size||0});
+    saveState(state);
     // Generate thumb async (don't block queue)
     const thumbKey="versions/"+id+"/thumb_"+item.meta.baseName+"_prev"+_formatVersion(item.meta.vNum)+".jpg";
     _generateThumbnail(CDN_BASE+"/"+item.r2Key,thumbKey).then(url=>{
