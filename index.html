@@ -5551,11 +5551,12 @@ function _fileIcon(name){
   return'📎';
 }
 function closeShot(){
-  if(_uploadQueue.items.some(i=>i.status==='uploading'||i.status==='pending')){
-    if(!confirm('Uploads in progress. Cancel all and close?'))return;
-    _cancelAllQueue();
+  const hasUploads=_uploadQueue.items.some(i=>i.status==='uploading'||i.status==='pending');
+  if(hasUploads){
+    // Don't cancel — let uploads continue in background
+  } else {
+    _uploadQueue.items=[];_uploadQueue.shotId=null;
   }
-  _uploadQueue.items=[];_uploadQueue.shotId=null;
   // Restore Versions tab visibility (hidden in admin mode)
   document.getElementById("shotTabVersions").style.display='';
   _shotCurrentId=null;_shotTab='versions';_filesPath=[];
