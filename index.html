@@ -572,8 +572,10 @@
 
   .save-notice { position: fixed; bottom: 20px; right: 20px; background: #1f6feb; color: #fff; padding: 10px 18px; border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
   .save-notice.show { opacity: 1; }
-  .export-btn { background: #238636; border: 1px solid #2ea043; color: #fff; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; margin-left: auto; }
-  .export-btn:hover { background: #2ea043; }
+  .export-btn { background: #21262d; border: 1px solid #30363d; color: #8b949e; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; margin-left: auto; transition: .15s; }
+  .export-btn:hover { background: #30363d; color: #c9d1d9; }
+  .export-btn.edit-active { background: #238636; border-color: #2ea043; color: #fff; }
+  .export-btn.edit-active:hover { background: #2ea043; }
 
   /* Admin Files share overlay */
   .af-share-row { display: flex; align-items: center; gap: 8px; background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 10px 14px; }
@@ -763,7 +765,7 @@
   <button class="artist-filter-btn" data-artist="nikita">Nikita</button>
   <button class="artist-filter-btn" data-artist="igor">Igor</button>
   <button class="artist-filter-btn" data-artist="unassigned">Unassigned</button>
-  <button class="export-btn" onclick="exportCSV()">Export CSV</button>
+  <button class="export-btn" id="editModeBtn" onclick="toggleEditMode()">Edit Shots</button>
 </div>
 
 <table>
@@ -803,6 +805,7 @@ async function showLoggedIn(){document.getElementById("loginOverlay").classList.
   document.querySelector("table").classList.toggle("hide-admin",!isAdmin());
   document.getElementById("adminGear").style.display=isAdmin()?'':'none';
   _loadColFilters();
+  _loadEditMode();
   render();
 }
 function logout(){sessionStorage.removeItem("kh_user");currentUser=null;document.getElementById("loginOverlay").classList.remove("hidden");document.getElementById("userBadge").style.display="none";document.getElementById("loginPass").value="";document.getElementById("loginError").textContent="";render();}
@@ -894,6 +897,7 @@ function _renderCatDropdownItems(dd,id,cat,keys,editMode){
   dd.innerHTML=html;
 }
 function toggleCatEdit(id){
+  if(!isEditMode())return;
   _catEditMode=!_catEditMode;
   const dd=document.getElementById("catDropdown");
   if(!dd)return;
@@ -913,6 +917,7 @@ function closeCatDropdown(){
   const dd=document.getElementById("catDropdown");if(dd)dd.remove();_catEditMode=false;
 }
 function addNewCat(id,name){
+  if(!isEditMode())return;
   if(!name||!name.trim())return;
   const key=name.trim().toLowerCase().replace(/[^a-zа-яёіїє0-9]/gi,"_");
   if(!CAT_LABELS[key]){
@@ -924,7 +929,7 @@ function addNewCat(id,name){
   setCat(id,key);
 }
 function deleteCat(key){
-  if(!isAdmin())return;
+  if(!isEditMode()||!isAdmin())return;
   delete CAT_LABELS[key];delete CAT_COLORS[key];
   if(state.__categories)delete state.__categories[key];
   // Reset any shots using this cat to "other"
@@ -935,7 +940,7 @@ function deleteCat(key){
   render();
 }
 function setCat(id,val){
-  if(!isAdmin())return;
+  if(!isEditMode()||!isAdmin())return;
   closeCatDropdown();
   if(!state[id])state[id]={};
   state[id].cat=val;
@@ -1243,6 +1248,23 @@ document.addEventListener("click",function(e){
     document.querySelectorAll(".col-filter-drop.open").forEach(d=>{d.classList.remove("open");d.previousElementSibling?.classList.remove("active");_updateColFilterBtnState(d.id.replace("cf-",""));});
   }
 });
+
+/* ── Edit Mode ── */
+let _editMode=false;
+function toggleEditMode(){
+  _editMode=!_editMode;
+  const btn=document.getElementById("editModeBtn");
+  if(btn){btn.classList.toggle("edit-active",_editMode);btn.textContent=_editMode?"Editing...":"Edit Shots";}
+  try{localStorage.setItem("em_"+(currentUser?currentUser.id:"guest"),_editMode?"1":"0");}catch(e){}
+  render();
+}
+function _loadEditMode(){
+  try{_editMode=localStorage.getItem("em_"+(currentUser?currentUser.id:"guest"))==="1";}catch(e){}
+  const btn=document.getElementById("editModeBtn");
+  if(btn){btn.classList.toggle("edit-active",_editMode);btn.textContent=_editMode?"Editing...":"Edit Shots";}
+}
+function isEditMode(){return _editMode;}
+
 function getStatus(id){return state[id]?.status||"todo";}
 let _prioSort=false;
 const _prioOrder={"red":0,"yellow":1,"green":2,"":3};
@@ -1254,6 +1276,7 @@ function togglePrioSort(){
 }
 function getPriority(id){return state[id]?.priority||"";}
 function setPriority(id,val){
+  if(!isEditMode())return;
   if(!state[id])state[id]={};
   state[id].priority=val;
   saveState(state);
@@ -1262,7 +1285,7 @@ function setPriority(id,val){
 }
 function canEditPrio(){return isAdmin()||isClient();}
 function openPrioDropdown(id,el){
-  if(!canEditPrio())return;
+  if(!isEditMode()||!canEditPrio())return;
   closePrioDropdown();
   const cur=getPriority(id);
   const rect=el.getBoundingClientRect();
@@ -2231,6 +2254,7 @@ function pinSiTooltip(id){
 }
 
 function openShotInfoModal(id){
+  if(!isEditMode())return;
   closeShotInfoModal();
   const si=getShotInfo(id);
   const canEdit=isAdmin();
@@ -2283,6 +2307,7 @@ function openShotInfoModal(id){
 }
 function closeShotInfoModal(){const d=document.getElementById("siModalOverlay");if(d)d.remove();}
 function saveShotInfoModal(id){
+  if(!isEditMode())return;
   const ov=document.getElementById("siModalOverlay");
   if(!ov)return;
   const inputs=ov.querySelectorAll('.si-input');
@@ -3671,7 +3696,7 @@ function openShot(id){
   _renderShotBody(id);
   document.getElementById("shotOverlay").classList.remove("hidden");
 }
-function _canUpload(id){if(id==='__admin')return isAdmin();return isAdmin()||(isArtist()&&getAssignee(id)===currentUser.id);}
+function _canUpload(id){if(!isEditMode())return false;if(id==='__admin')return isAdmin();return isAdmin()||(isArtist()&&getAssignee(id)===currentUser.id);}
 function _renderShotBody(id){
   const body=document.getElementById("shotBody");
   const versions=state[id]?.versions||[];
@@ -5612,7 +5637,7 @@ function saveDesc(tid,ta){
 }
 
 function startEditAdmin(tid,td,ev){
-  if(!canEditAdminNote())return;
+  if(!isEditMode()||!canEditAdminNote())return;
   if(td.querySelector('.desc-edit-ta'))return;
   ev.stopPropagation();
   const current=getAdminNote(tid);
@@ -5654,11 +5679,6 @@ document.getElementById("search").addEventListener("input",e=>{searchQuery=e.tar
 document.querySelectorAll(".filter-btn").forEach(b=>{b.addEventListener("click",()=>{document.querySelectorAll(".filter-btn").forEach(x=>x.classList.remove("active"));b.classList.add("active");currentFilter=b.dataset.filter;render();});});
 document.querySelectorAll(".artist-filter-btn").forEach(b=>{b.addEventListener("click",()=>{document.querySelectorAll(".artist-filter-btn").forEach(x=>x.classList.remove("active"));b.classList.add("active");artistFilter=b.dataset.artist;render();});});
 
-function exportCSV(){
-  let csv="ID,Description,Category,TC In,TC Out,Artist,Status,Admin Notes,Chat\n";
-  TASKS.forEach(t=>{const st=getStatus(t.id),ar=getAssignee(t.id);const an=getAdminNote(t.id).replace(/"/g,'""');const ch=getChat(t.id).filter(m=>!m.deleted).map(m=>`[${m.author}] ${m.text}`).join("\n").replace(/"/g,'""');csv+=`"${t.id}","${t.desc}","${CAT_LABELS[getCat(t.id)]||getCat(t.id)}","${t.tcIn}","${t.tcOut}","${ar}","${st}","${an}","${ch}"\n`;});
-  const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="kh_vfx_tracker.csv";a.click();
-}
 render();
 
 // Fallback poll every 15s in case WebSocket drops
