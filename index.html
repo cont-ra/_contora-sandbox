@@ -2973,7 +2973,11 @@ function _getFilesRoot(id){
     }));
     return {name:uf.name,type:"folder",locked:false,children:files};
   });
-  return root.concat(userFolders);
+  // root-level files
+  const rootFiles=(state[id]?.files?.['_root']||[]).map(f=>({
+    name:f.name,size:_formatSize(f.size),date:f.date||'—',url:CDN_BASE+'/'+f.r2key
+  }));
+  return root.concat(userFolders).concat(rootFiles);
 }
 function _formatSize(bytes){
   if(!bytes||bytes==='—')return '—';
@@ -3049,9 +3053,8 @@ function _renderShotFiles(id){
     html+=`<div class="files-empty"><div class="files-empty-icon">📂</div><div>No files</div></div>`;
   }
   html+=`</div>`;// close files-table-wrap
-  // drop zone + hidden file input — only inside a folder, not at root
-  const canDrop=canUp&&_filesPath.length>0;
-  if(canDrop){
+  // drop zone + hidden file input
+  if(canUp){
     html+=`<div class="files-drop" id="filesDropZone" onclick="document.getElementById('filesUploadInput').click()">Drop files here or click to upload</div>`;
     html+=`<input type="file" id="filesUploadInput" multiple style="display:none" onchange="_handleFilesUpload('${id}',this)">`;
   }
@@ -3105,10 +3108,11 @@ async function _deleteFolder(id,name){
   _renderShotFiles(id);
 }
 function _getCurrentR2Folder(id){
-  if(_filesPath.length===0)return null;
+  if(_filesPath.length===0)return 'files/'+id;
   return 'files/'+id+'/'+_filesPath.join('/');
 }
 function _getCurrentStateKey(){
+  if(_filesPath.length===0)return '_root';
   if(_filesPath.length>=2&&_filesPath[0]==='versions')return _filesPath.slice(0,2).join('/');
   if(_filesPath.length>=2&&_filesPath[0]==='source')return _filesPath.slice(0,2).join('/');
   if(_filesPath.length>=1&&_filesPath[0]!=='source'&&_filesPath[0]!=='versions')return _filesPath[0];
