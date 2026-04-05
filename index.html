@@ -4878,6 +4878,41 @@ function _detectVersionFile(shotId,filename){
 const _VIDEO_NATIVE=['mp4','webm'];
 const _VIDEO_TRANSCODE=['mov','avi','mkv','wmv','flv','mxf','ts','m4v','mpg','mpeg','3gp'];
 const _VIDEO_BLOCKED=['r3d','ari','braw','dng','crm','nef','cr2','cr3'];
+const _SEQ_EXTS=['png','jpg','jpeg','exr','dpx','tif','tiff','tga','bmp','hdr','sgi','cin'];
+
+function _validateSequenceFolder(shotId,folderName,files,targetKey){
+  const idLower=shotId.toLowerCase();
+  const fnLower=folderName.toLowerCase();
+  // source/original: folder name = shotId
+  if(targetKey==='source/original'){
+    if(fnLower!==idLower)return{ok:false,error:'Folder must be named <b>'+esc(shotId)+'</b>, got <b>'+esc(folderName)+'</b>'};
+    const badFiles=[];
+    for(const f of files){
+      const ext=(f.name.split('.').pop()||'').toLowerCase();
+      if(!_SEQ_EXTS.includes(ext)){badFiles.push(f.name);continue;}
+      const noExt=f.name.replace(/\.[^.]+$/,'');
+      if(!noExt.toLowerCase().startsWith(idLower+'_'))badFiles.push(f.name);
+    }
+    if(badFiles.length)return{ok:false,error:'Files must be named <b>'+esc(shotId)+'_###.ext</b><br>Bad: '+badFiles.slice(0,3).map(n=>esc(n)).join(', ')+(badFiles.length>3?' +'+( badFiles.length-3)+' more':'')};
+    return{ok:true};
+  }
+  // versions/final: folder name = shotId_v###
+  if(targetKey==='versions/final'){
+    const match=fnLower.match(new RegExp('^'+idLower.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'_v(\\d{3,4})$','i'));
+    if(!match)return{ok:false,error:'Folder must be named <b>'+esc(shotId)+'_v###</b>, got <b>'+esc(folderName)+'</b>'};
+    const badFiles=[];
+    const prefix=folderName.toLowerCase();
+    for(const f of files){
+      const ext=(f.name.split('.').pop()||'').toLowerCase();
+      if(!_SEQ_EXTS.includes(ext)){badFiles.push(f.name);continue;}
+      const noExt=f.name.replace(/\.[^.]+$/,'');
+      if(!noExt.toLowerCase().startsWith(prefix+'_'))badFiles.push(f.name);
+    }
+    if(badFiles.length)return{ok:false,error:'Files must be named <b>'+esc(folderName)+'_###.ext</b><br>Bad: '+badFiles.slice(0,3).map(n=>esc(n)).join(', ')+(badFiles.length>3?' +'+(badFiles.length-3)+' more':'')};
+    return{ok:true};
+  }
+  return{ok:true};
+}
 
 // Operation progress UI (download zip, delete folder)
 function _showOperationProgress(title,total){
@@ -5070,19 +5105,51 @@ async function _handleFilesDrop(id,files){
 function _readEntry(en){return new Promise(res=>{if(en.isFile)en.file(f=>{res([{type:'file',file:f,path:en.fullPath.substring(1)}]);},()=>res([]));else if(en.isDirectory){const rd=en.createReader(),all=[];(function r(){rd.readEntries(async es=>{if(!es.length){res(all);return;}for(const e of es)all.push(...await _readEntry(e));r();},()=>res(all));})();}else res([]);});}
 async function _handleEntriesDrop(id,entries){
   const coll=[];for(const e of entries)coll.push(...await _readEntry(e));if(!coll.length)return;
+  const cp=_filesPath.join('/');const stateKey=_getCurrentStateKey();
+  // Validate sequence folders for source/original and versions/final
+  if(id!=='__admin'&&(stateKey==='source/original'||stateKey==='versions/final')){
+    const topFolders={};
+    for(const c of coll){if(c.type!=='file')continue;const parts=c.path.split('/');if(parts.length<2)continue;const top=parts[0];if(!topFolders[top])topFolders[top]=[];topFolders[top].push(c);}
+    const r2B=_getCurrentR2Folder(id),q=[];const foldersArr=_getFoldersArray(id);
+    for(const[folderName,files]of Object.entries(topFolders)){
+      const v=_validateSequenceFolder(id,folderName,files.map(c=>c.file),stateKey);
+      if(!v.ok){await _showAlert('Naming error',v.error);continue;}
+      const fp=cp?cp+'/'+folderName:folderName;
+      if(!foldersArr.some(u=>u.name===fp))foldersArr.push({name:fp});
+      for(const c of files){const d=c.path.substring(0,c.path.lastIndexOf('/'));const sk=cp?cp+'/'+d:d;q.push({file:c.file,r2Key:r2B+'/'+c.path,stateKey:sk,meta:{}});}
+    }
+    saveState(state);_renderShotFiles(id);if(q.length)_enqueueFiles(id,q);
+    return;
+  }
   const folders=new Set();for(const c of coll){const d=c.path.substring(0,c.path.lastIndexOf('/'));if(d)folders.add(d);}
-  const cp=_filesPath.join('/');const foldersArr=_getFoldersArray(id);
+  const foldersArr=_getFoldersArray(id);
   for(const f of folders){const fp=cp?cp+'/'+f:f;const pts=fp.split('/');for(let i=1;i<=pts.length;i++){const p=pts.slice(0,i).join('/');if(!foldersArr.some(u=>u.name===p))foldersArr.push({name:p});}}
-  const r2B=_getCurrentR2Folder(id),skB=_getCurrentStateKey()||'_root',q=[];
+  const r2B=_getCurrentR2Folder(id),skB=stateKey||'_root',q=[];
   for(const c of coll){if(c.type!=='file')continue;const d=c.path.substring(0,c.path.lastIndexOf('/'));const sk=d?(cp?cp+'/'+d:d):skB;q.push({file:c.file,r2Key:r2B+'/'+c.path,stateKey:sk,meta:{}});}
   saveState(state);_renderShotFiles(id);if(q.length)_enqueueFiles(id,q);
 }
 async function _handleFolderInput(id,input){
   const files=Array.from(input.files);input.value='';if(!files.length)return;
-  const cp=_filesPath.join('/');const foldersArr=_getFoldersArray(id);
+  const cp=_filesPath.join('/');const stateKey=_getCurrentStateKey();
+  // Validate sequence folders for source/original and versions/final
+  if(id!=='__admin'&&(stateKey==='source/original'||stateKey==='versions/final')){
+    const topFolders={};
+    for(const f of files){const r=f.webkitRelativePath||f.name;const parts=r.split('/');if(parts.length<2)continue;const top=parts[0];if(!topFolders[top])topFolders[top]=[];topFolders[top].push({file:f,path:r});}
+    const r2B=_getCurrentR2Folder(id),q=[];const foldersArr=_getFoldersArray(id);
+    for(const[folderName,items]of Object.entries(topFolders)){
+      const v=_validateSequenceFolder(id,folderName,items.map(i=>i.file),stateKey);
+      if(!v.ok){await _showAlert('Naming error',v.error);continue;}
+      const fp=cp?cp+'/'+folderName:folderName;
+      if(!foldersArr.some(u=>u.name===fp))foldersArr.push({name:fp});
+      for(const item of items){const d=item.path.substring(0,item.path.lastIndexOf('/'));const sk=cp?cp+'/'+d:d;q.push({file:item.file,r2Key:r2B+'/'+item.path,stateKey:sk,meta:{}});}
+    }
+    saveState(state);_renderShotFiles(id);if(q.length)_enqueueFiles(id,q);
+    return;
+  }
+  const foldersArr=_getFoldersArray(id);
   const folders=new Set();for(const f of files){const r=f.webkitRelativePath||f.name;const d=r.substring(0,r.lastIndexOf('/'));if(d)folders.add(d);}
   for(const f of folders){const fp=cp?cp+'/'+f:f;const pts=fp.split('/');for(let i=1;i<=pts.length;i++){const p=pts.slice(0,i).join('/');if(!foldersArr.some(u=>u.name===p))foldersArr.push({name:p});}}
-  const r2B=_getCurrentR2Folder(id),skB=_getCurrentStateKey()||'_root',q=[];
+  const r2B=_getCurrentR2Folder(id),skB=stateKey||'_root',q=[];
   for(const f of files){const r=f.webkitRelativePath||f.name;const d=r.substring(0,r.lastIndexOf('/'));const sk=d?(cp?cp+'/'+d:d):skB;q.push({file:f,r2Key:r2B+'/'+r,stateKey:sk,meta:{}});}
   saveState(state);_renderShotFiles(id);if(q.length)_enqueueFiles(id,q);
 }
