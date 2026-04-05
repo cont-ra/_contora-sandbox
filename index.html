@@ -3036,7 +3036,8 @@ function _renderShotFiles(id){
       const delBtn=(!f.locked&&_canUpload(id))?`<button class="f-dl" onclick="event.stopPropagation();_deleteFolder('${id}','${esc(f.name)}')" title="Delete folder">🗑</button>`:'';
       const editCell=_renderEditCell(id,f.name);
       const dropAttr=!f.locked?` data-drop-folder="${esc(f.name)}"`:'';
-      html+=`<tr${dropAttr}>
+      const dragFolderAttr=!f.locked?` draggable="true" data-drag-folder="${esc(f.name)}"`:'';
+      html+=`<tr${dropAttr}${dragFolderAttr}>
         <td class="f-name" onclick="_filesPath.push('${esc(f.name)}');_renderShotFiles('${id}')"><span class="f-icon">📁</span>${esc(f.name)}${lock}</td>
         <td class="f-size">${f.children?.length||0} items</td>
         <td class="f-edit">${editCell}</td>
@@ -3080,7 +3081,7 @@ function _renderShotFiles(id){
       _handleFilesDrop(id,e.dataTransfer.files);
     });
   }
-  // Internal drag & drop: file → folder
+  // Internal drag & drop: file/folder → folder
   body.querySelectorAll("tr[data-drag-file]").forEach(row=>{
     row.addEventListener("dragstart",e=>{
       e.dataTransfer.setData("text/x-file-move",row.dataset.dragFile);
@@ -3089,9 +3090,21 @@ function _renderShotFiles(id){
     });
     row.addEventListener("dragend",()=>row.classList.remove("f-dragging"));
   });
+  body.querySelectorAll("tr[data-drag-folder]").forEach(row=>{
+    row.addEventListener("dragstart",e=>{
+      e.dataTransfer.setData("text/x-folder-move",row.dataset.dragFolder);
+      e.dataTransfer.effectAllowed="move";
+      row.classList.add("f-dragging");
+    });
+    row.addEventListener("dragend",()=>row.classList.remove("f-dragging"));
+  });
   body.querySelectorAll("tr[data-drop-folder]").forEach(row=>{
     row.addEventListener("dragover",e=>{
-      if(!e.dataTransfer.types.includes("text/x-file-move"))return;
+      const isFile=e.dataTransfer.types.includes("text/x-file-move");
+      const isFolder=e.dataTransfer.types.includes("text/x-folder-move");
+      if(!isFile&&!isFolder)return;
+      // Don't drop folder on itself
+      if(isFolder&&row.dataset.dropFolder===row.dataset.dragFolder)return;
       e.preventDefault();e.dataTransfer.dropEffect="move";
       row.classList.add("f-drop-target");
     });
@@ -3099,7 +3112,9 @@ function _renderShotFiles(id){
     row.addEventListener("drop",e=>{
       e.preventDefault();row.classList.remove("f-drop-target");
       const fileName=e.dataTransfer.getData("text/x-file-move");
+      const folderName=e.dataTransfer.getData("text/x-folder-move");
       if(fileName)_moveFile(id,fileName,row.dataset.dropFolder);
+      if(folderName)_moveFolder(id,folderName,row.dataset.dropFolder);
     });
   });
 }
@@ -3461,6 +3476,35 @@ async function _moveFile(id,fileName,targetFolder){
   srcFiles.splice(idx,1);
   state[id].files[destKey].push(fileEntry);
   _addFileHistory(id,'moved',fileName,srcKey+' → '+destKey);
+  saveState(state);
+  _renderShotFiles(id);
+}
+async function _moveFolder(id,folderName,targetFolder){
+  if(folderName===targetFolder)return;
+  if(targetFolder==='..'&&_filesPath.length===0)return;// already at root
+  // Only works for user folders at root level for now
+  if(_filesPath.length!==0)return;
+  if(!state[id]?.userFolders)return;
+  const idx=state[id].userFolders.findIndex(f=>f.name===folderName);
+  if(idx<0)return;
+  if(targetFolder==='..') return;// can't move root folder higher
+
+  // Move folder into another folder: remove from root userFolders,
+  // merge its files into target folder's files
+  const srcFiles=state[id]?.files?.[folderName]||[];
+  const destKey=targetFolder;
+  if(!state[id].files)state[id].files={};
+  if(!state[id].files[destKey])state[id].files[destKey]=[];
+  // Create subfolder concept: prefix file names or just merge
+  for(const f of srcFiles){
+    if(!state[id].files[destKey].some(ef=>ef.name===f.name)){
+      state[id].files[destKey].push(f);
+    }
+  }
+  // Remove source folder
+  delete state[id].files[folderName];
+  state[id].userFolders.splice(idx,1);
+  _addFileHistory(id,'moved',folderName,'→ '+destKey);
   saveState(state);
   _renderShotFiles(id);
 }
