@@ -704,7 +704,7 @@
       <span class="shot-id" id="noteShotId"></span>
       <span class="shot-desc" id="noteShotDesc"></span>
     </div>
-    <div class="note-panel-body" id="notePanelBody" ondragover="_chatPanelDragOver(event)" ondragleave="_chatPanelDragLeave(event)" ondrop="_chatPanelDrop(event)"></div>
+    <div class="note-panel-body" id="notePanelBody"></div>
     <div class="note-panel-footer" id="notePanelFooter">
       <button class="note-cancel-btn" onclick="closeNote()">Cancel</button>
       <button class="note-save-btn" onclick="saveNote()">Save</button>
@@ -2369,6 +2369,53 @@ function _renderFileCard(path){
   const meta=[count,size].filter(Boolean).join(' • ');
   return `<div class="chat-file-card" onclick="_navigateChatFile('${esc(path)}')"><span class="cfc-icon">${icon}</span><div class="cfc-info"><div class="cfc-name">${esc(name)}</div>${meta?`<div class="cfc-meta">${meta}</div>`:''}</div><div class="cfc-actions"><button class="cfc-btn" onclick="event.stopPropagation()" title="Share (coming soon)">🔗</button>${entry?.url?`<a class="cfc-btn" href="${entry.url}" target="_blank" onclick="event.stopPropagation()" title="Download">⬇</a>`:''}</div></div>`;
 }
+// Document-level capture handlers for chat file drop
+document.addEventListener('dragover',e=>{
+  if(noteType!=='chat')return;
+  const npb=document.getElementById("notePanelBody");
+  if(!npb||!npb.contains(e.target))return;
+  e.preventDefault();e.dataTransfer.dropEffect="copy";
+  const ta=document.getElementById("chatTA");
+  const cm=document.getElementById("chatMessages");
+  if(ta&&(e.target===ta||ta.contains(e.target))){ta.classList.add("chat-drop-active");if(cm)cm.classList.remove("drop-highlight");}
+  else{if(cm)cm.classList.add("drop-highlight");if(ta)ta.classList.remove("chat-drop-active");}
+},true);
+document.addEventListener('dragleave',e=>{
+  if(noteType!=='chat')return;
+  const npb=document.getElementById("notePanelBody");
+  if(!npb)return;
+  if(npb.contains(e.relatedTarget))return;
+  const ta=document.getElementById("chatTA");if(ta)ta.classList.remove("chat-drop-active");
+  const cm=document.getElementById("chatMessages");if(cm)cm.classList.remove("drop-highlight");
+},true);
+document.addEventListener('drop',e=>{
+  if(noteType!=='chat')return;
+  const npb=document.getElementById("notePanelBody");
+  if(!npb||!npb.contains(e.target))return;
+  e.preventDefault();e.stopPropagation();
+  const ta=document.getElementById("chatTA");if(ta)ta.classList.remove("chat-drop-active");
+  const cm=document.getElementById("chatMessages");if(cm)cm.classList.remove("drop-highlight");
+  const file=e.dataTransfer.getData("text/x-file-move");
+  const folder=e.dataTransfer.getData("text/x-folder-move");
+  const multi=e.dataTransfer.getData("text/x-multi-move");
+  let names=[];
+  if(multi){try{names=JSON.parse(multi);}catch(ex){}}
+  else if(file)names=[file];
+  else if(folder)names=[folder];
+  if(!names.length)return;
+  const path=_filesPath.length?_filesPath.join('/')+'/':'';
+  const onTA=ta&&(e.target===ta||ta.contains(e.target));
+  if(onTA){
+    const insert=names.map(n=>`[[file:${path}${n}]]`).join(' ');
+    const pos=ta.selectionStart||0;
+    ta.value=ta.value.slice(0,pos)+insert+ta.value.slice(pos);
+    ta.focus();ta.selectionStart=ta.selectionEnd=pos+insert.length;
+    ta.dispatchEvent(new Event("input"));
+  } else {
+    for(const n of names)_sendChatFileCard(`[[filecard:${path}${n}]]`);
+  }
+},true);
+
 function _chatTaDragOver(e){
   e.preventDefault();e.dataTransfer.dropEffect="copy";
   e.target.classList.add("chat-drop-active");
