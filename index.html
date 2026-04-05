@@ -164,6 +164,10 @@
   .files-drop { border: 2px dashed #30363d; border-radius: 8px; padding: 30px; text-align: center; color: #484f58; font-size: 13px; cursor: pointer; transition: .15s; }
   .files-drop:hover { border-color: #3fb950; color: #3fb950; }
   .files-drop.drag-over { border-color: #3fb950; color: #3fb950; background: rgba(63,185,80,0.05); }
+  .files-table tr.f-dragging { opacity: 0.4; }
+  .files-table tr.f-drop-target td { background: rgba(63,185,80,0.12) !important; }
+  .files-table tr[draggable="true"] { cursor: grab; }
+  .files-table tr[draggable="true"]:active { cursor: grabbing; }
   .files-empty { text-align: center; padding: 60px 20px; color: #484f58; }
   .files-empty-icon { font-size: 48px; margin-bottom: 12px; }
   .files-new-folder { display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: #161b22; border: 1px solid #30363d; border-radius: 6px; }
@@ -3031,7 +3035,8 @@ function _renderShotFiles(id){
       const lock=f.locked?` 🔒`:'';
       const delBtn=(!f.locked&&_canUpload(id))?`<button class="f-dl" onclick="event.stopPropagation();_deleteFolder('${id}','${esc(f.name)}')" title="Delete folder">🗑</button>`:'';
       const editCell=_renderEditCell(id,f.name);
-      html+=`<tr>
+      const dropAttr=!f.locked?` data-drop-folder="${esc(f.name)}"`:'';
+      html+=`<tr${dropAttr}>
         <td class="f-name" onclick="_filesPath.push('${esc(f.name)}');_renderShotFiles('${id}')"><span class="f-icon">📁</span>${esc(f.name)}${lock}</td>
         <td class="f-size">${f.children?.length||0} items</td>
         <td class="f-edit">${editCell}</td>
@@ -3042,7 +3047,8 @@ function _renderShotFiles(id){
       const dlBtn=f.url?`<a class="f-dl" href="${f.url}" target="_blank" title="Download"><svg class="dl-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1v9m0 0L4.5 6.5M8 10l3.5-3.5M2 13h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></a>`:'';
       const fileDelBtn=canDel?`<button class="f-dl" onclick="event.stopPropagation();_deleteFile('${id}','${esc(f.name)}')" title="Delete">🗑</button>`:'';
       const editCell=_renderEditCell(id,f.name);
-      html+=`<tr>
+      const dragAttr=!isLocked?` draggable="true" data-drag-file="${esc(f.name)}"`:'';
+      html+=`<tr${dragAttr}>
         <td><span class="f-icon">${_fileIcon(f.name)}</span>${esc(f.name)}</td>
         <td class="f-size">${f.size||''}</td>
         <td class="f-edit">${editCell}</td>
@@ -3068,8 +3074,34 @@ function _renderShotFiles(id){
   if(dz){
     dz.addEventListener("dragover",e=>{e.preventDefault();dz.classList.add("drag-over");});
     dz.addEventListener("dragleave",()=>dz.classList.remove("drag-over"));
-    dz.addEventListener("drop",e=>{e.preventDefault();dz.classList.remove("drag-over");_handleFilesDrop(id,e.dataTransfer.files);});
+    dz.addEventListener("drop",e=>{e.preventDefault();dz.classList.remove("drag-over");
+      // If internal drag (file move), ignore — drop zone is for external files only
+      if(e.dataTransfer.getData("text/x-file-move"))return;
+      _handleFilesDrop(id,e.dataTransfer.files);
+    });
   }
+  // Internal drag & drop: file → folder
+  body.querySelectorAll("tr[data-drag-file]").forEach(row=>{
+    row.addEventListener("dragstart",e=>{
+      e.dataTransfer.setData("text/x-file-move",row.dataset.dragFile);
+      e.dataTransfer.effectAllowed="move";
+      row.classList.add("f-dragging");
+    });
+    row.addEventListener("dragend",()=>row.classList.remove("f-dragging"));
+  });
+  body.querySelectorAll("tr[data-drop-folder]").forEach(row=>{
+    row.addEventListener("dragover",e=>{
+      if(!e.dataTransfer.types.includes("text/x-file-move"))return;
+      e.preventDefault();e.dataTransfer.dropEffect="move";
+      row.classList.add("f-drop-target");
+    });
+    row.addEventListener("dragleave",()=>row.classList.remove("f-drop-target"));
+    row.addEventListener("drop",e=>{
+      e.preventDefault();row.classList.remove("f-drop-target");
+      const fileName=e.dataTransfer.getData("text/x-file-move");
+      if(fileName)_moveFile(id,fileName,row.dataset.dropFolder);
+    });
+  });
 }
 function _showNewFolderInput(id){
   const row=document.getElementById("newFolderRow");
@@ -3395,6 +3427,37 @@ async function _deleteFile(id,fileName){
     }
   }
   _addFileHistory(id,'deleted',fileName,stateKey);
+  saveState(state);
+  _renderShotFiles(id);
+}
+async function _moveFile(id,fileName,targetFolder){
+  const srcKey=_getCurrentStateKey();
+  if(!srcKey)return;
+  // Determine target state key
+  let destKey;
+  if(_filesPath.length===0){
+    // At root, dropping into a root-level folder
+    destKey=targetFolder;
+  } else {
+    destKey=_filesPath.concat(targetFolder).join('/');
+  }
+  if(srcKey===destKey)return;
+  // Find file in source
+  const srcFiles=srcKey==='_root'?(state[id]?.files?.['_root']||[]):(state[id]?.files?.[srcKey]||[]);
+  const idx=srcFiles.findIndex(f=>f.name===fileName);
+  if(idx<0)return;
+  const fileEntry={...srcFiles[idx]};
+  // Check duplicate in target
+  if(!state[id].files)state[id].files={};
+  if(!state[id].files[destKey])state[id].files[destKey]=[];
+  if(state[id].files[destKey].some(f=>f.name===fileName)){
+    await _showAlert('Duplicate','<b>'+esc(fileName)+'</b> already exists in <b>'+esc(targetFolder)+'</b>');
+    return;
+  }
+  // Move: remove from source, add to target
+  srcFiles.splice(idx,1);
+  state[id].files[destKey].push(fileEntry);
+  _addFileHistory(id,'moved',fileName,srcKey+' → '+destKey);
   saveState(state);
   _renderShotFiles(id);
 }
