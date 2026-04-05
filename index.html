@@ -528,6 +528,10 @@
   .pub-upload-item .pub-icon { font-size: 14px; flex-shrink: 0; }
   .pub-upload-item .pub-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .pub-upload-item .pub-pct { font-family: 'SF Mono', monospace; font-size: 11px; color: #8b949e; }
+  .pub-item-cancel { background: none; border: none; color: #484f58; cursor: pointer; font-size: 14px; padding: 0 4px; flex-shrink: 0; }
+  .pub-item-cancel:hover { color: #f85149; }
+  .pub-cancel-all { background: rgba(248,81,73,0.1); border: 1px solid rgba(248,81,73,0.3); color: #f85149; padding: 2px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; margin-left: 8px; }
+  .pub-cancel-all:hover { background: rgba(248,81,73,0.2); }
   .pub-existing { text-align: left; margin-top: 24px; border-top: 1px solid #21262d; padding-top: 16px; }
   .pub-existing h3 { font-size: 13px; color: #8b949e; font-weight: 600; margin-bottom: 8px; }
   .pub-existing-item { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 12px; color: #8b949e; }
@@ -1386,37 +1390,53 @@ function _renderPublicUpload(folder,token){
   document.body.insertAdjacentHTML('beforeend',html);
   const dz=document.getElementById("pubDropZone");
   const fi=document.getElementById("pubFileInput");
-  fi.addEventListener("change",()=>{_pubHandleFiles(folder,Array.from(fi.files));fi.value='';});
+  fi.addEventListener("change",()=>{_pubHandleEntries(folder,Array.from(fi.files).map(f=>({type:'file',file:f,path:f.name})));fi.value='';});
   dz.addEventListener("dragover",e=>{e.preventDefault();dz.classList.add("drag-over");});
   dz.addEventListener("dragleave",()=>dz.classList.remove("drag-over"));
   dz.addEventListener("drop",async e=>{
     e.preventDefault();dz.classList.remove("drag-over");
-    // Check for folder drops
     const items=e.dataTransfer.items;
     if(items&&items.length&&items[0].webkitGetAsEntry){
       const entries=[];
       for(let i=0;i<items.length;i++){const en=items[i].webkitGetAsEntry();if(en)entries.push(en);}
-      const hasDirs=entries.some(en=>en.isDirectory);
-      if(hasDirs){
-        const coll=[];for(const en of entries)coll.push(...await _readEntry(en));
-        const files=coll.filter(c=>c.type==='file').map(c=>c.file);
-        if(files.length)_pubHandleFiles(folder,files);
-        return;
-      }
+      const coll=[];for(const en of entries)coll.push(...await _readEntry(en));
+      if(coll.length){_pubHandleEntries(folder,coll);return;}
     }
-    _pubHandleFiles(folder,Array.from(e.dataTransfer.files));
+    // Plain files (no folder structure)
+    _pubHandleEntries(folder,Array.from(e.dataTransfer.files).map(f=>({type:'file',file:f,path:f.name})));
   });
   _pubRenderExisting(folder);
 }
 function _pubRenderExisting(folder){
   const el=document.getElementById("pubExisting");
   if(!el)return;
-  const files=state.__admin?.files?.[folder]||[];
-  if(files.length===0){el.innerHTML='';return;}
+  // Collect all files from this folder and subfolders
+  const allFiles=[];
+  const subFolders=[];
+  if(state.__admin?.files){
+    for(const[key,files] of Object.entries(state.__admin.files)){
+      if(key===folder){
+        for(const f of files)allFiles.push({...f,rel:f.name});
+      } else if(key.startsWith(folder+'/')){
+        const sub=key.substring(folder.length+1);
+        if(!subFolders.includes(sub))subFolders.push(sub);
+        for(const f of files)allFiles.push({...f,rel:sub+'/'+f.name});
+      }
+    }
+  }
+  if(allFiles.length===0&&subFolders.length===0){el.innerHTML='';return;}
   let totalSize=0;
-  files.forEach(f=>totalSize+=(f.size||0));
-  let html=`<h3>Uploaded files — ${files.length} file${files.length!==1?'s':''}, ${_formatSize(totalSize)}</h3>`;
-  for(const f of files){
+  allFiles.forEach(f=>totalSize+=(f.size||0));
+  let html=`<h3>Uploaded — ${allFiles.length} file${allFiles.length!==1?'s':''}, ${_formatSize(totalSize)}</h3>`;
+  // Show folders first
+  for(const sf of subFolders.sort()){
+    const folderFiles=allFiles.filter(f=>f.rel.startsWith(sf+'/'));
+    let fSize=0;folderFiles.forEach(f=>fSize+=(f.size||0));
+    html+=`<div class="pub-existing-item"><span class="pe-icon">📁</span><span class="pe-name">${esc(sf)}/</span><span class="pe-size">${folderFiles.length} files, ${_formatSize(fSize)}</span></div>`;
+  }
+  // Root-level files
+  const rootFiles=allFiles.filter(f=>!f.rel.includes('/'));
+  for(const f of rootFiles){
     html+=`<div class="pub-existing-item"><span class="pe-icon">${_fileIcon(f.name)}</span><span class="pe-name">${esc(f.name)}</span><span class="pe-size">${_formatSize(f.size)}</span></div>`;
   }
   el.innerHTML=html;
@@ -1438,60 +1458,91 @@ function _pubDupResolve(btn,action){
   if(ov._resolve)ov._resolve(action);
   ov.remove();
 }
-async function _pubHandleFiles(folder,files){
-  if(!files.length)return;
-  _pubDupPolicy=null;// reset batch policy for each new drop
+let _pubCancelled=new Set();
+let _pubCancelAll=false;
+async function _pubHandleEntries(folder,entries){
+  if(!entries.length)return;
+  _pubDupPolicy=null;_pubCancelAll=false;_pubCancelled.clear();
   const statusEl=document.getElementById("pubStatus");
   const listEl=document.getElementById("pubList");
-  const existing=state.__admin?.files?.[folder]||[];
-  for(const file of files){
+  // Ensure admin state
+  if(!state.__admin)state.__admin={};
+  if(!state.__admin.files)state.__admin.files={};
+  if(!state.__admin.folders)state.__admin.folders=[];
+  // Create subfolders from entries
+  const fileEntries=entries.filter(c=>c.type==='file');
+  const subFolders=new Set();
+  for(const c of fileEntries){
+    const dir=c.path.substring(0,c.path.lastIndexOf('/'));
+    if(dir){
+      const parts=dir.split('/');
+      for(let i=1;i<=parts.length;i++){subFolders.add(parts.slice(0,i).join('/'));}
+    }
+  }
+  for(const sf of subFolders){
+    const fullPath=folder+'/'+sf;
+    if(!state.__admin.folders.some(f=>f.name===fullPath)){
+      state.__admin.folders.push({name:fullPath});
+    }
+    if(!state.__admin.files[fullPath])state.__admin.files[fullPath]=[];
+  }
+  if(subFolders.size)saveState(state);
+  // Show cancel all button
+  const totalCount=fileEntries.length;
+  statusEl.innerHTML=`Uploading 0/${totalCount}... <button class="pub-cancel-all" onclick="_pubCancelAll=true;this.textContent='Cancelling...'">Cancel All</button>`;
+  let doneCount=0;
+  for(const entry of fileEntries){
+    if(_pubCancelAll)break;
+    const file=entry.file;
+    const relPath=entry.path;// e.g. "folder/sub/file.txt"
+    const dir=relPath.substring(0,relPath.lastIndexOf('/'));
+    const stateKey=dir?folder+'/'+dir:folder;
+    const existingArr=state.__admin.files[stateKey]||(state.__admin.files[stateKey]=[]);
     // Check duplicate
-    const dupIdx=existing.findIndex(f=>f.name===file.name);
+    const dupIdx=existingArr.findIndex(f=>f.name===file.name);
     if(dupIdx>=0){
       const action=await _pubAskDuplicate(file.name);
       if(action==='skip'||action==='skip_all'){
-        listEl.insertAdjacentHTML('beforeend',`<div class="pub-upload-item"><span class="pub-icon">⏭</span><span class="pub-name">${esc(file.name)}</span><span class="pub-pct" style="color:#d29922">Skipped</span></div>`);
-        continue;
+        listEl.insertAdjacentHTML('beforeend',`<div class="pub-upload-item"><span class="pub-icon">⏭</span><span class="pub-name">${esc(relPath)}</span><span class="pub-pct" style="color:#d29922">Skipped</span></div>`);
+        doneCount++;continue;
       }
-      // Replace — remove old entry (R2 overwrites on same key)
-      existing.splice(dupIdx,1);
+      existingArr.splice(dupIdx,1);
     }
-    const r2Key='admin/'+folder+'/'+file.name;
+    const r2Key='admin/'+folder+'/'+relPath;
     const itemId='pub-'+Date.now()+'-'+Math.random().toString(36).substr(2,4);
-    listEl.insertAdjacentHTML('beforeend',`<div class="pub-upload-item" id="${itemId}"><span class="pub-icon">◌</span><span class="pub-name">${esc(file.name)}</span><span class="pub-pct">0%</span></div>`);
-    statusEl.textContent='Uploading '+file.name+'...';
-    // Upload with infinite retry every 10s until success or page close
-    let ok=false;
-    let attempt=0;
+    listEl.insertAdjacentHTML('beforeend',`<div class="pub-upload-item" id="${itemId}"><span class="pub-icon">◌</span><span class="pub-name">${esc(relPath)}</span><span class="pub-pct">0%</span><button class="pub-item-cancel" onclick="_pubCancelled.add('${itemId}')">✕</button></div>`);
+    // Upload with infinite retry
+    let ok=false,attempt=0;
     while(!ok){
+      if(_pubCancelAll||_pubCancelled.has(itemId)){
+        const el=document.getElementById(itemId);
+        if(el){el.querySelector('.pub-icon').textContent='⛔';el.querySelector('.pub-pct').textContent='Cancelled';const xb=el.querySelector('.pub-item-cancel');if(xb)xb.remove();}
+        break;
+      }
       ok=await r2UploadXHR(r2Key,file,(pct)=>{
         const el=document.getElementById(itemId);
         if(el)el.querySelector('.pub-pct').textContent=pct+'%';
       });
       if(ok)break;
+      if(_pubCancelAll||_pubCancelled.has(itemId))break;
       attempt++;
       const el=document.getElementById(itemId);
       if(el){el.querySelector('.pub-icon').textContent='🔄';el.querySelector('.pub-pct').textContent='Retry #'+attempt+' in 10s...';}
-      statusEl.textContent='Connection lost — retrying '+file.name+'...';
-      await new Promise(r=>setTimeout(r,10000));
+      // Cancellable wait
+      for(let w=0;w<100;w++){await new Promise(r=>setTimeout(r,100));if(_pubCancelAll||_pubCancelled.has(itemId))break;}
     }
-    const el=document.getElementById(itemId);
     if(ok){
-      if(el){el.querySelector('.pub-icon').textContent='✅';el.querySelector('.pub-pct').textContent=_formatSize(file.size);}
-      if(!state.__admin)state.__admin={};
-      if(!state.__admin.files)state.__admin.files={};
-      if(!state.__admin.files[folder])state.__admin.files[folder]=[];
-      state.__admin.files[folder].push({
-        name:file.name,size:file.size,r2key:r2Key,
-        author:'Guest',date:new Date().toISOString().slice(0,10)
-      });
+      const el=document.getElementById(itemId);
+      if(el){el.querySelector('.pub-icon').textContent='✅';el.querySelector('.pub-pct').textContent=_formatSize(file.size);const xb=el.querySelector('.pub-item-cancel');if(xb)xb.remove();}
+      existingArr.push({name:file.name,size:file.size,r2key:r2Key,author:'Guest',date:new Date().toISOString().slice(0,10)});
       saveState(state);
       _pubRenderExisting(folder);
-    } else {
-      if(el){el.querySelector('.pub-icon').textContent='❌';el.querySelector('.pub-pct').textContent='Failed';}
     }
+    doneCount++;
+    if(!_pubCancelAll)statusEl.innerHTML=`Uploading ${doneCount}/${totalCount}... <button class="pub-cancel-all" onclick="_pubCancelAll=true;this.textContent='Cancelling...'">Cancel All</button>`;
   }
-  statusEl.textContent='Done!';
+  statusEl.textContent=_pubCancelAll?'Cancelled':'Done!';
+  _pubRenderExisting(folder);
 }
 
 function openUserManager(){
