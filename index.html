@@ -3866,6 +3866,12 @@ function _renderShotBody(id){
       </div>
     </div>`;
     if(isAdmin())html+=`<input type="file" id="origFileInput" accept="video/mp4,video/*" style="display:none" onchange="updateOriginal('${id}',this)">`;
+  } else if(isAdmin()){
+    html+=`<div class="shot-media-card shot-add-card" onclick="document.getElementById('origUploadInput').click()">
+      <div class="shot-add-icon" style="color:#58a6ff">⬆</div>
+      <div class="shot-media-label">Upload Original Preview</div>
+    </div>`;
+    html+=`<input type="file" id="origUploadInput" accept="video/mp4,video/*" style="display:none" onchange="uploadOriginalPreview('${id}',this)">`;
   }
   versions.forEach((v,i)=>{
     const thumbHtml=v.thumb?`<img src="${v.thumb}" alt="V${i+1}">`:`<div class="version-thumb"><span class="version-num">V${i+1}</span></div>`;
@@ -3913,6 +3919,33 @@ async function updateOriginal(shotId,input){
   }
   delete _uploads[shotId];
   if(_shotCurrentId===shotId)_renderShotBody(shotId);
+}
+async function uploadOriginalPreview(shotId,input){
+  const file=input.files[0];
+  if(!file||!isAdmin())return;
+  input.value="";
+  const videoKey="video/"+shotId+"_prev.mp4";
+  const thumbKey="thumbs/"+shotId+".jpg";
+  _uploads[shotId]={name:"Uploading preview...",pct:0,done:false,error:false};
+  if(_shotCurrentId===shotId)_renderShotBody(shotId);
+  const uploadOk=await r2UploadXHR(videoKey,file,(pct)=>{
+    _uploads[shotId].pct=pct;
+    _updateUploadUI(shotId);
+  });
+  if(uploadOk){
+    await _generateThumbnail(CDN_BASE+"/"+videoKey+"?t="+Date.now(),thumbKey);
+    // Register in state files
+    if(!state[shotId])state[shotId]={};
+    if(!state[shotId].files)state[shotId].files={};
+    state[shotId].files['source/preview']=[{name:shotId+'_prev.mp4',r2key:videoKey,size:file.size,date:new Date().toISOString().slice(0,10),author:'Admin'}];
+    saveState(state);
+    _uploads[shotId].done=true;
+  } else {
+    _uploads[shotId].error=true;
+  }
+  delete _uploads[shotId];
+  if(_shotCurrentId===shotId)_renderShotBody(shotId);
+  render();
 }
 let _shotTab='versions';
 function switchShotTab(tab){
