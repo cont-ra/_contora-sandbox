@@ -4239,9 +4239,15 @@ function _renderUploadQueue(){
   }
   if(!panel){
     panel=document.createElement("div");panel.id="uploadQueuePanel";panel.className="upload-queue-panel";
-    const overlay=document.getElementById("shotOverlay");
-    if(overlay)overlay.appendChild(panel);
-    else document.body.appendChild(panel);
+    if(_chatFileMode){
+      const noteOv=document.getElementById("noteOverlay");
+      if(noteOv)noteOv.appendChild(panel);
+      else document.body.appendChild(panel);
+    } else {
+      const shotOv=document.getElementById("shotOverlay");
+      if(shotOv)shotOv.appendChild(panel);
+      else document.body.appendChild(panel);
+    }
   }
   // Preserve scroll position
   const list=panel.querySelector(".upload-queue-list");
