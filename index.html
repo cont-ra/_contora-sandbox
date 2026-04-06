@@ -55,9 +55,11 @@
   .bot-artist-fallback { color: #484f58; font-size: 9px; }
   .bot-thread-input { width: 90px; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; padding: 5px 8px; border-radius: 4px; font-size: 12px; font-family: 'SF Mono', monospace; }
   .bot-thread-input:focus { border-color: #1f6feb; outline: none; }
-  .bot-topic-select { background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; padding: 5px 8px; border-radius: 4px; font-size: 12px; min-width: 160px; cursor: pointer; }
-  .bot-topic-select:focus { border-color: #1f6feb; outline: none; }
-  .bot-topic-select option { background: #0d1117; color: #c9d1d9; }
+  .bot-topic-select, .bot-tguser-select { background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; padding: 5px 8px; border-radius: 4px; font-size: 12px; cursor: pointer; }
+  .bot-topic-select { min-width: 160px; }
+  .bot-tguser-select { min-width: 160px; max-width: 200px; }
+  .bot-topic-select:focus, .bot-tguser-select:focus { border-color: #1f6feb; outline: none; }
+  .bot-topic-select option, .bot-tguser-select option { background: #0d1117; color: #c9d1d9; }
   .bot-thread-tag { display: inline-block; margin-left: 6px; font-family: 'SF Mono', monospace; font-size: 10px; color: #484f58; user-select: none; }
   .bot-test-btn { background: rgba(255,255,255,0.06); border: 1px solid #30363d; color: #c9d1d9; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; }
   .bot-test-btn:hover { background: #30363d; border-color: #58a6ff; }
@@ -876,7 +878,7 @@
   <tbody id="tbody"></tbody>
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
-<div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0021</div>
+<div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0022</div>
 
 <script>
 const USERS = {
@@ -906,6 +908,27 @@ async function showLoggedIn(){document.getElementById("loginOverlay").classList.
   render();
   _handleChatDeepLink();
   _handlePlayerDeepLink();
+  if(!isGuest())_prefetchTgBotInfo();
+}
+
+async function _prefetchTgBotInfo(){
+  try{
+    const r=await fetch('https://killhouse-vfx.contora.workers.dev/tg/ping',{method:'POST',headers:{'Content-Type':'application/json','Origin':location.origin}});
+    const d=await r.json();
+    if(!d||!d.ok)return;
+    if(!state.__bot)state.__bot={};
+    if(Array.isArray(d.tgUsers)&&d.tgUsers.length){
+      const byUsername={};
+      for(const u of (state.__bot.tgUsers||[])){if(u.username)byUsername[u.username.toLowerCase()]=u;}
+      for(const u of d.tgUsers){if(u.username)byUsername[u.username.toLowerCase()]=u;}
+      state.__bot.tgUsers=Object.values(byUsername);
+    }
+    if(d.topicNames){
+      if(!state.__bot.topicNames)state.__bot.topicNames={};
+      for(const k of Object.keys(d.topicNames))state.__bot.topicNames[k]=d.topicNames[k];
+    }
+    saveState(state);
+  }catch(e){/* silent */}
 }
 
 function _handleChatDeepLink(){
@@ -1838,7 +1861,14 @@ function openUserManager(){
   ov.onclick=(e)=>{if(e.target===ov)closeUserManager();};
   let html=`<div class="admin-modal"><div class="admin-modal-header"><h3>Manage Users</h3><button class="admin-modal-close" onclick="closeUserManager()">&times;</button></div><div class="admin-modal-body">`;
   html+=`<div id="userList">${_renderUserList()}</div>`;
-  html+=`<div class="add-artist-form"><input type="text" id="newUserName" placeholder="New artist name..." onkeydown="if(event.key==='Enter')addUser()"><button onclick="addUser()" style="background:#1f6feb;border:1px solid #1f6feb;color:#fff;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:13px">+ Add</button></div>`;
+  // Datalist of discovered TG users for the new-user telegram input
+  const tgListNew=(state.__bot?.tgUsers||[]).filter(x=>x.username);
+  let dlNewOpts='';
+  tgListNew.forEach(x=>{
+    const dn=[x.first_name,x.last_name].filter(Boolean).join(' ').trim()||x.username;
+    dlNewOpts+=`<option value="${esc(x.username)}" label="${esc(dn)}">${esc(dn)}</option>`;
+  });
+  html+=`<div class="add-artist-form" style="flex-wrap:wrap;gap:6px"><input type="text" id="newUserName" placeholder="New artist name..." onkeydown="if(event.key==='Enter')addUser()"><div style="display:flex;align-items:center;gap:2px"><span style="color:#58a6ff;font-family:'SF Mono',monospace;font-size:13px">@</span><input type="text" id="newUserTelegram" list="newUserTgList" placeholder="telegram (optional)" style="background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:6px 10px;border-radius:6px;font-size:13px;font-family:'SF Mono',monospace;width:140px" onkeydown="if(event.key==='Enter')addUser()"><datalist id="newUserTgList">${dlNewOpts}</datalist></div><button onclick="addUser()" style="background:#1f6feb;border:1px solid #1f6feb;color:#fff;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:13px">+ Add</button></div>`;
   html+=`<div id="generatedKeyBox"></div>`;
   html+=`</div></div>`;
   ov.innerHTML=html;
@@ -1872,9 +1902,16 @@ function _renderUserList(){
       html+=`<button class="u-btn" onclick="copyAuthLink('${id}');this.classList.add('copied');this.querySelector('.ul').textContent='Copied!';setTimeout(()=>{this.classList.remove('copied');this.querySelector('.ul').textContent='Login Link';},1000)" title="Copy login link">🔗 <span class="ul">Login Link</span></button>`;
     }
     html+=`</div>`;
-    // Telegram username field
+    // Telegram username field with datalist of discovered users
     const tg=state.__users?.[id]?.telegram||u.telegram||"";
-    html+=`<div class="user-card-tg"><span class="user-card-tg-label">Telegram</span><span class="user-card-tg-at">@</span><input type="text" class="user-card-tg-input" value="${esc(tg.replace(/^@/,''))}" placeholder="username" onchange="setUserTelegram('${id}',this.value)" oninput="setUserTelegram('${id}',this.value,true)"></div>`;
+    const tgList=(state.__bot?.tgUsers||[]).filter(x=>x.username);
+    const dlId=`tgList_${id}`;
+    let dlOpts='';
+    tgList.forEach(x=>{
+      const dn=[x.first_name,x.last_name].filter(Boolean).join(' ').trim()||x.username;
+      dlOpts+=`<option value="${esc(x.username)}" label="${esc(dn)}">${esc(dn)}</option>`;
+    });
+    html+=`<div class="user-card-tg"><span class="user-card-tg-label">Telegram</span><span class="user-card-tg-at">@</span><input type="text" class="user-card-tg-input" list="${dlId}" value="${esc(tg.replace(/^@/,''))}" placeholder="username" onchange="setUserTelegram('${id}',this.value)" oninput="setUserTelegram('${id}',this.value,true)"><datalist id="${dlId}">${dlOpts}</datalist></div>`;
     html+=`</div>`;
   });
   return html;
@@ -1947,7 +1984,16 @@ function _renderBotSettings(){
     tid:parseInt(tid,10),
     name:liveNames[tid]||cfg.topicNames[tid]||`Topic ${tid}`,
   })).sort((a,b)=>a.name.localeCompare(b.name));
-  html+=`<div class="bot-section"><div class="bot-section-title">Artists &amp; Topics</div><div class="bot-section-hint">Pick the Telegram topic each artist should receive pushes in. Topic names are discovered from recent activity — if you don't see one, ask the owner to send any message in their thread, then click <b>Refresh</b>.</div><table class="bot-artists-table"><thead><tr><th>Artist</th><th>Topic</th><th></th></tr></thead><tbody>`;
+  // Build TG users dropdown options (live discovery + state cache)
+  const liveTgUsers=(_botPingData&&_botPingData!=='error'&&_botPingData.tgUsers)||[];
+  const cachedTgUsers=cfg.tgUsers||[];
+  const tgUserOptions=(()=>{
+    const byUsername={};
+    for(const u of cachedTgUsers){if(u.username)byUsername[u.username.toLowerCase()]=u;}
+    for(const u of liveTgUsers){if(u.username)byUsername[u.username.toLowerCase()]=u;}
+    return Object.values(byUsername).sort((a,b)=>(a.username||'').localeCompare(b.username||''));
+  })();
+  html+=`<div class="bot-section"><div class="bot-section-title">Artists &amp; Topics</div><div class="bot-section-hint">Pick the Telegram topic and the @username for each artist. Names are discovered from recent activity — if you don't see one, ask the person to send any message in the supergroup, then click <b>Refresh</b>.</div><table class="bot-artists-table"><thead><tr><th>Artist</th><th>Topic</th><th>@username</th><th></th></tr></thead><tbody>`;
   artists.forEach(a=>{
     const stateTid=cfg.artistThreads[a.id];
     const effectiveTid=parseInt(stateTid||workerThreads[a.id]||hardcoded[a.id]||0,10);
@@ -1959,7 +2005,22 @@ function _renderBotSettings(){
       optsHtml+=`<option value="${o.tid}"${sel}>${esc(o.name)}</option>`;
     });
     const tidLabel=effectiveTid?`<span class="bot-thread-tag">id ${effectiveTid}</span>`:'';
-    html+=`<tr><td>${esc(a.display)}<div class="bot-artist-id">${esc(a.id)}${fallbackHint}</div></td><td><select class="bot-topic-select" data-artist="${esc(a.id)}">${optsHtml}</select> ${tidLabel}</td><td><button class="bot-test-btn" onclick="_testBotPush('${esc(a.id)}')">Test</button></td></tr>`;
+    // Telegram username dropdown
+    const currentTg=(state.__users?.[a.id]?.telegram||USERS[a.id]?.telegram||'').replace(/^@/,'').toLowerCase();
+    let tgOpts=`<option value="">— none —</option>`;
+    let foundCurrent=false;
+    tgUserOptions.forEach(u=>{
+      const uname=u.username;
+      const sel=uname.toLowerCase()===currentTg?' selected':'';
+      if(sel)foundCurrent=true;
+      const display=[u.first_name,u.last_name].filter(Boolean).join(' ').trim()||uname;
+      tgOpts+=`<option value="${esc(uname)}"${sel}>@${esc(uname)} — ${esc(display)}</option>`;
+    });
+    // If current TG isn't in the discovered list, add it as an "other" option so it stays selected
+    if(currentTg&&!foundCurrent){
+      tgOpts+=`<option value="${esc(currentTg)}" selected>@${esc(currentTg)} (manual)</option>`;
+    }
+    html+=`<tr><td>${esc(a.display)}<div class="bot-artist-id">${esc(a.id)}${fallbackHint}</div></td><td><select class="bot-topic-select" data-artist="${esc(a.id)}">${optsHtml}</select> ${tidLabel}</td><td><select class="bot-tguser-select" data-artist="${esc(a.id)}">${tgOpts}</select></td><td><button class="bot-test-btn" onclick="_testBotPush('${esc(a.id)}')">Test</button></td></tr>`;
   });
   html+=`</tbody></table><div style="margin-top:8px;text-align:right"><button class="bot-test-btn" onclick="_refreshBotStatus()">↻ Refresh</button></div></div>`;
   // ── DISCOVERED TELEGRAM USERS ──
@@ -2019,6 +2080,16 @@ function _saveBotSettings(){
     const v=parseInt(sel.value,10);
     if(!isNaN(v)&&v>0)cfg.artistThreads[aid]=v;
     else delete cfg.artistThreads[aid];
+  });
+  // Telegram usernames per artist (saved on the user object)
+  document.querySelectorAll('.bot-tguser-select').forEach(sel=>{
+    const aid=sel.dataset.artist;
+    const tg=sel.value.trim().replace(/^@/,'');
+    if(!state.__users)state.__users={};
+    if(!state.__users[aid])state.__users[aid]={};
+    if(tg)state.__users[aid].telegram=tg;
+    else delete state.__users[aid].telegram;
+    if(USERS[aid])USERS[aid].telegram=tg||undefined;
   });
   // Cooldowns
   const cdA=parseFloat(document.getElementById('cdArtist').value);
@@ -2100,7 +2171,9 @@ function _generateKey(len){
 }
 async function addUser(){
   const inp=document.getElementById("newUserName");
+  const tgInp=document.getElementById("newUserTelegram");
   const name=inp?.value.trim();
+  const tg=(tgInp?.value||'').trim().replace(/^@/,'');
   const role="artist";
   if(!name)return;
   const id=name.toLowerCase().replace(/[^a-z0-9]/g,"_");
@@ -2110,8 +2183,10 @@ async function addUser(){
   const hash=await sha256(key);
   const linkToken=_generateKey(24);
   USERS[id]={hash,display:name,role};
+  if(tg)USERS[id].telegram=tg;
   if(!state.__users)state.__users={};
   state.__users[id]={hash,display:name,role,plainKey:key,linkToken};
+  if(tg)state.__users[id].telegram=tg;
   if(role==="artist"){
     const artists=_getArtists();
     artists.push({id,display:name});
@@ -2119,6 +2194,7 @@ async function addUser(){
   }
   saveState(state);
   inp.value="";
+  if(tgInp)tgInp.value="";
   document.getElementById("generatedKeyBox").innerHTML=`<div class="generated-key"><code>${key}</code><button onclick="navigator.clipboard.writeText('${key}');this.textContent='Copied!'">Copy</button></div><div style="color:#8b949e;font-size:11px;margin-top:4px">${esc(name)} uses this key to log in.</div>`;
   document.getElementById("userList").innerHTML=_renderUserList();
   render();
