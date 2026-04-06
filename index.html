@@ -819,7 +819,7 @@
   <tbody id="tbody"></tbody>
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
-<div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0006</div>
+<div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0007</div>
 
 <script>
 const USERS = {
@@ -2555,9 +2555,9 @@ function openNote(taskId,type){
     renderChat();
   }
   document.getElementById("noteOverlay").classList.remove("hidden");
-  // Show files panel for chat
+  // Show files panel for chat (hidden for guests)
   const cfp=document.getElementById("chatFilesPanel");
-  if(type==='chat'){
+  if(type==='chat'&&!isGuest()){
     cfp.style.display='';
     _renderChatFiles(taskId);
   } else {
@@ -2770,11 +2770,13 @@ function _renderFileCard(path){
   return `<div class="chat-file-card" onclick="_navigateChatFile('${esc(path)}')"><span class="cfc-icon">${icon}</span><div class="cfc-info"><div class="cfc-name">${esc(name)}</div>${meta?`<div class="cfc-meta">${meta}</div>`:''}</div><div class="cfc-actions"><button class="cfc-btn" onclick="event.stopPropagation()" title="Share (coming soon)">🔗</button>${dlBtn}</div></div>`;
 }
 function _downloadFile(url,name){
+  if(_blockGuest("Guests cannot download files"))return;
   const a=document.createElement('a');
   a.href=url;a.download=name;a.target='_blank';a.rel='noopener';
   document.body.appendChild(a);a.click();document.body.removeChild(a);
 }
 function _downloadCardFolder(path){
+  if(_blockGuest("Guests cannot download files"))return;
   const id=noteTaskId;if(!id)return;
   const parts=path.replace(/\/$/,'').split('/');
   let items=_getFilesRoot(id);
@@ -4095,10 +4097,12 @@ function trunc(s,n){return !s?"":s.length>n?s.substring(0,n)+"...":s;}
 
 // --- SHOT DETAIL ---
 let _shotCurrentId=null;
+function _blockGuest(msg){if(isGuest()){alert(msg||"Guests cannot access this feature");return true;}return false;}
 function openShot(id){
   _shotCurrentId=id;_shotTab='versions';_filesPath=[];
   document.getElementById("shotTabVersions").classList.add("active");
   document.getElementById("shotTabFiles").classList.remove("active");
+  document.getElementById("shotTabFiles").style.display=isGuest()?'none':'';
   document.querySelector(".shot-panel").classList.remove("files-mode");
   const task=TASKS.find(t=>t.id===id);
   if(!task)return;
@@ -4222,6 +4226,7 @@ async function uploadOriginalPreview(shotId,input){
 }
 let _shotTab='versions';
 function switchShotTab(tab){
+  if(tab==='files'&&_blockGuest("Guests cannot access files"))return;
   _shotTab=tab;
   document.getElementById("shotTabVersions").classList.toggle("active",tab==='versions');
   document.getElementById("shotTabFiles").classList.toggle("active",tab==='files');
@@ -5648,6 +5653,7 @@ function _collectFileUrlsWithPath(items,prefix){
   return out;
 }
 async function _downloadAsZip(files,zipName){
+  if(_blockGuest("Guests cannot download files"))return;
   if(!files.length){await _showAlert('Empty','No files to download');return;}
   const {makeZip}=await import("https://cdn.jsdelivr.net/npm/client-zip/index.js");
   let done=0;
@@ -5679,6 +5685,7 @@ async function _downloadAsZip(files,zipName){
   _removeOperationProgress(panel);
 }
 function _downloadFolderByName(id,name){
+  if(_blockGuest("Guests cannot download files"))return;
   const {items}=_resolveFilesPath(id);
   const folder=items.find(f=>f.name===name&&f.type==='folder');
   if(!folder||!folder.children)return;
@@ -5687,6 +5694,7 @@ function _downloadFolderByName(id,name){
   _downloadAsZip(files,prefix+'_'+name);
 }
 function _downloadAllFiles(id){
+  if(_blockGuest("Guests cannot download files"))return;
   const root=_getFilesRoot(id);
   const files=_collectFileUrlsWithPath(root,'');
   const prefix=id==='__admin'?'admin':id;
