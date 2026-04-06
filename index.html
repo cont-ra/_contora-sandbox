@@ -881,7 +881,7 @@
   <tbody id="tbody"></tbody>
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
-<div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0026</div>
+<div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0027</div>
 
 <script>
 const USERS = {
@@ -3699,6 +3699,53 @@ async function pushPlayerNotification(){
   }
 }
 
+// Modal shown right after a version finishes uploading. Asks the artist
+// (or admin) whether to push the new version to Telegram and offers a
+// one-click "set status to Review" button.
+function _showVersionUploadedDialog(shotId,versionIdx){
+  if(!shotId)return;
+  if(!_canPushChat(shotId))return; // only admin or assigned artist see this
+  const versions=state[shotId]?.versions||[];
+  const v=versions[versionIdx];
+  const versionName=v?.name||('Version '+(versionIdx+1));
+  const currentStatus=getStatus(shotId);
+  const ov=document.createElement("div");
+  ov.className="confirm-overlay";
+  const statusBtnHtml=currentStatus==='review'
+    ? `<button id="vudStatusBtn" class="confirm-btn cancel" disabled style="opacity:0.5">✓ Already in Review</button>`
+    : `<button id="vudStatusBtn" class="confirm-btn cancel" style="background:#1f6feb22;border-color:#1f6feb;color:#58a6ff">→ Set status: Review</button>`;
+  ov.innerHTML=`<div class="confirm-box" style="min-width:420px"><div class="confirm-title">Version uploaded</div><div class="confirm-msg" style="text-align:left"><div style="font-size:13px;color:#c9d1d9;margin-bottom:6px"><b>${esc(shotId)}</b> · <span style="color:#58a6ff">${esc(versionName)}</span></div><div style="font-size:12px;color:#8b949e;margin-bottom:14px">Notify the team about this new version?</div><div style="display:flex;gap:8px;flex-direction:column">${statusBtnHtml}</div></div><div class="confirm-btns"><button class="confirm-btn cancel" id="vudClose">Close</button><button class="confirm-btn danger" id="vudPush" style="background:#d29922;border-color:#d29922">&#128276; Push to Telegram</button></div></div>`;
+  document.body.appendChild(ov);
+  const cleanup=()=>ov.remove();
+  ov.querySelector("#vudClose").onclick=cleanup;
+  ov.addEventListener("click",(e)=>{if(e.target===ov)cleanup();});
+  const statusBtn=ov.querySelector("#vudStatusBtn");
+  if(statusBtn&&!statusBtn.disabled){
+    statusBtn.onclick=()=>{
+      if(!state[shotId])state[shotId]={};
+      state[shotId].status='review';
+      saveState(state);
+      updateStats();
+      render();
+      statusBtn.disabled=true;
+      statusBtn.style.opacity='0.5';
+      statusBtn.textContent='✓ Status changed to Review';
+    };
+  }
+  ov.querySelector("#vudPush").onclick=async ()=>{
+    cleanup();
+    // Open the player on this version, then trigger the regular push flow
+    // so the existing prompt (subject, comment, autocomplete) is reused.
+    if(_gifCurrentId!==shotId||_gifVersionIdx!==versionIdx){
+      _setPlayerCache(shotId,versionIdx);
+      openGif(shotId);
+      // Wait for openGif to settle
+      await new Promise(r=>setTimeout(r,200));
+    }
+    pushPlayerNotification();
+  };
+}
+
 function _canDeleteSelected(mid){
   if(typeof mid==="string"&&mid.startsWith("pn_")) return isAdmin();
   const msgs=getChat(noteTaskId);
@@ -5103,6 +5150,7 @@ function _commitUploadedFile(item){
     if(!state[id].versions)state[id].versions=[];
     state[id].versions.push({name:item.meta.versionName,baseName:item.meta.baseName,url:CDN_BASE+'/'+item.r2Key,thumb:null,ts:Date.now(),size:item.size||0});
     saveState(state);
+    const newIdx=state[id].versions.length-1;
     // Generate thumb async (don't block queue)
     const thumbKey="versions/"+id+"/thumb_"+item.meta.baseName+"_prev"+_formatVersion(item.meta.vNum)+".jpg";
     _generateThumbnail(CDN_BASE+"/"+item.r2Key,thumbKey).then(url=>{
@@ -5110,6 +5158,8 @@ function _commitUploadedFile(item){
       if(v)v.thumb=url;
       saveState(state);
     });
+    // Offer push + status change after upload
+    setTimeout(()=>_showVersionUploadedDialog(id,newIdx),300);
   } else {
     if(!state[id].files)state[id].files={};
     if(!state[id].files[item.stateKey])state[id].files[item.stateKey]=[];
@@ -6785,6 +6835,8 @@ async function uploadVersion(shotId,input){
     state[shotId].versions.push({name:result.versionName,baseName:result.baseName,url:CDN_BASE+"/"+key,thumb:thumbUrl||null,ts});
     saveState(state);
     _uploads[shotId].done=true;
+    const newIdx=state[shotId].versions.length-1;
+    setTimeout(()=>_showVersionUploadedDialog(shotId,newIdx),300);
   } else {
     _uploads[shotId].error=true;
   }
