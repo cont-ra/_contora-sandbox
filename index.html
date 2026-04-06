@@ -931,7 +931,7 @@
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
 <div id="updateBanner" class="update-banner hidden"><span id="updateBannerText"></span><button id="updateBannerNow">Reload now</button><button id="updateBannerCancel">Later</button></div>
-<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0037</div>
+<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0038</div>
 
 <script>
 const USERS = {
@@ -956,8 +956,11 @@ function _writeKnownAccounts(list){
 function _addKnownAccount(id){
   if(!id||id==='guest')return;
   const u=USERS[id];if(!u)return;
+  // Stash the link token so the picker can re-login this user without
+  // asking for the password (same trust level as a saved auth link).
+  const linkToken=state.__users?.[id]?.linkToken||null;
   const list=_readKnownAccounts().filter(a=>a.id!==id);
-  list.unshift({id,display:u.display||id,role:u.role||'artist',color:getUserColor(id)||'#58a6ff',lastLogin:Date.now()});
+  list.unshift({id,display:u.display||id,role:u.role||'artist',color:getUserColor(id)||'#58a6ff',linkToken,lastLogin:Date.now()});
   _writeKnownAccounts(list.slice(0,8));
 }
 function _removeKnownAccount(id){
@@ -1018,7 +1021,37 @@ function _renderLoginBox(){
     setTimeout(()=>document.getElementById('loginPass')?.focus(),50);
   }
 }
-function _pickLoginAccount(id){
+async function _pickLoginAccount(id){
+  if(!id){
+    // "Add account" tile — fall through to manual password entry
+    _pickedLoginId=null;
+    _renderLoginBox();
+    return;
+  }
+  // Try silent re-login via stored linkToken (auth-link credential)
+  const account=_readKnownAccounts().find(a=>a.id===id);
+  if(account&&account.linkToken){
+    try{
+      // Make sure USERS is hydrated from current state so the token check works
+      if(!USERS[id]||!state.__users||!state.__users[id]){
+        await _pullRemote();
+        if(state.__users){for(const[uid,u] of Object.entries(state.__users)){USERS[uid]=u;}}
+      }
+      const liveToken=state.__users?.[id]?.linkToken;
+      if(liveToken&&liveToken===account.linkToken&&USERS[id]){
+        currentUser={id,...USERS[id]};
+        _persistUser(id);
+        // Refresh known account record (in case display/role/color changed)
+        _addKnownAccount(id);
+        showLoggedIn();
+        return;
+      }
+      // Token mismatch (admin reset it) → drop the stale token and ask for password
+      account.linkToken=null;
+      _writeKnownAccounts(_readKnownAccounts().map(a=>a.id===id?{...a,linkToken:null}:a));
+    }catch(e){/* fall through to password */}
+  }
+  // No stored token (or it expired) → show password input scoped to this user
   _pickedLoginId=id;
   _renderLoginBox();
 }
