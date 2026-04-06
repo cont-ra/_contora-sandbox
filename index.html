@@ -73,16 +73,19 @@
   .login-divider { color: #484f58; font-size: 12px; margin: 6px 0 14px; }
   .login-error { color: #f85149; font-size: 13px; min-height: 20px; }
   .stats { display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
-  .stat-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 14px 20px; min-width: 140px; }
+  .stat-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 14px 20px; min-width: 140px; transition: .15s; }
+  .stat-card.clickable { cursor: pointer; user-select: none; border-color: color-mix(in srgb, var(--card-color, #58a6ff) 27%, transparent); }
+  .stat-card.clickable:hover { border-color: var(--card-color, #58a6ff); }
+  .stat-card.active { background: #1f2937; border-color: var(--card-color, #1f6feb); border-width: 2px; padding: 13px 19px; }
   .stat-card .num { font-size: 28px; font-weight: 700; }
   .stat-card .label { font-size: 12px; color: #8b949e; margin-top: 2px; }
-  .num.red { color: #f85149; } .num.yellow { color: #d29922; } .num.green { color: #3fb950; } .num.blue { color: #58a6ff; }
-  .filters { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
-  .filters input { background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; padding: 8px 12px; border-radius: 6px; font-size: 14px; width: 260px; }
-  .filters input::placeholder { color: #484f58; }
-  .filter-btn, .artist-filter-btn { background: #21262d; border: 1px solid #30363d; color: #c9d1d9; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: 0.15s; }
-  .filter-btn:hover, .artist-filter-btn:hover { background: #30363d; }
-  .filter-btn.active, .artist-filter-btn.active { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+  .num.red { color: #f85149; } .num.yellow { color: #d29922; } .num.green { color: #3fb950; } .num.blue { color: #58a6ff; } .num.grey { color: #8b949e; } .num.white { color: #c9d1d9; }
+  .search-row { margin-bottom: 12px; }
+  .search-row input { background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; padding: 8px 12px; border-radius: 6px; font-size: 14px; width: 260px; }
+  .search-row input::placeholder { color: #484f58; }
+  .artist-card { background: #161b22; border-radius: 8px; padding: 6px 12px; text-align: center; min-width: 80px; transition: .15s; cursor: pointer; user-select: none; border: 1px solid #30363d; }
+  .artist-card:hover { border-color: #58a6ff !important; }
+  .artist-card.active { border-width: 2px !important; background: #1f2937; }
   .separator { color: #30363d; font-size: 18px; user-select: none; }
   table { width: 100%; border-collapse: collapse; background: #161b22; border-radius: 8px; overflow: hidden; border: 1px solid #30363d; }
   thead th { background: #21262d; padding: 10px 14px; text-align: left; font-size: 12px; font-weight: 600; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #30363d; cursor: pointer; user-select: none; white-space: nowrap; position: relative; }
@@ -496,8 +499,11 @@
   .note-type-badge { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; padding: 2px 8px; border-radius: 4px; }
   .note-type-badge.admin-badge { background: #3d0000; color: #f85149; }
   .note-type-badge.artist-badge { background: #0a1929; color: #58a6ff; }
-  .note-push-btn { background: none; border: 1px solid #d29922; color: #d29922; font-size: 16px; cursor: pointer; padding: 4px 8px; border-radius: 4px; line-height: 1; transition: .15s; }
-  .note-push-btn:hover { background: #d2992233; }
+  .note-push-btn { background: none; border: 1px solid #d29922; color: #d29922; font-size: 13px; cursor: pointer; padding: 4px 10px; border-radius: 4px; line-height: 1; transition: .15s; display: flex; align-items: center; gap: 4px; }
+  .note-push-btn:hover:not(:disabled) { background: #d2992233; }
+  .note-push-btn:disabled { opacity: 0.4; cursor: not-allowed; border-color: #484f58; color: #484f58; }
+  .note-push-btn.hidden { display: none !important; }
+  .chat-msg-pushed-mark { font-size: 10px; color: #d29922; margin-left: 6px; opacity: 0.8; }
   .note-panel-close { background: none; border: none; color: #484f58; font-size: 24px; cursor: pointer; padding: 4px 8px; border-radius: 4px; line-height: 1; }
   .note-panel-close:hover { color: #c9d1d9; background: #21262d; }
   .note-panel-meta { padding: 12px 24px; font-size: 13px; color: #8b949e; border-bottom: 1px solid #21262d; flex-shrink: 0; }
@@ -752,7 +758,7 @@
         <h3 id="notePanelTitle">Note</h3>
         <span class="note-type-badge" id="noteTypeBadge"></span>
       </div>
-      <button class="note-push-btn" onclick="" title="Push notification">&#128276; Push</button>
+      <button class="note-push-btn hidden" id="notePushBtn" onclick="pushChatNotification()" title="Push notification">&#128276; <span id="notePushLabel">Push</span></button>
       <button class="note-panel-close" onclick="closeNote()">&times;</button>
     </div>
     <div class="note-panel-meta">
@@ -780,28 +786,20 @@
 </div>
 <p class="subtitle">Declined tasks (Coffeepost) — 28 shots to review</p>
 
-<div class="stats" style="display:flex;justify-content:space-between;align-items:flex-start">
-  <div style="display:flex;gap:12px">
-    <div class="stat-card"><div class="num red" id="stat-todo">0</div><div class="label">TODO</div></div>
-    <div class="stat-card"><div class="num yellow" id="stat-progress">0</div><div class="label">IN PROGRESS</div></div>
-    <div class="stat-card"><div class="num blue" id="stat-review">0</div><div class="label">REVIEW</div></div>
-    <div class="stat-card"><div class="num green" id="stat-done">0</div><div class="label">DONE</div></div>
-  </div>
-  <div id="artistStats" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+<div class="search-row">
+  <input type="text" id="search" placeholder="Search by ID or description...">
 </div>
 
-<div class="filters">
-  <input type="text" id="search" placeholder="Search by ID or description...">
-  <button class="filter-btn active" data-filter="all">All</button>
-  <button class="filter-btn" data-filter="todo">TODO</button>
-  <button class="filter-btn" data-filter="progress">In Progress</button>
-  <button class="filter-btn" data-filter="review">Review</button>
-  <button class="filter-btn" data-filter="done">Done</button>
-  <button class="filter-btn" data-filter="skip">Skip</button>
-  <span class="separator">|</span>
-  <span id="artistFilterBtns" style="display:inline-flex;gap:10px"><button class="artist-filter-btn active" data-artist="all">All Artists</button><button class="artist-filter-btn" data-artist="unassigned">Unassigned</button></span>
-  <button class="export-btn" id="editModeBtn" onclick="toggleEditMode()" style="display:none">Edit Shots</button>
-  <button class="export-btn" id="addShotBtn" style="display:none;background:#238636;color:#fff" onclick="openAddShotDialog()">+ Add Shot</button>
+<div class="stats" style="display:flex;justify-content:space-between;align-items:flex-start">
+  <div style="display:flex;gap:12px;flex-wrap:wrap" id="statusStats">
+    <div class="stat-card clickable active" data-filter="all" style="--card-color:#c9d1d9"><div class="num white" id="stat-all">0</div><div class="label">ALL</div></div>
+    <div class="stat-card clickable" data-filter="todo" style="--card-color:#f85149"><div class="num red" id="stat-todo">0</div><div class="label">TODO</div></div>
+    <div class="stat-card clickable" data-filter="progress" style="--card-color:#d29922"><div class="num yellow" id="stat-progress">0</div><div class="label">IN PROGRESS</div></div>
+    <div class="stat-card clickable" data-filter="review" style="--card-color:#58a6ff"><div class="num blue" id="stat-review">0</div><div class="label">REVIEW</div></div>
+    <div class="stat-card clickable" data-filter="done" style="--card-color:#3fb950"><div class="num green" id="stat-done">0</div><div class="label">DONE</div></div>
+    <div class="stat-card clickable" data-filter="skip" style="--card-color:#8b949e"><div class="num grey" id="stat-skip">0</div><div class="label">SKIP</div></div>
+  </div>
+  <div id="artistStats" style="display:flex;gap:8px;flex-wrap:wrap"></div>
 </div>
 
 <table>
@@ -821,7 +819,7 @@
   <tbody id="tbody"></tbody>
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
-<div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0004</div>
+<div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0005</div>
 
 <script>
 const USERS = {
@@ -832,8 +830,11 @@ const USERS = {
 };
 async function sha256(s){const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(s));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,"0")).join("");}
 let currentUser=null;
-async function tryLogin(){const p=document.getElementById("loginPass").value.trim();if(!p)return;const h=await sha256(p);for(const[id,u]of Object.entries(USERS)){if(u.hash===h){currentUser={id,...u};sessionStorage.setItem("kh_user",id);showLoggedIn();return;}}document.getElementById("loginError").textContent="Wrong password";}
-function guestLogin(){currentUser={id:"guest",display:"Guest",role:"guest"};sessionStorage.setItem("kh_user","guest");showLoggedIn();}
+function _persistUser(id){try{localStorage.setItem("kh_user",id);}catch(e){}try{sessionStorage.setItem("kh_user",id);}catch(e){}}
+function _readPersistedUser(){try{const v=localStorage.getItem("kh_user");if(v)return v;}catch(e){}try{return sessionStorage.getItem("kh_user");}catch(e){}return null;}
+function _clearPersistedUser(){try{localStorage.removeItem("kh_user");}catch(e){}try{sessionStorage.removeItem("kh_user");}catch(e){}}
+async function tryLogin(){const p=document.getElementById("loginPass").value.trim();if(!p)return;const h=await sha256(p);for(const[id,u]of Object.entries(USERS)){if(u.hash===h){currentUser={id,...u};_persistUser(id);showLoggedIn();return;}}document.getElementById("loginError").textContent="Wrong password";}
+function guestLogin(){currentUser={id:"guest",display:"Guest",role:"guest"};_persistUser("guest");showLoggedIn();}
 document.getElementById("loginPass").addEventListener("keydown",e=>{if(e.key==="Enter")tryLogin();});
 async function showLoggedIn(){document.getElementById("loginOverlay").classList.add("hidden");document.getElementById("userBadge").style.display="inline-flex";document.getElementById("userName").textContent=currentUser.display;document.getElementById("userDot").className="dot dot-"+currentUser.id;
   // Pull latest data from remote
@@ -842,13 +843,27 @@ async function showLoggedIn(){document.getElementById("loginOverlay").classList.
   document.getElementById("adminGear").style.display=isAdmin()?'':'none';
   _loadColFilters();
   _loadEditMode();
-  _buildArtistFilterBtns();
   _initGifs();
   const mfb=document.getElementById("myFilesBtn");
   if(mfb)mfb.style.display=isGuest()?'none':'block';
   render();
+  _handleChatDeepLink();
 }
-function logout(){sessionStorage.removeItem("kh_user");currentUser=null;document.getElementById("loginOverlay").classList.remove("hidden");document.getElementById("userBadge").style.display="none";document.getElementById("loginPass").value="";document.getElementById("loginError").textContent="";render();}
+
+function _handleChatDeepLink(){
+  const params=new URLSearchParams(window.location.search);
+  const chatId=params.get('chat');
+  if(!chatId)return;
+  // Strip from URL so it doesn't reopen on refresh
+  params.delete('chat');
+  const newSearch=params.toString();
+  window.history.replaceState({},'',window.location.pathname+(newSearch?'?'+newSearch:''));
+  // Verify shot exists
+  if(!TASKS.some(t=>t.id===chatId)){console.warn("Chat deep link: shot not found",chatId);return;}
+  if(isGuest())return;
+  setTimeout(()=>openNote(chatId,'chat'),100);
+}
+function logout(){_clearPersistedUser();currentUser=null;document.getElementById("loginOverlay").classList.remove("hidden");document.getElementById("userBadge").style.display="none";document.getElementById("loginPass").value="";document.getElementById("loginError").textContent="";render();}
 // Auto-login deferred until after SUPA_URL is defined (see below)
 
 function isAdmin(){return currentUser&&currentUser.role==="admin";}
@@ -992,7 +1007,7 @@ function _tryAuthLink(){
   if(u&&u.linkToken===token){
     if(!USERS[userId])USERS[userId]=u;
     currentUser={id:userId,...USERS[userId]};
-    sessionStorage.setItem("kh_user",userId);
+    _persistUser(userId);
     showLoggedIn();
     return true;
   }
@@ -1007,9 +1022,16 @@ function _initAuth(){
       if(state.__users){for(const[id,u] of Object.entries(state.__users)){USERS[id]=u;}}
       if(_tryAuthLink())return;
     }
-    const s=sessionStorage.getItem("kh_user");
+    const s=_readPersistedUser();
     if(s==="guest")guestLogin();
-    else if(s&&USERS[s]){currentUser={id:s,...USERS[s]};showLoggedIn();}
+    else if(s){
+      // For non-guest, USERS may not be populated yet — pull state first
+      if(!USERS[s]){
+        await _pullRemote();
+        if(state.__users){for(const[id,u] of Object.entries(state.__users)){USERS[id]=u;}}
+      }
+      if(USERS[s]){currentUser={id:s,...USERS[s]};showLoggedIn();}
+    }
   })();
 }
 
@@ -1278,10 +1300,6 @@ document.addEventListener("click",function(e){
 let _editMode=false;
 function toggleEditMode(){
   _editMode=!_editMode;
-  const btn=document.getElementById("editModeBtn");
-  if(btn){btn.classList.toggle("edit-active",_editMode);btn.textContent=_editMode?"Editing...":"Edit Shots";}
-  const addBtn=document.getElementById("addShotBtn");
-  if(addBtn)addBtn.style.display=(_editMode&&isAdmin())?'inline-block':'none';
   try{localStorage.setItem("em_"+(currentUser?currentUser.id:"guest"),_editMode?"1":"0");}catch(e){}
   // Force full rebuild so disabled states update
   const tbody=document.getElementById("tbody");if(tbody)tbody.dataset.ids="";
@@ -1290,10 +1308,6 @@ function toggleEditMode(){
 function _loadEditMode(){
   if(!isAdmin()){_editMode=false;return;}
   try{_editMode=localStorage.getItem("em_"+(currentUser?currentUser.id:"guest"))==="1";}catch(e){}
-  const btn=document.getElementById("editModeBtn");
-  if(btn){btn.style.display='inline-block';btn.classList.toggle("edit-active",_editMode);btn.textContent=_editMode?"Editing...":"Edit Shots";}
-  const addBtn=document.getElementById("addShotBtn");
-  if(addBtn)addBtn.style.display=_editMode?'inline-block':'none';
 }
 function isEditMode(){return _editMode;}
 
@@ -1363,16 +1377,20 @@ async function deleteShot(id){
   render();updateStats();
 }
 
-function _buildArtistFilterBtns(){
-  const wrap=document.getElementById("artistFilterBtns");
-  if(!wrap) return;
-  const artists=_getArtists();
-  let html=`<button class="artist-filter-btn${artistFilter==='all'?' active':''}" data-artist="all">All Artists</button>`;
-  artists.forEach(a=>{html+=`<button class="artist-filter-btn${artistFilter===a.id?' active':''}" data-artist="${a.id}">${a.display}</button>`;});
-  html+=`<button class="artist-filter-btn${artistFilter==='unassigned'?' active':''}" data-artist="unassigned">Unassigned</button>`;
-  wrap.innerHTML=html;
-  wrap.querySelectorAll(".artist-filter-btn").forEach(b=>{b.addEventListener("click",()=>{wrap.querySelectorAll(".artist-filter-btn").forEach(x=>x.classList.remove("active"));b.classList.add("active");artistFilter=b.dataset.artist;render();});});
-}
+// Status stat card click → filter
+document.getElementById("statusStats").addEventListener("click",e=>{
+  const card=e.target.closest(".stat-card[data-filter]");
+  if(!card)return;
+  currentFilter=card.dataset.filter;
+  render();
+});
+// Artist stat card click → filter (delegated since cards re-render on each updateStats)
+document.getElementById("artistStats").addEventListener("click",e=>{
+  const card=e.target.closest(".artist-card[data-artist]");
+  if(!card)return;
+  artistFilter=card.dataset.artist;
+  render();
+});
 
 function getStatus(id){return state[id]?.status||"todo";}
 let _prioSort=false;
@@ -1427,7 +1445,9 @@ function toggleAdminMenu(){
   if(old){old.remove();return;}
   const dd=document.createElement("div");
   dd.className="admin-menu";dd.id="adminMenu";
-  dd.innerHTML=`<div class="admin-menu-item" onclick="closeAdminMenu();openUserManager()">👥 Manage Users</div><div class="admin-menu-item" onclick="closeAdminMenu();_openAdminFiles()">📁 Admin Files</div>`;
+  const editLabel=_editMode?"✏️ Editing... (click to stop)":"✏️ Edit Shots";
+  const addShotItem=_editMode?`<div class="admin-menu-item" onclick="closeAdminMenu();openAddShotDialog()">➕ Add Shot</div>`:'';
+  dd.innerHTML=`<div class="admin-menu-item" onclick="closeAdminMenu();toggleEditMode()">${editLabel}</div>${addShotItem}<div class="admin-menu-item" onclick="closeAdminMenu();openUserManager()">👥 Manage Users</div><div class="admin-menu-item" onclick="closeAdminMenu();_openAdminFiles()">📁 Admin Files</div>`;
   document.body.appendChild(dd);
   setTimeout(()=>document.addEventListener("click",closeAdminMenu,{once:true}),0);
 }
@@ -2464,27 +2484,53 @@ function chatPreview(id){
 function updateStats(){
   let c={todo:0,progress:0,review:0,done:0,skip:0};
   const ac={};
+  let unassignedCount=0;
   TASKS.forEach(t=>{
     const st=getStatus(t.id);c[st]++;
     const a=getAssignee(t.id);
     if(a){if(!ac[a])ac[a]={total:0,done:0,todo:0,progress:0,review:0};ac[a].total++;ac[a][st]=(ac[a][st]||0)+1;}
+    else {unassignedCount++;}
   });
+  const total=TASKS.length;
+  document.getElementById("stat-all").textContent=total;
   document.getElementById("stat-todo").textContent=c.todo;
   document.getElementById("stat-progress").textContent=c.progress;
   document.getElementById("stat-review").textContent=c.review;
   document.getElementById("stat-done").textContent=c.done;
+  const skipEl=document.getElementById("stat-skip");if(skipEl)skipEl.textContent=c.skip;
+  // Sync active class on status cards
+  document.querySelectorAll("#statusStats .stat-card").forEach(card=>{
+    card.classList.toggle("active",card.dataset.filter===currentFilter);
+  });
   const el=document.getElementById("artistStats");
   if(el){
     const artists=_getArtists();
-    el.innerHTML=artists.map(a=>{
+    let totalAssigned=0;artists.forEach(a=>{totalAssigned+=(ac[a.id]?.total||0);});
+    let html='';
+    // All Artists card
+    html+=`<div class="artist-card${artistFilter==='all'?' active':''}" data-artist="all" style="border-color:#58a6ff44">
+      <div style="font-size:18px;font-weight:700;color:#58a6ff">${totalAssigned}</div>
+      <div style="font-size:10px;color:#8b949e;margin:2px 0">All Artists</div>
+      <div style="font-size:9px;color:#484f58">&nbsp;</div>
+    </div>`;
+    // Per-artist cards
+    artists.forEach(a=>{
       const s=ac[a.id]||{total:0,done:0,todo:0,progress:0,review:0};
       const col=getUserColor(a.id)||'#8b949e';
-      return `<div style="background:#161b22;border:1px solid ${col}44;border-radius:8px;padding:6px 12px;text-align:center;min-width:80px">
+      const isActive=artistFilter===a.id;
+      html+=`<div class="artist-card${isActive?' active':''}" data-artist="${a.id}" style="border-color:${col}${isActive?'':'44'}">
         <div style="font-size:18px;font-weight:700;color:${col}">${s.total}</div>
         <div style="font-size:10px;color:#8b949e;margin:2px 0">${esc(a.display)}</div>
         <div style="font-size:9px;color:#484f58">${s.done}✓ ${s.progress}◉ ${s.todo}○</div>
       </div>`;
-    }).join('');
+    });
+    // Unassigned card
+    html+=`<div class="artist-card${artistFilter==='unassigned'?' active':''}" data-artist="unassigned" style="border-color:#8b949e44">
+      <div style="font-size:18px;font-weight:700;color:#8b949e">${unassignedCount}</div>
+      <div style="font-size:10px;color:#8b949e;margin:2px 0">Unassigned</div>
+      <div style="font-size:9px;color:#484f58">&nbsp;</div>
+    </div>`;
+    el.innerHTML=html;
   }
 }
 
@@ -2518,6 +2564,7 @@ function openNote(taskId,type){
   } else {
     cfp.style.display='none';
   }
+  _updatePushBtn();
 }
 
 function _renderFileLinks(html){
@@ -2875,7 +2922,8 @@ function renderChat(){
     }
     const timeStr=m.ts?new Date(m.ts).toLocaleString('uk-UA',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
     const authorName=isAdm?'Admin':isCli?'Client':'Artist';
-    html+=`<div class="chat-msg-header">${authorName}${timeStr?' &nbsp;<span style="opacity:0.5;font-weight:400">'+timeStr+'</span>':''}</div>`;
+    const pushedMark=m.pushed?'<span class="chat-msg-pushed-mark" title="Pushed to Telegram">&#128276;</span>':'';
+    html+=`<div class="chat-msg-header">${authorName}${timeStr?' &nbsp;<span style="opacity:0.5;font-weight:400">'+timeStr+'</span>':''}${pushedMark}</div>`;
     if(m.replyTo!==undefined&&m.replyTo!==null){
       const orig=msgs.find(x=>x.id===m.replyTo);
       const preview=orig?(orig.deleted?'deleted message':trunc(orig.text,40)):'...';
@@ -3055,6 +3103,7 @@ function chatExitSelectMode(){
   const cm=document.getElementById("chatMessages");
   if(cm)cm.classList.remove("chat-select-mode");
   renderChat();
+  _updatePushBtn();
 }
 
 function chatToggleSelect(mid,el){
@@ -3063,7 +3112,110 @@ function chatToggleSelect(mid,el){
   if(el){el.classList.toggle("selected",_chatSelected.has(mid));const cb=el.querySelector('.chat-msg-checkbox');if(cb)cb.checked=_chatSelected.has(mid);}
   const cnt=document.getElementById("chatSelCount");
   if(cnt)cnt.textContent=_chatSelected.size+" selected";
+  _updatePushBtn();
   if(_chatSelected.size===0) chatExitSelectMode();
+}
+
+/* ── Telegram Push notification ── */
+const TG_PUSH_URL='https://killhouse-vfx.contora.workers.dev/tg/push';
+const TG_PUSH_COOLDOWN_MS=60000;
+
+function _canPushChat(shotId){
+  if(!shotId||!currentUser)return false;
+  if(isGuest()||isClient())return false;
+  if(isAdmin())return true;
+  return getAssignee(shotId)===currentUser.id;
+}
+
+function _updatePushBtn(){
+  const btn=document.getElementById("notePushBtn");
+  if(!btn)return;
+  const lbl=document.getElementById("notePushLabel");
+  if(!noteTaskId||noteType!=='chat'||!_canPushChat(noteTaskId)){btn.classList.add('hidden');return;}
+  btn.classList.remove('hidden');
+  if(lbl)lbl.textContent='Push';
+  const assignee=getAssignee(noteTaskId);
+  if(!assignee){btn.disabled=true;btn.title="No assignee";return;}
+  const selSize=_chatSelected.size;
+  if(selSize>1){btn.disabled=true;btn.title="Select only one message";return;}
+  if(selSize===1){
+    const mid=[..._chatSelected][0];
+    const m=(state[noteTaskId]?.artistNotes||[]).find(x=>x.id===mid);
+    if(m&&m.pushed){btn.disabled=true;btn.title="Already pushed";return;}
+    btn.disabled=false;btn.title=`Push selected message to ${assignee}`;
+    return;
+  }
+  // No selection — push latest, with cooldown
+  const lastPush=state[noteTaskId]?.chatLastPush||0;
+  const elapsed=Date.now()-lastPush;
+  if(elapsed<TG_PUSH_COOLDOWN_MS){
+    const remain=Math.ceil((TG_PUSH_COOLDOWN_MS-elapsed)/1000);
+    btn.disabled=true;btn.title=`Wait ${remain}s before next push`;
+    return;
+  }
+  const chat=(state[noteTaskId]?.artistNotes||[]).filter(m=>!m.deleted);
+  if(!chat.length){btn.disabled=true;btn.title="No messages to push";return;}
+  btn.disabled=false;btn.title=`Push latest message to ${assignee}`;
+}
+
+async function pushChatNotification(){
+  if(!noteTaskId)return;
+  if(!_canPushChat(noteTaskId)){alert("No permission");return;}
+  const assignee=getAssignee(noteTaskId);
+  if(!assignee){alert("No artist assigned");return;}
+  if(!currentUser||!state.__users||!state.__users[currentUser.id]?.linkToken){
+    alert("Your account has no link token. Ask admin to regenerate.");return;
+  }
+  const chat=(state[noteTaskId]?.artistNotes||[]).filter(m=>!m.deleted);
+  let msg=null,isSelected=false;
+  if(_chatSelected.size>1){alert("Select only one message");return;}
+  if(_chatSelected.size===1){
+    const mid=[..._chatSelected][0];
+    msg=chat.find(x=>x.id===mid);
+    if(!msg){alert("Message not found");return;}
+    if(msg.pushed){alert("Already pushed");return;}
+    isSelected=true;
+  } else {
+    const lastPush=state[noteTaskId]?.chatLastPush||0;
+    if(Date.now()-lastPush<TG_PUSH_COOLDOWN_MS){
+      const remain=Math.ceil((TG_PUSH_COOLDOWN_MS-(Date.now()-lastPush))/1000);
+      alert(`Wait ${remain}s`);return;
+    }
+    if(!chat.length){alert("No messages to push");return;}
+    msg=chat[chat.length-1];
+  }
+  const text=msg.text||(msg.img?"[image]":"");
+  const desc=getDesc(noteTaskId,(TASKS.find(t=>t.id===noteTaskId)?.desc)||"");
+  const fromUser=currentUser.display||currentUser.id;
+  const link=`https://spark700.github.io/kh-vfx-tracker/?chat=${encodeURIComponent(noteTaskId)}`;
+  const btn=document.getElementById("notePushBtn");
+  const lbl=document.getElementById("notePushLabel");
+  if(btn){btn.disabled=true;}if(lbl)lbl.textContent='Sending…';
+  try{
+    const r=await fetch(TG_PUSH_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        shotId:noteTaskId,shotDesc:desc,artistId:assignee,text,fromUser,link,
+        userId:currentUser.id,linkToken:state.__users[currentUser.id].linkToken
+      })
+    });
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok||!data.ok)throw new Error(data.error||('HTTP '+r.status));
+    // Mark in state
+    if(!state[noteTaskId])state[noteTaskId]={};
+    if(isSelected){msg.pushed=true;msg.pushedBy=currentUser.id;msg.pushedAt=Date.now();}
+    else{state[noteTaskId].chatLastPush=Date.now();}
+    saveState(state);
+    renderChat();
+    if(lbl)lbl.textContent='Sent ✓';
+    setTimeout(()=>{if(lbl)lbl.textContent='Push';_updatePushBtn();},1500);
+  }catch(e){
+    console.error("Push failed:",e);
+    alert("Push failed: "+(e.message||e));
+    if(lbl)lbl.textContent='Push';
+    _updatePushBtn();
+  }
 }
 
 function _canDeleteSelected(mid){
@@ -6211,8 +6363,6 @@ function _updateSortArrows(){
   });
 }
 document.getElementById("search").addEventListener("input",e=>{searchQuery=e.target.value;render();});
-document.querySelectorAll(".filter-btn").forEach(b=>{b.addEventListener("click",()=>{document.querySelectorAll(".filter-btn").forEach(x=>x.classList.remove("active"));b.classList.add("active");currentFilter=b.dataset.filter;render();});});
-document.querySelectorAll(".artist-filter-btn").forEach(b=>{b.addEventListener("click",()=>{document.querySelectorAll(".artist-filter-btn").forEach(x=>x.classList.remove("active"));b.classList.add("active");artistFilter=b.dataset.artist;render();});});
 
 render();
 
