@@ -35,6 +35,37 @@
   .admin-modal-header h3 { margin: 0; color: #c9d1d9; font-size: 16px; }
   .admin-modal-close { background: none; border: none; color: #8b949e; font-size: 20px; cursor: pointer; }
   .admin-modal-body { padding: 16px 20px; }
+  .bot-section { margin-bottom: 22px; }
+  .bot-section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #58a6ff; margin-bottom: 8px; font-weight: 600; }
+  .bot-section-hint { font-size: 11px; color: #8b949e; margin-bottom: 10px; line-height: 1.4; }
+  .bot-section-hint code { background: #0d1117; padding: 1px 5px; border-radius: 3px; font-size: 10px; }
+  .bot-status { background: #0d1117; border: 1px solid #21262d; border-radius: 6px; padding: 10px 12px; font-size: 12px; color: #c9d1d9; line-height: 1.8; }
+  .bot-status code { background: #161b22; padding: 1px 5px; border-radius: 3px; font-size: 11px; color: #8b949e; }
+  .bot-status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+  .bot-status-ok { background: #3fb950; }
+  .bot-status-fail { background: #f85149; }
+  .bot-status-checking { background: #d29922; animation: bs-pulse 1s ease-in-out infinite; }
+  @keyframes bs-pulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+  .bot-artists-table { width: 100%; border-collapse: collapse; }
+  .bot-artists-table th { text-align: left; font-size: 10px; text-transform: uppercase; color: #484f58; font-weight: 600; padding: 4px 8px; border-bottom: 1px solid #21262d; }
+  .bot-artists-table td { padding: 8px; vertical-align: middle; font-size: 13px; color: #c9d1d9; border-bottom: 1px solid #161b22; }
+  .bot-artist-id { font-size: 10px; color: #484f58; font-family: 'SF Mono', monospace; }
+  .bot-topic-name { font-size: 12px; color: #58a6ff; }
+  .bot-topic-unknown { font-size: 11px; color: #484f58; font-style: italic; }
+  .bot-artist-fallback { color: #484f58; font-size: 9px; }
+  .bot-thread-input { width: 90px; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; padding: 5px 8px; border-radius: 4px; font-size: 12px; font-family: 'SF Mono', monospace; }
+  .bot-thread-input:focus { border-color: #1f6feb; outline: none; }
+  .bot-test-btn { background: rgba(255,255,255,0.06); border: 1px solid #30363d; color: #c9d1d9; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; }
+  .bot-test-btn:hover { background: #30363d; border-color: #58a6ff; }
+  .bot-cd-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 12px; color: #c9d1d9; }
+  .bot-cd-row label { width: 170px; }
+  .bot-cd-row input { width: 80px; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; padding: 5px 8px; border-radius: 4px; font-size: 12px; }
+  .bot-cd-row input:focus { border-color: #1f6feb; outline: none; }
+  .bot-cd-row span { color: #8b949e; font-size: 11px; }
+  .bot-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; padding-top: 14px; border-top: 1px solid #21262d; }
+  .bot-cancel-btn { background: rgba(255,255,255,0.06); border: 1px solid #30363d; color: #c9d1d9; padding: 7px 16px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+  .bot-save-btn { background: #1f6feb; border: 1px solid #1f6feb; color: #fff; padding: 7px 16px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+  .bot-save-btn:hover { background: #388bfd; }
   .user-card { background: #0d1117; border: 1px solid #21262d; border-radius: 8px; padding: 10px 14px; margin-bottom: 6px; }
   .user-card-top { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
   .user-card-top .u-dot { width: 12px; height: 12px; border-radius: 50%; cursor: pointer; flex-shrink: 0; transition: .15s; }
@@ -825,7 +856,7 @@
   <tbody id="tbody"></tbody>
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
-<div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0018</div>
+<div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0019</div>
 
 <script>
 const USERS = {
@@ -1501,7 +1532,7 @@ function toggleAdminMenu(){
   dd.className="admin-menu";dd.id="adminMenu";
   const editLabel=_editMode?"✏️ Editing... (click to stop)":"✏️ Edit Shots";
   const addShotItem=_editMode?`<div class="admin-menu-item" onclick="closeAdminMenu();openAddShotDialog()">➕ Add Shot</div>`:'';
-  dd.innerHTML=`<div class="admin-menu-item" onclick="closeAdminMenu();toggleEditMode()">${editLabel}</div>${addShotItem}<div class="admin-menu-item" onclick="closeAdminMenu();openUserManager()">👥 Manage Users</div><div class="admin-menu-item" onclick="closeAdminMenu();_openAdminFiles()">📁 Admin Files</div>`;
+  dd.innerHTML=`<div class="admin-menu-item" onclick="closeAdminMenu();toggleEditMode()">${editLabel}</div>${addShotItem}<div class="admin-menu-item" onclick="closeAdminMenu();openUserManager()">👥 Manage Users</div><div class="admin-menu-item" onclick="closeAdminMenu();_openAdminFiles()">📁 Admin Files</div><div class="admin-menu-item" onclick="closeAdminMenu();openBotSettings()">🤖 Bot Settings</div>`;
   document.body.appendChild(dd);
   setTimeout(()=>document.addEventListener("click",closeAdminMenu,{once:true}),0);
 }
@@ -1825,6 +1856,138 @@ function _renderUserList(){
   return html;
 }
 function closeUserManager(){const d=document.getElementById("artistManagerOverlay");if(d)d.remove();}
+
+/* ── BOT SETTINGS PANEL ── */
+function _getBotConfig(){
+  if(!state.__bot)state.__bot={};
+  if(!state.__bot.artistThreads)state.__bot.artistThreads={};
+  if(!state.__bot.cooldowns)state.__bot.cooldowns={};
+  return state.__bot;
+}
+function _getCooldowns(){
+  const b=state.__bot?.cooldowns||{};
+  return{
+    artistMs:typeof b.artistMs==='number'?b.artistMs:60000,
+    adminMs:typeof b.adminMs==='number'?b.adminMs:1000,
+  };
+}
+let _botPingData=null;
+function openBotSettings(){
+  if(!isAdmin())return;
+  const ov=document.createElement("div");
+  ov.className="admin-modal-overlay";ov.id="botSettingsOverlay";
+  ov.onclick=(e)=>{if(e.target===ov)closeBotSettings();};
+  let html=`<div class="admin-modal" style="width:640px"><div class="admin-modal-header"><h3>🤖 Bot Settings</h3><button class="admin-modal-close" onclick="closeBotSettings()">&times;</button></div><div class="admin-modal-body" id="botSettingsBody"></div></div>`;
+  ov.innerHTML=html;
+  document.body.appendChild(ov);
+  _renderBotSettings();
+  _refreshBotStatus();
+}
+function closeBotSettings(){_botPingData=null;const d=document.getElementById("botSettingsOverlay");if(d)d.remove();}
+function _renderBotSettings(){
+  const body=document.getElementById("botSettingsBody");
+  if(!body)return;
+  const cfg=_getBotConfig();
+  const cd=_getCooldowns();
+  const artists=_getArtists();
+  let html='';
+  // ── STATUS ──
+  html+=`<div class="bot-section"><div class="bot-section-title">Status</div><div id="botStatusBox" class="bot-status">${_renderBotStatusInner()}</div></div>`;
+  // ── ARTISTS & TOPICS ──
+  // Effective value: state override > worker hardcoded fallback (from /tg/ping)
+  const workerThreads=_botPingData?.threads||{};
+  const hardcoded=_botPingData?.hardcodedThreads||{};
+  // Merge topic names: live worker discovery > cached state names
+  const liveNames=(_botPingData&&_botPingData!=='error'&&_botPingData.topicNames)||{};
+  if(!cfg.topicNames)cfg.topicNames={};
+  // Persist any newly discovered names into state cache
+  for(const k of Object.keys(liveNames)){
+    if(cfg.topicNames[k]!==liveNames[k]){cfg.topicNames[k]=liveNames[k];}
+  }
+  const getTopicName=(tid)=>tid?(liveNames[tid]||cfg.topicNames[tid]||null):null;
+  html+=`<div class="bot-section"><div class="bot-section-title">Artists &amp; Topics</div><div class="bot-section-hint">Topic names are discovered automatically from recent activity in the supergroup. If a topic shows no name, ask its owner to send any message in their thread, then click <b>Refresh</b>.</div><table class="bot-artists-table"><thead><tr><th>Artist</th><th>Topic</th><th>thread_id</th><th></th></tr></thead><tbody>`;
+  artists.forEach(a=>{
+    const stateTid=cfg.artistThreads[a.id];
+    const effectiveTid=stateTid||workerThreads[a.id]||hardcoded[a.id]||'';
+    const showVal=stateTid||(workerThreads[a.id]||hardcoded[a.id])||'';
+    const topicName=getTopicName(effectiveTid);
+    const fallbackHint=(!stateTid&&hardcoded[a.id])?` <span class="bot-artist-fallback">(default)</span>`:'';
+    const topicCell=topicName?`<span class="bot-topic-name">${esc(topicName)}</span>`:`<span class="bot-topic-unknown">— unknown —</span>`;
+    html+=`<tr><td>${esc(a.display)}<div class="bot-artist-id">${esc(a.id)}${fallbackHint}</div></td><td>${topicCell}</td><td><input type="number" class="bot-thread-input" data-artist="${esc(a.id)}" value="${esc(String(showVal))}" placeholder="${esc(String(hardcoded[a.id]||''))}" min="0"></td><td><button class="bot-test-btn" onclick="_testBotPush('${esc(a.id)}')">Test</button></td></tr>`;
+  });
+  html+=`</tbody></table><div style="margin-top:8px;text-align:right"><button class="bot-test-btn" onclick="_refreshBotStatus()">↻ Refresh</button></div></div>`;
+  // ── COOLDOWNS ──
+  html+=`<div class="bot-section"><div class="bot-section-title">Cooldowns</div><div class="bot-section-hint">Time before the same person can push again.</div><div class="bot-cd-row"><label>Artist (no selection)</label><input type="number" id="cdArtist" value="${cd.artistMs/1000}" min="0" step="1"><span>seconds</span></div><div class="bot-cd-row"><label>Admin (debounce)</label><input type="number" id="cdAdmin" value="${cd.adminMs/1000}" min="0" step="0.1"><span>seconds</span></div></div>`;
+  html+=`<div class="bot-actions"><button class="bot-cancel-btn" onclick="closeBotSettings()">Cancel</button><button class="bot-save-btn" onclick="_saveBotSettings()">Save</button></div>`;
+  body.innerHTML=html;
+}
+function _renderBotStatusInner(){
+  if(_botPingData==='error')return `<div><span class="bot-status-dot bot-status-fail"></span> Worker unreachable</div>`;
+  if(!_botPingData)return `<span class="bot-status-dot bot-status-checking"></span> Checking worker…`;
+  const d=_botPingData;
+  const tokenOk=d.hasToken;
+  const botName=d.bot?`@${d.bot.username}`:'unknown';
+  return `<div><span class="bot-status-dot bot-status-ok"></span> Worker reachable</div>`+
+    `<div><span class="bot-status-dot ${tokenOk?'bot-status-ok':'bot-status-fail'}"></span> Token ${tokenOk?'configured':'missing'}</div>`+
+    `<div><span class="bot-status-dot bot-status-ok"></span> Bot: ${esc(botName)} (id ${d.bot?.id||'?'})</div>`+
+    `<div><span class="bot-status-dot bot-status-ok"></span> Chat: <code>${esc(d.chatId||'?')}</code></div>`;
+}
+async function _refreshBotStatus(){
+  _botPingData=null;
+  _renderBotSettings();
+  try{
+    const r=await fetch('https://killhouse-vfx.contora.workers.dev/tg/ping',{method:'POST',headers:{'Content-Type':'application/json','Origin':location.origin}});
+    const d=await r.json();
+    if(!d.ok)throw new Error(d.error||'unknown');
+    _botPingData=d;
+  }catch(e){
+    _botPingData='error';
+  }
+  _renderBotSettings();
+}
+function _saveBotSettings(){
+  const cfg=_getBotConfig();
+  // Threads
+  document.querySelectorAll('.bot-thread-input').forEach(inp=>{
+    const aid=inp.dataset.artist;
+    const v=parseInt(inp.value,10);
+    if(!isNaN(v)&&v>0)cfg.artistThreads[aid]=v;
+    else delete cfg.artistThreads[aid];
+  });
+  // Cooldowns
+  const cdA=parseFloat(document.getElementById('cdArtist').value);
+  const cdAdm=parseFloat(document.getElementById('cdAdmin').value);
+  if(!isNaN(cdA)&&cdA>=0)cfg.cooldowns.artistMs=Math.round(cdA*1000);
+  if(!isNaN(cdAdm)&&cdAdm>=0)cfg.cooldowns.adminMs=Math.round(cdAdm*1000);
+  saveState(state);
+  closeBotSettings();
+}
+async function _testBotPush(artistId){
+  if(!currentUser||!state.__users||!state.__users[currentUser.id]?.linkToken){
+    alert("No link token");return;
+  }
+  // Save the current input value first so the worker uses the new thread_id
+  const inp=document.querySelector(`.bot-thread-input[data-artist="${artistId}"]`);
+  if(inp){
+    const cfg=_getBotConfig();
+    const v=parseInt(inp.value,10);
+    if(!isNaN(v)&&v>0){cfg.artistThreads[artistId]=v;await new Promise(res=>{saveState(state);setTimeout(res,500);});}
+  }
+  try{
+    const r=await fetch('https://killhouse-vfx.contora.workers.dev/tg/push',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        shotId:'TEST',shotDesc:'Bot Settings test',artistId,
+        kind:"test",fromUser:currentUser.display||currentUser.id,
+        userId:currentUser.id,linkToken:state.__users[currentUser.id].linkToken
+      })
+    });
+    const d=await r.json();
+    if(!r.ok||!d.ok){alert("Test failed: "+(d.error||r.status));return;}
+    alert("Test sent ✓");
+  }catch(e){alert("Test failed: "+e.message);}
+}
 const USER_COLORS=[
   "#f85149","#ff7b72","#ffa657","#d29922","#e3b341",
   "#3fb950","#56d364","#39d353","#2ea043","#0d8a6a",
@@ -3179,8 +3342,8 @@ function chatToggleSelect(mid,el){
 
 /* ── Telegram Push notification ── */
 const TG_PUSH_URL='https://killhouse-vfx.contora.workers.dev/tg/push';
-const TG_PUSH_COOLDOWN_MS=60000;       // artist cooldown for "no selection" mode
-const TG_ADMIN_DEBOUNCE_MS=1000;       // admin global debounce against double clicks
+function _tgArtistCooldown(){return state.__bot?.cooldowns?.artistMs??60000;}
+function _tgAdminDebounce(){return state.__bot?.cooldowns?.adminMs??1000;}
 let _lastPushAt=0;                     // local timestamp of last successful push (admin debounce)
 
 function _canPushChat(shotId){
@@ -3219,8 +3382,8 @@ function _updatePushBtn(){
   }
   const lastPush=state[noteTaskId]?.chatLastPush||0;
   const elapsed=Date.now()-lastPush;
-  if(elapsed<TG_PUSH_COOLDOWN_MS){
-    const remain=Math.ceil((TG_PUSH_COOLDOWN_MS-elapsed)/1000);
+  if(elapsed<_tgArtistCooldown()){
+    const remain=Math.ceil((_tgArtistCooldown()-elapsed)/1000);
     btn.disabled=true;btn.title=`Wait ${remain}s before next push`;
     return;
   }
@@ -3243,7 +3406,7 @@ async function pushChatNotification(){
     alert("Your account has no link token. Ask admin to regenerate.");return;
   }
   // Global admin debounce against accidental double clicks
-  if(Date.now()-_lastPushAt<TG_ADMIN_DEBOUNCE_MS)return;
+  if(Date.now()-_lastPushAt<_tgAdminDebounce())return;
   const chat=(state[noteTaskId]?.artistNotes||[]).filter(m=>!m.deleted&&!m.system);
   let msg=null,isSelected=false;
   if(_chatSelected.size>1){alert("Select only one message");return;}
@@ -3256,8 +3419,8 @@ async function pushChatNotification(){
   } else {
     if(!isAdmin()){
       const lastPush=state[noteTaskId]?.chatLastPush||0;
-      if(Date.now()-lastPush<TG_PUSH_COOLDOWN_MS){
-        const remain=Math.ceil((TG_PUSH_COOLDOWN_MS-(Date.now()-lastPush))/1000);
+      if(Date.now()-lastPush<_tgArtistCooldown()){
+        const remain=Math.ceil((_tgArtistCooldown()-(Date.now()-lastPush))/1000);
         alert(`Wait ${remain}s`);return;
       }
     }
@@ -3344,7 +3507,7 @@ async function pushPlayerNotification(){
   if(!currentUser||!state.__users||!state.__users[currentUser.id]?.linkToken){
     alert("Your account has no link token. Ask admin to regenerate.");return;
   }
-  if(Date.now()-_lastPushAt<TG_ADMIN_DEBOUNCE_MS)return;
+  if(Date.now()-_lastPushAt<_tgAdminDebounce())return;
   const key=_versionKey(_gifVersionIdx);
   const pushed=state[_gifCurrentId]?.playerPushed||{};
   if(!isAdmin()&&pushed[key]){alert("Already pushed for this version");return;}

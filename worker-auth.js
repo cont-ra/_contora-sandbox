@@ -53,19 +53,31 @@ function _escapeHtml(s) {
     .replace(/>/g, '&gt;');
 }
 
-async function _verifyUser(userId, linkToken) {
-  // Fetches the shared tracker_state from Supabase and verifies the user's link token.
-  // Returns the user object on success, null on failure.
+// Pulls the shared tracker_state once. Returned object can be used by both
+// _verifyUser and the artist→thread lookup so we don't double-fetch.
+async function _fetchState() {
   const r = await fetch(SUPA_URL + '/rest/v1/tracker_state?id=eq.main&select=data', {
     headers: { apikey: SUPA_ANON_KEY, Authorization: 'Bearer ' + SUPA_ANON_KEY },
   });
   if (!r.ok) return null;
   const rows = await r.json();
-  const data = rows && rows[0] && rows[0].data;
+  return (rows && rows[0] && rows[0].data) || null;
+}
+
+function _verifyUserFromState(data, userId, linkToken) {
   if (!data || !data.__users) return null;
   const u = data.__users[String(userId).toLowerCase()];
   if (!u || u.linkToken !== linkToken) return null;
   return { ...u, id: String(userId).toLowerCase() };
+}
+
+function _resolveThread(data, artistId) {
+  const id = String(artistId || '').toLowerCase();
+  // 1. Live state override (admin-editable in Bot Settings)
+  const fromState = data && data.__bot && data.__bot.artistThreads && data.__bot.artistThreads[id];
+  if (fromState) return parseInt(fromState, 10);
+  // 2. Hardcoded fallback
+  return ARTIST_THREADS[id] || null;
 }
 
 async function handleTgPush(request, env) {
@@ -92,8 +104,9 @@ async function handleTgPush(request, env) {
     return _jsonResp({ ok: false, error: 'missing_fields' }, 400, origin);
   }
 
-  // Verify the caller is a real logged-in user
-  const user = await _verifyUser(userId, linkToken);
+  // Pull shared state once for both user verification and thread lookup
+  const stateData = await _fetchState();
+  const user = _verifyUserFromState(stateData, userId, linkToken);
   if (!user) {
     return _jsonResp({ ok: false, error: 'auth_failed' }, 401, origin);
   }
@@ -105,9 +118,31 @@ async function handleTgPush(request, env) {
     return _jsonResp({ ok: false, error: 'permission_denied' }, 403, origin);
   }
 
-  const threadId = ARTIST_THREADS[String(artistId).toLowerCase()];
+  const threadId = _resolveThread(stateData, artistId);
   if (!threadId) {
     return _jsonResp({ ok: false, error: 'artist_no_topic' }, 400, origin);
+  }
+
+  // Special: test push (kind === 'test') — only admin, only sends a tiny check message
+  if (kind === 'test') {
+    if (!callerIsAdmin) return _jsonResp({ ok: false, error: 'permission_denied' }, 403, origin);
+    const tgUrl = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`;
+    const tgResp = await fetch(tgUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: TG_CHAT_ID,
+        message_thread_id: threadId,
+        text: `🧪 Test message from <b>${_escapeHtml(fromUser || 'admin')}</b>\n<i>Bot Settings → Test Push</i>`,
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+      }),
+    });
+    const tgData = await tgResp.json().catch(() => ({}));
+    if (!tgResp.ok || !tgData.ok) {
+      return _jsonResp({ ok: false, error: 'telegram_failed', detail: tgData.description || tgResp.status }, 502, origin);
+    }
+    return _jsonResp({ ok: true, mode: 'test', threadId, message_id: tgData.result?.message_id }, 200, origin);
   }
 
   // Build HTML message
@@ -198,6 +233,72 @@ async function handleTgPush(request, env) {
   return _jsonResp({ ok: true, message_id: tgData.result?.message_id }, 200, origin);
 }
 
+// ── /tg/ping — health check used by the admin Bot Settings panel ──
+async function handleTgPing(request, env) {
+  const origin = request.headers.get('Origin') || '';
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: _corsHeaders(origin) });
+  }
+  if (!ALLOWED_ORIGINS.has(origin)) {
+    return _jsonResp({ ok: false, error: 'forbidden_origin' }, 403, origin);
+  }
+  const hasToken = !!env.TELEGRAM_BOT_TOKEN;
+  let botInfo = null;
+  if (hasToken) {
+    try {
+      const r = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/getMe`);
+      const j = await r.json();
+      if (j && j.ok) botInfo = { id: j.result.id, username: j.result.username, first_name: j.result.first_name };
+    } catch (e) {}
+  }
+  // Pull effective threads (state override merged on top of hardcoded)
+  let effectiveThreads = { ...ARTIST_THREADS };
+  try {
+    const stateData = await _fetchState();
+    const override = stateData?.__bot?.artistThreads || {};
+    for (const k of Object.keys(override)) {
+      const v = parseInt(override[k], 10);
+      if (!isNaN(v) && v > 0) effectiveThreads[k] = v;
+    }
+  } catch (e) {}
+  // Discover topic names from recent updates (24h window).
+  // Maps thread_id (number) → topic name.
+  const topicNames = {};
+  if (hasToken) {
+    try {
+      // Use offset=0 so we never advance the queue and the same updates remain
+      // available for the next call.
+      const r = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/getUpdates?offset=0&limit=100`);
+      const j = await r.json();
+      if (j && j.ok && Array.isArray(j.result)) {
+        for (const u of j.result) {
+          const m = u.message || u.edited_message || u.channel_post;
+          if (!m) continue;
+          // Direct topic creation event
+          if (m.forum_topic_created && m.message_thread_id) {
+            topicNames[m.message_thread_id] = m.forum_topic_created.name;
+          }
+          // Reply chains often quote the topic creation message
+          const rt = m.reply_to_message;
+          if (rt && rt.forum_topic_created && rt.message_thread_id) {
+            topicNames[rt.message_thread_id] = rt.forum_topic_created.name;
+          }
+        }
+      }
+    } catch (e) {}
+  }
+  return _jsonResp({
+    ok: true,
+    workerAlive: true,
+    hasToken,
+    bot: botInfo,
+    chatId: TG_CHAT_ID,
+    threads: effectiveThreads,
+    hardcodedThreads: ARTIST_THREADS,
+    topicNames,
+  }, 200, origin);
+}
+
 // ── /p — preview/redirect endpoint for Telegram link previews ──
 // Bots: returns HTML with og:image + og:title pointing to the player.
 // Users: redirects to the GitHub Pages player URL.
@@ -229,6 +330,9 @@ export default {
     // Telegram push endpoint
     if (url.pathname === '/tg/push') {
       return handleTgPush(request, env);
+    }
+    if (url.pathname === '/tg/ping') {
+      return handleTgPing(request, env);
     }
 
     // Telegram link-preview / redirect for player deep links
