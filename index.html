@@ -819,7 +819,7 @@
   <tbody id="tbody"></tbody>
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
-<div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0005</div>
+<div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0006</div>
 
 <script>
 const USERS = {
@@ -860,7 +860,6 @@ function _handleChatDeepLink(){
   window.history.replaceState({},'',window.location.pathname+(newSearch?'?'+newSearch:''));
   // Verify shot exists
   if(!TASKS.some(t=>t.id===chatId)){console.warn("Chat deep link: shot not found",chatId);return;}
-  if(isGuest())return;
   setTimeout(()=>openNote(chatId,'chat'),100);
 }
 function logout(){_clearPersistedUser();currentUser=null;document.getElementById("loginOverlay").classList.remove("hidden");document.getElementById("userBadge").style.display="none";document.getElementById("loginPass").value="";document.getElementById("loginError").textContent="";render();}
