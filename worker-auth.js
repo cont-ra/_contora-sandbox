@@ -99,7 +99,7 @@ async function handleTgPush(request, env) {
   try { body = await request.json(); } catch (e) {
     return _jsonResp({ ok: false, error: 'bad_json' }, 400, origin);
   }
-  const { shotId, shotDesc, artistId, text, fromUser, link, userId, linkToken, kind, kindLabel, comment, thumbUrl, versionNumber, targetChatId } = body || {};
+  const { shotId, shotDesc, artistId, text, fromUser, link, userId, linkToken, kind, kindLabel, comment, thumbUrl, versionNumber, targetChatId, frame, versionIdx, tc } = body || {};
   if (!shotId || !userId || !linkToken) {
     return _jsonResp({ ok: false, error: 'missing_fields' }, 400, origin);
   }
@@ -225,12 +225,29 @@ async function handleTgPush(request, env) {
   // Inline-keyboard button replaces the in-text "Open in tracker" link.
   const headerLine = safeDesc ? `<b>${safeShot}</b> — ${safeDesc}` : `<b>${safeShot}</b>`;
   const fromLine = `\n👤 By: ${safeFrom}`;
-  const kindLine = safeKind ? `\n<i>pushed ${safeKind}</i>` : '';
+  // For player notes the kind line embeds a clickable timecode that
+  // jumps the receiver straight into the player at the right frame.
+  const safeTc = _escapeHtml(tc || '');
+  const hasFrame = (typeof frame === 'number') && (typeof versionIdx === 'number');
+  const frameLink = hasFrame ? `https://spark700.github.io/kh-vfx-tracker/?player=${encodeURIComponent(shotId)}&v=${versionIdx}&f=${frame}` : '';
+  const safeFrameLink = frameLink.replace(/[^a-zA-Z0-9:/?=&._\-#%]/g, '');
+  const kindWithTc = (safeKind && safeTc && safeFrameLink)
+    ? `${safeKind} at <a href="${safeFrameLink}">${safeTc}</a>`
+    : safeKind;
+  const kindLine = kindWithTc ? `\n<i>pushed ${kindWithTc}</i>` : '';
   const bodyLine = safeText ? `\n\n<b>«${safeText}»</b>` : '';
   const commentLine = safeComment ? `\n\n📝 ${safeComment}` : '';
   const msg = `🔔 ${headerLine}${fromLine}${kindLine}${bodyLine}${commentLine}`;
-  const directChatLink = safeLink || `https://spark700.github.io/kh-vfx-tracker/?chat=${encodeURIComponent(shotId)}`;
-  const reply_markup = { inline_keyboard: [[{ text: '💬 Open in chat', url: directChatLink }]] };
+  // Inline-keyboard button: jump to frame for player notes, otherwise open chat
+  let buttonText, buttonUrl;
+  if (hasFrame && safeFrameLink) {
+    buttonText = safeTc ? `▶ Open at ${tc}` : '▶ Open at frame';
+    buttonUrl = frameLink;
+  } else {
+    buttonText = '💬 Open in chat';
+    buttonUrl = safeLink || `https://spark700.github.io/kh-vfx-tracker/?chat=${encodeURIComponent(shotId)}`;
+  }
+  const reply_markup = { inline_keyboard: [[{ text: buttonText, url: buttonUrl }]] };
   const tgUrl = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`;
   const tgResp = await fetch(tgUrl, {
     method: 'POST',

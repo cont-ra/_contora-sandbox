@@ -900,7 +900,7 @@
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
 <div id="updateBanner" class="update-banner hidden"><span id="updateBannerText"></span><button id="updateBannerNow">Reload now</button><button id="updateBannerCancel">Later</button></div>
-<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0034</div>
+<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0035</div>
 
 <script>
 const USERS = {
@@ -975,11 +975,19 @@ function _handlePlayerDeepLink(){
   if(!playerId)return;
   const vRaw=params.get('v');
   const vIdx=vRaw!==null&&vRaw!==undefined?parseInt(vRaw,10):null;
+  const fRaw=params.get('f');
+  const frame=fRaw!==null&&fRaw!==undefined?parseInt(fRaw,10):null;
   // Strip from URL
-  params.delete('player');params.delete('v');
+  params.delete('player');params.delete('v');params.delete('f');
   const newSearch=params.toString();
   window.history.replaceState({},'',window.location.pathname+(newSearch?'?'+newSearch:''));
   if(!TASKS.some(t=>t.id===playerId)){console.warn("Player deep link: shot not found",playerId);return;}
+  // If a frame is requested, use the existing jumpToPlayerNote helper —
+  // it opens the right version and seeks after loadedmetadata.
+  if(frame!==null&&!isNaN(frame)&&vIdx!==null&&!isNaN(vIdx)){
+    setTimeout(()=>jumpToPlayerNote(playerId,vIdx,frame),100);
+    return;
+  }
   // Pre-cache the desired version so openGif picks it up
   if(vIdx!==null&&!isNaN(vIdx))_setPlayerCache(playerId,vIdx);
   setTimeout(()=>openGif(playerId),100);
@@ -3650,14 +3658,24 @@ async function pushChatNotification(){
   // Global admin debounce against accidental double clicks
   if(Date.now()-_lastPushAt<_tgAdminDebounce())return;
   const chat=(state[noteTaskId]?.artistNotes||[]).filter(m=>!m.deleted&&!m.system);
-  let msg=null,isSelected=false;
+  let msg=null,isSelected=false,playerNote=null;
   if(_chatSelected.size>1){alert("Select only one message");return;}
   if(_chatSelected.size===1){
     const mid=[..._chatSelected][0];
-    msg=chat.find(x=>x.id===mid);
-    if(!msg){alert("Message not found");return;}
-    if(!isAdmin()&&msg.pushed){alert("Already pushed");return;}
-    isSelected=true;
+    if(typeof mid==='string'&&mid.startsWith('pn_')){
+      // Player note: lookup in playerNotes / versions[i].notes
+      const allPN=_collectPlayerNotes(noteTaskId);
+      const found=allPN.find(n=>('pn_'+n.id+'_'+n._versionIdx)===mid);
+      if(!found){alert("Player note not found");return;}
+      playerNote=found;
+      msg={id:mid,text:found.text||'(drawing)',pushed:false};
+      isSelected=true;
+    } else {
+      msg=chat.find(x=>x.id===mid);
+      if(!msg){alert("Message not found");return;}
+      if(!isAdmin()&&msg.pushed){alert("Already pushed");return;}
+      isSelected=true;
+    }
   } else {
     if(!isAdmin()){
       const lastPush=state[noteTaskId]?.chatLastPush||0;
@@ -3670,13 +3688,20 @@ async function pushChatNotification(){
     msg=chat[chat.length-1];
   }
   const msgText=msg.text||(msg.img?"[image]":"");
-  const subject=`Chat message in ${noteTaskId}\n\n«${msgText}»`;
+  const tcInfo=playerNote?` @ ${playerNote.tc||''}`:'';
+  const subject=playerNote
+    ? `Player note ${playerNote._version||''}${tcInfo}\n\n«${msgText}»`
+    : `Chat message in ${noteTaskId}\n\n«${msgText}»`;
   const comment=await _showPushPrompt("Push to Telegram",subject);
   if(comment===null)return; // cancelled
   const desc=getDesc(noteTaskId,(TASKS.find(t=>t.id===noteTaskId)?.desc)||"");
   const fromUser=currentUser.display||currentUser.id;
-  const link=`https://spark700.github.io/kh-vfx-tracker/?chat=${encodeURIComponent(noteTaskId)}`;
-  const kindLabel=isSelected?"selected message":"latest message";
+  const link=playerNote
+    ? `https://spark700.github.io/kh-vfx-tracker/?player=${encodeURIComponent(noteTaskId)}&v=${playerNote._versionIdx}&f=${playerNote.frame||0}`
+    : `https://spark700.github.io/kh-vfx-tracker/?chat=${encodeURIComponent(noteTaskId)}`;
+  const kindLabel=playerNote
+    ? `player note (${playerNote._version||''})`
+    : (isSelected?"selected message":"latest message");
   const btn=document.getElementById("notePushBtn");
   const lbl=document.getElementById("notePushLabel");
   if(btn)btn.disabled=true;if(lbl)lbl.textContent='Sending…';
@@ -3687,6 +3712,9 @@ async function pushChatNotification(){
       body:JSON.stringify({
         shotId:noteTaskId,shotDesc:desc,artistId:assignee,
         kind:"chat",kindLabel,text:msgText,comment,fromUser,link,
+        frame:playerNote?.frame,
+        versionIdx:playerNote?._versionIdx,
+        tc:playerNote?.tc||null,
         userId:currentUser.id,linkToken:state.__users[currentUser.id].linkToken
       })
     });
@@ -3694,8 +3722,12 @@ async function pushChatNotification(){
     if(!r.ok||!data.ok)throw new Error(data.error||('HTTP '+r.status));
     // Mark in state
     if(!state[noteTaskId])state[noteTaskId]={};
-    if(isSelected){msg.pushed=true;msg.pushedBy=currentUser.id;msg.pushedAt=Date.now();}
-    else{state[noteTaskId].chatLastPush=Date.now();}
+    if(isSelected&&!playerNote){
+      // Real chat message — flip its pushed flag
+      msg.pushed=true;msg.pushedBy=currentUser.id;msg.pushedAt=Date.now();
+    } else if(!isSelected){
+      state[noteTaskId].chatLastPush=Date.now();
+    }
     _lastPushAt=Date.now();
     // Leave a system note in the chat
     const sysText=`Pushed ${kindLabel} to Telegram by ${fromUser}${comment?` — "${comment}"`:""}`;
