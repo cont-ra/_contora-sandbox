@@ -333,6 +333,12 @@
   .vud-status-btn.vud-status-done { background: #161b22; border-color: #3fb950; color: #3fb950; cursor: default; box-shadow: none; }
   .vud-status-btn.vud-status-done:hover { transform: none; box-shadow: none; }
   .vud-status-btn b { font-weight: 800; }
+  .update-banner { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); background: linear-gradient(180deg, #1f6feb 0%, #1158c7 100%); color: #fff; padding: 12px 20px; border-radius: 10px; box-shadow: 0 8px 32px rgba(31,111,235,0.5); z-index: 99999; display: flex; align-items: center; gap: 14px; font-size: 13px; font-weight: 500; border: 1px solid #58a6ff; }
+  .update-banner.hidden { display: none; }
+  .update-banner button { background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.35); color: #fff; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; font-family: inherit; transition: 0.15s; }
+  .update-banner button:hover { background: rgba(255,255,255,0.3); }
+  #updateBannerNow { background: #fff; color: #1158c7; border-color: #fff; }
+  #updateBannerNow:hover { background: #e6edf3; }
   td.tc-cell { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; color: #8b949e; white-space: nowrap; }
   td.desc-cell { max-width: 400px; word-break: break-word; white-space: normal; }
   td.gif-cell { width: 80px; padding: 6px; }
@@ -887,7 +893,8 @@
   <tbody id="tbody"></tbody>
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
-<div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0028</div>
+<div id="updateBanner" class="update-banner hidden"><span id="updateBannerText"></span><button id="updateBannerNow">Reload now</button><button id="updateBannerCancel">Later</button></div>
+<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0029</div>
 
 <script>
 const USERS = {
@@ -1231,6 +1238,60 @@ function _initRealtime(){
   connect();
 }
 _initRealtime();
+
+/* ── Auto-update notifier ─────────────────────────────────────────────
+   Periodically fetches index.html and compares the bottom-right version
+   string with the one baked into the running tab. When a newer build is
+   live, shows a top banner that auto-reloads after a 15s countdown. */
+const _APP_VERSION=(()=>{
+  const el=document.getElementById('appVersion');
+  return (el?.textContent.trim()||'').replace(/^v/,'');
+})();
+let _updateBannerShown=false;
+let _updateCountdownInt=null;
+function _showUpdateBanner(newVer){
+  if(_updateBannerShown)return;
+  _updateBannerShown=true;
+  const banner=document.getElementById('updateBanner');
+  const text=document.getElementById('updateBannerText');
+  if(!banner||!text)return;
+  let secs=15;
+  const fmt=()=>`🔔 New version <b>v${newVer}</b> available — reloading in ${secs}s`;
+  text.innerHTML=fmt();
+  banner.classList.remove('hidden');
+  _updateCountdownInt=setInterval(()=>{
+    secs--;
+    if(secs<=0){clearInterval(_updateCountdownInt);location.reload(true);return;}
+    text.innerHTML=fmt();
+  },1000);
+  document.getElementById('updateBannerNow').onclick=()=>location.reload(true);
+  document.getElementById('updateBannerCancel').onclick=()=>{
+    if(_updateCountdownInt)clearInterval(_updateCountdownInt);
+    banner.classList.add('hidden');
+    // Allow re-show on next check (after 5 min) if user delayed it
+    setTimeout(()=>{_updateBannerShown=false;},5*60*1000);
+  };
+}
+async function _checkForUpdate(){
+  if(_updateBannerShown)return;
+  try{
+    const r=await fetch(window.location.pathname+'?_v='+Date.now(),{cache:'no-store'});
+    if(!r.ok)return;
+    const html=await r.text();
+    const m=html.match(/v(\d+\.\d+\.\d{4})/);
+    if(!m)return;
+    const remoteVer=m[1];
+    if(remoteVer!==_APP_VERSION){
+      console.log('[update] new version detected:',remoteVer,'(running',_APP_VERSION+')');
+      _showUpdateBanner(remoteVer);
+    }
+  }catch(e){/* silent */}
+}
+// Check shortly after load and then every 2 minutes
+setTimeout(_checkForUpdate,5000);
+setInterval(_checkForUpdate,2*60*1000);
+// Also check when the tab regains focus (user comes back from another tab)
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')_checkForUpdate();});
 
 let state=loadState();
 
