@@ -948,7 +948,7 @@
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
 <div id="updateBanner" class="update-banner hidden"><span id="updateBannerText"></span><button id="updateBannerNow">Reload now</button><button id="updateBannerCancel">Later</button></div>
-<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0044</div>
+<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0045</div>
 
 <script>
 const USERS = {
@@ -987,7 +987,7 @@ function _removeKnownAccount(id){
 function _initialsFor(name){
   return String(name||'').trim().split(/\s+/).slice(0,2).map(p=>p[0]||'').join('').toUpperCase()||'?';
 }
-let _pickedLoginId=null;
+let _pickedLoginId=null,_loginForcePassView=false;
 function _renderLoginBox(){
   const accounts=_readKnownAccounts();
   const box=document.getElementById('loginBox');
@@ -995,7 +995,7 @@ function _renderLoginBox(){
   const passView=document.getElementById('loginPassView');
   const list=document.getElementById('loginPickerList');
   if(!box||!pickerView||!passView)return;
-  if(accounts.length&&!_pickedLoginId){
+  if(accounts.length&&!_pickedLoginId&&!_loginForcePassView){
     box.classList.add('picker-mode');
     pickerView.classList.remove('hidden');
     passView.classList.add('hidden');
@@ -1040,11 +1040,13 @@ function _renderLoginBox(){
 }
 async function _pickLoginAccount(id){
   if(!id){
-    // "Add account" tile — fall through to manual password entry
+    // "Add account" tile — force the manual password entry view
     _pickedLoginId=null;
+    _loginForcePassView=true;
     _renderLoginBox();
     return;
   }
+  _loginForcePassView=false;
   // Try silent re-login via stored linkToken (auth-link credential)
   const account=_readKnownAccounts().find(a=>a.id===id);
   if(account&&account.linkToken){
@@ -1074,6 +1076,7 @@ async function _pickLoginAccount(id){
 }
 function _loginBackToPicker(){
   _pickedLoginId=null;
+  _loginForcePassView=false;
   document.getElementById('loginPass').value='';
   document.getElementById('loginError').textContent='';
   _renderLoginBox();
@@ -1090,6 +1093,7 @@ async function tryLogin(){
       _persistUser(_pickedLoginId);
       _addKnownAccount(_pickedLoginId);
       _pickedLoginId=null;
+      _loginForcePassView=false;
       showLoggedIn();
       return;
     }
@@ -1102,6 +1106,7 @@ async function tryLogin(){
       currentUser={id,...u};
       _persistUser(id);
       _addKnownAccount(id);
+      _loginForcePassView=false;
       showLoggedIn();
       return;
     }
