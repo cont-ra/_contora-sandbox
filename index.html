@@ -931,7 +931,7 @@
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
 <div id="updateBanner" class="update-banner hidden"><span id="updateBannerText"></span><button id="updateBannerNow">Reload now</button><button id="updateBannerCancel">Later</button></div>
-<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0040</div>
+<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0041</div>
 
 <script>
 const USERS = {
@@ -1287,6 +1287,10 @@ const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 const SUPA_HEADERS={"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,"Content-Type":"application/json","Prefer":"return=minimal"};
 let _saving=false,_pendingSave=false;
 let _lastKnownUpdatedAt=null;
+// Optimistic locking: integer version stored inside data jsonb as __version.
+// Server uses PostgREST conditional filter data->__version=eq.<lastKnown> to
+// reject stale writes from old tabs. Bootstrapped on first save (null → 1).
+let _lastKnownVersion=null;
 function _tryAuthLink(){
   const params=new URLSearchParams(window.location.search);
   const raw=params.get('auth');
@@ -1367,10 +1371,19 @@ function saveState(s){
 
 async function _pushRemote(s){
   try{
-    // HOTFIX 2026-04-07: optimistic locking caused false-positive conflicts in production.
-    // Conditional filter and conflict detection DISABLED until we debug the timestamp mismatch.
-    // _lastKnownUpdatedAt is still tracked (for debug logs) but not enforced.
-    const url=SUPA_URL+"/rest/v1/tracker_state?id=eq.main";
+    // Optimistic locking via integer __version inside data jsonb.
+    // 1. Compute newVersion = lastKnown + 1 (or 1 if bootstrapping)
+    // 2. Mutate s.__version locally (so saved state stays in sync)
+    // 3. PATCH with conditional filter data->__version=eq.<lastKnown>
+    //    — if filter known, server only updates if version still matches
+    //    — first save (lastKnown=null) is unconditional bootstrap
+    // 4. Empty response array = conflict → re-pull, alert user, drop save
+    const newVersion=(typeof _lastKnownVersion==='number'?_lastKnownVersion:0)+1;
+    s.__version=newVersion;
+    let url=SUPA_URL+"/rest/v1/tracker_state?id=eq.main";
+    if(typeof _lastKnownVersion==='number'){
+      url+="&data->__version=eq."+_lastKnownVersion;
+    }
     const r=await fetch(url,{
       method:"PATCH",
       headers:{...SUPA_HEADERS,"Prefer":"return=representation"},
@@ -1378,9 +1391,26 @@ async function _pushRemote(s){
     });
     if(!r.ok){const t=await r.text();console.error("Supabase PATCH error:",t);throw new Error(t);}
     const updatedRows=await r.json();
-    // Track latest timestamp from server response (debug aid, not enforced)
+    // Conflict detection: filter was used and 0 rows updated → server has newer version
+    if(typeof _lastKnownVersion==='number'&&Array.isArray(updatedRows)&&updatedRows.length===0){
+      console.warn("[_pushRemote] CONFLICT — server __version differs from local, re-pulling");
+      const nc=document.getElementById("saveNotice");
+      if(nc){nc.textContent="Conflict — re-syncing...";nc.style.background="#d29922";}
+      await _pullRemote();
+      try{runMigrations();render();}catch(e){}
+      if(nc){nc.textContent="⚠ Conflict: re-do your last action";nc.style.background="#d29922";
+        setTimeout(()=>{nc.classList.remove("show");nc.style.background="";},6000);}
+      if(typeof _showAlert==='function'){
+        _showAlert('Sync conflict','Another device saved changes while you were editing.<br><br>The page has been refreshed with the latest data. Your last action was <b>not saved</b> — please redo it.');
+      }
+      return;
+    }
+    // Success: update trackers from server response
     if(Array.isArray(updatedRows)&&updatedRows[0]?.updated_at){
       _lastKnownUpdatedAt=updatedRows[0].updated_at;
+    }
+    if(Array.isArray(updatedRows)&&updatedRows[0]?.data&&typeof updatedRows[0].data.__version==='number'){
+      _lastKnownVersion=updatedRows[0].data.__version;
     }
     const n=document.getElementById("saveNotice");
     n.textContent="Saved";n.style.background="#1f6feb";
@@ -1403,6 +1433,10 @@ async function _pullRemote(){
     if(rows.length){
       // Always track latest server timestamp for optimistic locking
       if(rows[0].updated_at)_lastKnownUpdatedAt=rows[0].updated_at;
+      // Track __version for optimistic locking (lives inside data jsonb)
+      if(rows[0].data&&typeof rows[0].data.__version==='number'){
+        _lastKnownVersion=rows[0].data.__version;
+      }
       if(rows[0].data&&Object.keys(rows[0].data).length){
         const remote=rows[0].data;
         // Only update if data actually changed
@@ -1437,8 +1471,10 @@ function _initRealtime(){
         if(msg.event==="postgres_changes"&&msg.payload?.data?.record?.data){
           const record=msg.payload.data.record;
           const remote=record.data;
-          // Track latest server timestamp from realtime push (for optimistic locking)
+          // Track latest server timestamp from realtime push (debug aid)
           if(record.updated_at)_lastKnownUpdatedAt=record.updated_at;
+          // Track __version from realtime push (for optimistic locking)
+          if(remote&&typeof remote.__version==='number')_lastKnownVersion=remote.__version;
           if(JSON.stringify(remote)!==JSON.stringify(state)){
             state=remote;
             localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
