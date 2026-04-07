@@ -727,16 +727,19 @@ async function handleTgTrack(request, env) {
   if (!stateData.__downloadShares || !stateData.__downloadShares[token]) {
     return new Response(JSON.stringify({ ok: false, error: 'unknown_token' }), { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
   }
+  // Only track Telegram-identified visitors (those who arrived via the
+  // bot deep link with ?u=<telegramId>). Plain URL visits are intentionally
+  // ignored — the tracker exists to show WHO from Telegram opened the link.
+  if (!uid) {
+    return new Response(JSON.stringify({ ok: true, skipped: 'no_uid' }), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+  }
   const node = _ensureTrackingNode(stateData, token);
-  // Anonymous visitors get bucketed under '_anon' so the share record
-  // still shows that someone clicked even when no Telegram identity is
-  // available (e.g. they pasted the URL directly).
-  const userKey = uid ? String(uid) : '_anon';
+  const userKey = String(uid);
   if (!node.users[userKey]) {
     node.users[userKey] = {
-      id: uid || null,
+      id: uid,
       username: null,
-      first_name: uid ? null : 'Anonymous visitor',
+      first_name: null,
       visited_at: Date.now(),
       files: {},
     };

@@ -960,7 +960,7 @@
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
 <div id="updateBanner" class="update-banner hidden"><span id="updateBannerText"></span><button id="updateBannerNow">Reload now</button><button id="updateBannerCancel">Later</button></div>
-<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0054</div>
+<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0055</div>
 
 <script>
 const USERS = {
@@ -1596,6 +1596,15 @@ function runMigrations(){let c=false;for(const[k,d]of Object.entries(state)){
 }
 if(!state.__tasks){state.__tasks=[];c=true;}
 if(!state.__categories){state.__categories={};c=true;}
+// Strip leftover '_anon' visitor buckets from any download share — early
+// versions of /tg/track allowed anonymous visits, the tracker now only
+// stores Telegram-identified users, so the bucket is dead data.
+if(state.__downloadTracking){
+  for(const tok of Object.keys(state.__downloadTracking)){
+    const node=state.__downloadTracking[tok];
+    if(node&&node.users&&node.users._anon){delete node.users._anon;c=true;}
+  }
+}
 TASKS=state.__tasks;
 if(c)localStorage.setItem(STORAGE_KEY,JSON.stringify(state));}
 runMigrations();
@@ -1866,7 +1875,9 @@ function _renderDoneShotsTracker(){
   for(const tok of sorted){
     const share=shares[tok];
     const node=tracking[tok]||{users:{}};
-    const users=Object.values(node.users||{});
+    // Filter out the legacy '_anon' bucket — only Telegram-identified
+    // visitors should appear in the sidebar.
+    const users=Object.entries(node.users||{}).filter(([k])=>k!=='_anon').map(([,v])=>v);
     const ids=share?.ids||[];
     const url=`https://spark700.github.io/kh-vfx-tracker/?download=${tok}`;
     const created=share?.created?new Date(share.created).toLocaleDateString():'—';
@@ -2329,12 +2340,15 @@ async function _initPublicDownload(token){
 // admin tracker UI can show who downloaded what. uid comes from the
 // `?u=<telegramId>` param the bot adds to the deep-link redirect.
 function _pubTrack(event,file){
-  if(!window.__pubDlToken)return;
+  // Anonymous (no ?u=) visits are intentionally NOT tracked. The whole
+  // point of the tracker is who-from-Telegram opened the link, so without
+  // a Telegram id there is nothing meaningful to record.
+  if(!window.__pubDlToken||!window.__pubDlUid)return;
   try{
     fetch('https://killhouse-vfx.contora.workers.dev/tg/track',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({token:window.__pubDlToken,uid:window.__pubDlUid||'',event,file:file||''})
+      body:JSON.stringify({token:window.__pubDlToken,uid:window.__pubDlUid,event,file:file||''})
     }).catch(()=>{});
   }catch(e){}
 }
