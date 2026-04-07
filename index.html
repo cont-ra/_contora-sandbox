@@ -960,7 +960,7 @@
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
 <div id="updateBanner" class="update-banner hidden"><span id="updateBannerText"></span><button id="updateBannerNow">Reload now</button><button id="updateBannerCancel">Later</button></div>
-<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0067</div>
+<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0068</div>
 
 <script>
 const USERS = {
@@ -1871,23 +1871,35 @@ function openDoneShots(){
 // Aggregate the visitor status for ONE share token.
 // Returns {color, label} where color reflects the worst (least progressed) state
 // across all visitors of that share. Used for the per-token outline in the sidebar.
-function _trackerStatusFor(user){
-  // No files touched at all → red (visited but never started a download)
-  // Some files completed → purple
-  // All files completed → green
-  // Some started, none/some completed → yellow (downloading)
+function _trackerStatusFor(user,expectedFiles){
+  // Status against the FULL share file list, not just what the user touched.
+  // Red    — visited, never started a download
+  // Yellow — at least one file in progress, none completed
+  // Purple — partial: some completed but not all expected
+  // Green  — every expected file completed
   const files=user?.files||{};
-  const keys=Object.keys(files);
-  if(keys.length===0)return {color:'#f85149',label:'visited, no download'};
-  let started=0,completed=0;
-  for(const k of keys){
-    const s=files[k]?.state;
-    if(s==='completed')completed++;
-    else if(s==='started')started++;
+  const expected=Array.isArray(expectedFiles)?expectedFiles:[];
+  const total=expected.length;
+  if(total===0){
+    // Fallback when we couldn't compute expected list — degrade gracefully
+    const keys=Object.keys(files);
+    if(keys.length===0)return {color:'#f85149',label:'visited, no download'};
+    let s=0,c=0;
+    for(const k of keys){const v=files[k]?.state;if(v==='completed')c++;else if(v==='started')s++;}
+    if(c===keys.length&&c>0)return {color:'#3fb950',label:'all done'};
+    if(c>0)return {color:'#a371f7',label:`${c}/${keys.length} done`};
+    if(s>0)return {color:'#d29922',label:'downloading'};
+    return {color:'#f85149',label:'visited, no download'};
   }
-  if(completed===keys.length&&completed>0)return {color:'#3fb950',label:'all done'};
-  if(completed>0)return {color:'#a371f7',label:`${completed}/${keys.length} done`};
-  if(started>0)return {color:'#d29922',label:'downloading'};
+  let started=0,completed=0;
+  for(const fn of expected){
+    const v=files[fn]?.state;
+    if(v==='completed')completed++;
+    else if(v==='started')started++;
+  }
+  if(completed===total)return {color:'#3fb950',label:'all done'};
+  if(completed>0)return {color:'#a371f7',label:`${completed}/${total} done`};
+  if(started>0)return {color:'#d29922',label:`downloading (${started}/${total})`};
   return {color:'#f85149',label:'visited, no download'};
 }
 function _renderDoneShotsTracker(){
@@ -1918,15 +1930,24 @@ function _renderDoneShotsTracker(){
     html+=`<button onclick="navigator.clipboard.writeText('${esc(url)}');this.textContent='✓';setTimeout(()=>this.textContent='🔗',1500)" title="Copy link" style="background:#21262d;border:1px solid #30363d;color:#58a6ff;padding:2px 6px;border-radius:4px;font-size:10px;cursor:pointer">🔗</button>`;
     html+=`</div>`;
     html+=`<div style="font-size:10px;color:#6e7681;margin-bottom:8px;word-break:break-all">${ids.map(i=>esc(i)).join(', ')}</div>`;
+    // Compute the FULL expected file list for this share so visitor status
+    // is measured against the share total (not against what each user has
+    // happened to touch). Filenames match the keys posted by the public
+    // download page: <shotId>_FINAL/<filename>.
+    const expectedFiles=[];
+    for(const sid of ids){
+      const arr=(state[sid]?.files?.['versions/final'])||[];
+      for(const f of arr)expectedFiles.push(sid+'_FINAL/'+f.name);
+    }
     if(users.length===0){
       html+=`<div style="font-size:10px;color:#484f58;font-style:italic">No visitors yet</div>`;
     } else {
       html+=`<div style="display:flex;flex-wrap:wrap;gap:6px">`;
       for(const u of users){
-        const st=_trackerStatusFor(u);
+        const st=_trackerStatusFor(u,expectedFiles);
         const initials=(u.first_name||u.username||'?').substring(0,2).toUpperCase();
         const name=u.first_name||u.username||'Anon';
-        const tipData=_buildVisitorTip(u,st);
+        const tipData=_buildVisitorTip(u,st,expectedFiles);
         html+=`<div class="dst-user" data-tip='${esc(JSON.stringify(tipData))}' style="display:flex;align-items:center;gap:6px;background:#0d1117;border:2px solid ${st.color};border-radius:14px;padding:3px 10px 3px 4px;cursor:default;font-size:11px">`;
         html+=`<div style="width:20px;height:20px;border-radius:50%;background:#21262d;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#8b949e">${esc(initials)}</div>`;
         html+=`<span style="color:#c9d1d9">${esc(name)}</span>`;
@@ -1944,12 +1965,22 @@ function _renderDoneShotsTracker(){
     u.addEventListener('mouseleave',()=>_dstHideTip());
   });
 }
-function _buildVisitorTip(u,st){
+function _buildVisitorTip(u,st,expectedFiles){
   const files=u?.files||{};
-  const completed=[],inProgress=[];
-  for(const[name,info] of Object.entries(files)){
-    if(info.state==='completed')completed.push(name);
-    else if(info.state==='started')inProgress.push(name);
+  const expected=Array.isArray(expectedFiles)?expectedFiles:[];
+  const completed=[],inProgress=[],notStarted=[];
+  if(expected.length){
+    for(const fn of expected){
+      const v=files[fn]?.state;
+      if(v==='completed')completed.push(fn);
+      else if(v==='started')inProgress.push(fn);
+      else notStarted.push(fn);
+    }
+  } else {
+    for(const[name,info] of Object.entries(files)){
+      if(info.state==='completed')completed.push(name);
+      else if(info.state==='started')inProgress.push(name);
+    }
   }
   return {
     name:u.first_name||u.username||'Anon',
@@ -1959,8 +1990,11 @@ function _buildVisitorTip(u,st){
     visited:u.visited_at?new Date(u.visited_at).toLocaleString():'—',
     completed,
     inProgress,
+    notStarted,
     completedCount:completed.length,
     inProgressCount:inProgress.length,
+    notStartedCount:notStarted.length,
+    totalCount:expected.length,
   };
 }
 let _dstTipEl=null;
@@ -1974,15 +2008,20 @@ function _dstShowTip(el,e){
   if(data.username)html+=`<div style="font-size:10px;color:#6e7681;margin-bottom:6px">${esc(data.username)}</div>`;
   html+=`<div style="font-size:11px;color:#8b949e;margin-bottom:8px">Status: <b style="color:${data.color}">${esc(data.status)}</b></div>`;
   html+=`<div style="font-size:10px;color:#6e7681;margin-bottom:8px">Visited: ${esc(data.visited)}</div>`;
+  const totalLine=data.totalCount?` of ${data.totalCount}`:'';
   if(data.completedCount){
-    html+=`<div style="font-size:11px;color:#3fb950;margin-bottom:4px">✓ Downloaded (${data.completedCount}):</div>`;
+    html+=`<div style="font-size:11px;color:#3fb950;margin-bottom:4px">✓ Downloaded (${data.completedCount}${totalLine}):</div>`;
     html+=`<div style="font-size:10px;color:#8b949e;margin-bottom:8px;padding-left:8px">${data.completed.slice(0,8).map(f=>esc(f)).join('<br>')}${data.completed.length>8?'<br>…+'+(data.completed.length-8)+' more':''}</div>`;
   }
   if(data.inProgressCount){
-    html+=`<div style="font-size:11px;color:#d29922;margin-bottom:4px">⏳ In progress (${data.inProgressCount}):</div>`;
-    html+=`<div style="font-size:10px;color:#8b949e;padding-left:8px">${data.inProgress.slice(0,8).map(f=>esc(f)).join('<br>')}${data.inProgress.length>8?'<br>…+'+(data.inProgress.length-8)+' more':''}</div>`;
+    html+=`<div style="font-size:11px;color:#d29922;margin-bottom:4px">⏳ In progress (${data.inProgressCount}${totalLine}):</div>`;
+    html+=`<div style="font-size:10px;color:#8b949e;margin-bottom:8px;padding-left:8px">${data.inProgress.slice(0,8).map(f=>esc(f)).join('<br>')}${data.inProgress.length>8?'<br>…+'+(data.inProgress.length-8)+' more':''}</div>`;
   }
-  if(!data.completedCount&&!data.inProgressCount){
+  if(data.notStartedCount){
+    html+=`<div style="font-size:11px;color:#6e7681;margin-bottom:4px">○ Not downloaded (${data.notStartedCount}${totalLine}):</div>`;
+    html+=`<div style="font-size:10px;color:#484f58;padding-left:8px">${data.notStarted.slice(0,8).map(f=>esc(f)).join('<br>')}${data.notStarted.length>8?'<br>…+'+(data.notStarted.length-8)+' more':''}</div>`;
+  }
+  if(!data.completedCount&&!data.inProgressCount&&!data.notStartedCount){
     html+=`<div style="font-size:11px;color:#8b949e;font-style:italic">No download events yet</div>`;
   }
   tip.innerHTML=html;
