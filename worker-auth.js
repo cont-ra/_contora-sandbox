@@ -71,6 +71,53 @@ function _verifyUserFromState(data, userId, linkToken) {
   return { ...u, id: String(userId).toLowerCase() };
 }
 
+// Persist mutated stateData back to Supabase. Best-effort, no locking
+// (matches the existing /tg/ping persistence pattern).
+async function _writeStateData(stateData) {
+  if (!stateData) return false;
+  try {
+    const r = await fetch(SUPA_URL + '/rest/v1/tracker_state?id=eq.main', {
+      method: 'PATCH',
+      headers: {
+        apikey: SUPA_ANON_KEY,
+        Authorization: 'Bearer ' + SUPA_ANON_KEY,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal',
+      },
+      body: JSON.stringify({ data: stateData, updated_at: new Date().toISOString() }),
+    });
+    return r.ok;
+  } catch (e) { return false; }
+}
+
+// Cached bot username (persists for the lifetime of a warm worker isolate).
+let _cachedBotUsername = null;
+async function _getBotUsername(env) {
+  if (_cachedBotUsername) return _cachedBotUsername;
+  if (!env.TELEGRAM_BOT_TOKEN) return null;
+  try {
+    const r = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/getMe`);
+    const j = await r.json();
+    if (j && j.ok && j.result && j.result.username) {
+      _cachedBotUsername = j.result.username;
+      return _cachedBotUsername;
+    }
+  } catch (e) {}
+  return null;
+}
+
+// Ensures the tracking object exists for a given share token.
+function _ensureTrackingNode(stateData, token) {
+  if (!stateData.__downloadTracking) stateData.__downloadTracking = {};
+  if (!stateData.__downloadTracking[token]) {
+    stateData.__downloadTracking[token] = { users: {} };
+  }
+  if (!stateData.__downloadTracking[token].users) {
+    stateData.__downloadTracking[token].users = {};
+  }
+  return stateData.__downloadTracking[token];
+}
+
 function _resolveThread(data, artistId) {
   const id = String(artistId || '').toLowerCase();
   // 1. Live state override (admin-editable in Bot Settings)
@@ -183,13 +230,28 @@ async function handleTgPush(request, env) {
 
   // ── DOWNLOAD-SHARE PUSH ──
   // Sends a plain message to a client chat with ONLY a file list and a
-  // single inline-keyboard "⬇ Download" button pointing at the share URL.
-  // No header, no shot info, no comment block — keep it minimal as
-  // requested by the admin.
+  // single inline-keyboard "⬇ Download" button. The button uses a bot
+  // deep-link (t.me/<bot>?start=dl_<token>) so the bot can capture the
+  // recipient's Telegram identity before sending them the real share URL.
   if (kind === 'download') {
     const safeLink = String(link || '').replace(/[^a-zA-Z0-9:/?=&._\-#%]/g, '');
     if (!safeLink) {
       return _jsonResp({ ok: false, error: 'missing_link' }, 400, origin);
+    }
+    // Extract token from share URL (?download=TOKEN)
+    let dlToken = '';
+    try { dlToken = new URL(safeLink).searchParams.get('download') || ''; } catch (e) {}
+    const botUsername = await _getBotUsername(env);
+    // If we can resolve the bot username we use the deep link (preferred —
+    // it identifies the recipient). Otherwise we fall back to the raw URL.
+    const buttonUrl = (botUsername && dlToken)
+      ? `https://t.me/${botUsername}?start=dl_${encodeURIComponent(dlToken)}`
+      : safeLink;
+    // Make sure the tracking record exists so the share is visible in the
+    // admin sidebar even before any visitor arrives.
+    if (dlToken) {
+      _ensureTrackingNode(stateData, dlToken);
+      await _writeStateData(stateData);
     }
     const list = Array.isArray(files) ? files : [];
     const lines = list.slice(0, 50).map(f => '• ' + _escapeHtml(String(f)));
@@ -199,7 +261,7 @@ async function handleTgPush(request, env) {
       (lines.length ? lines.join('\n') : '<i>(no files)</i>') +
       more +
       (safeComment ? '\n\n📝 ' + safeComment : '');
-    const reply_markup = { inline_keyboard: [[{ text: '⬇ Download', url: safeLink }]] };
+    const reply_markup = { inline_keyboard: [[{ text: '⬇ Download', url: buttonUrl }]] };
     const tgUrl = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`;
     const tgResp = await fetch(tgUrl, {
       method: 'POST',
@@ -462,6 +524,50 @@ async function handleTgPing(request, env) {
           for (const ent of entities) {
             if (ent.type === 'text_mention' && ent.user) _captureUser(ent.user);
           }
+          // ── Download-share deep link: /start dl_<token> ──
+          // The user opened the bot via the t.me/<bot>?start=dl_TOKEN link
+          // we sent in a client chat. Capture them as a visitor and reply
+          // with the actual download URL (carrying their Telegram id).
+          if (m.text && m.text.indexOf('/start dl_') === 0 && m.from) {
+            const dlToken = m.text.substring('/start dl_'.length).trim();
+            if (dlToken && /^[a-z0-9]{6,40}$/i.test(dlToken)) {
+              const node = _ensureTrackingNode(stateData, dlToken);
+              const uid = String(m.from.id);
+              if (!node.users[uid]) {
+                node.users[uid] = {
+                  id: m.from.id,
+                  username: m.from.username || null,
+                  first_name: m.from.first_name || null,
+                  last_name: m.from.last_name || null,
+                  visited_at: Date.now(),
+                  files: {},
+                };
+              } else {
+                // Update name in case it changed
+                node.users[uid].username = m.from.username || node.users[uid].username;
+                node.users[uid].first_name = m.from.first_name || node.users[uid].first_name;
+                if (!node.users[uid].visited_at) node.users[uid].visited_at = Date.now();
+              }
+              // Send the user the actual download URL (carrying their uid)
+              try {
+                const targetUrl = `https://spark700.github.io/kh-vfx-tracker/?download=${encodeURIComponent(dlToken)}&u=${encodeURIComponent(uid)}`;
+                const replyText =
+                  `👋 Hi ${_escapeHtml(m.from.first_name || 'there')}!\n\n` +
+                  `Tap the button below to open your download page.`;
+                await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    chat_id: m.chat.id,
+                    text: replyText,
+                    parse_mode: 'HTML',
+                    disable_web_page_preview: true,
+                    reply_markup: { inline_keyboard: [[{ text: '⬇ Open download page', url: targetUrl }]] },
+                  }),
+                });
+              } catch (e) { /* best-effort */ }
+            }
+          }
         }
         rounds++;
         // Stop draining when this batch returned less than the limit
@@ -583,6 +689,81 @@ async function handleTgPing(request, env) {
   }, 200, origin);
 }
 
+// ── /tg/track — public endpoint called by the download page to log
+// per-user file fetch progress. Body: {token, uid, event, file?}
+// event ∈ {'visited','started_file','completed_file'}
+// CORS-open (no auth) — anyone with the share link is allowed to log
+// their own progress. The token + uid combo is the identity.
+async function handleTgTrack(request, env) {
+  const origin = request.headers.get('Origin') || '';
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Max-Age': '86400',
+  };
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+  if (request.method !== 'POST') {
+    return new Response(JSON.stringify({ ok: false, error: 'method_not_allowed' }), { status: 405, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+  }
+  let body;
+  try { body = await request.json(); } catch (e) {
+    return new Response(JSON.stringify({ ok: false, error: 'bad_json' }), { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+  }
+  const { token, uid, event, file } = body || {};
+  if (!token || !event) {
+    return new Response(JSON.stringify({ ok: false, error: 'missing_fields' }), { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+  }
+  if (!/^[a-z0-9]{6,40}$/i.test(String(token))) {
+    return new Response(JSON.stringify({ ok: false, error: 'bad_token' }), { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+  }
+  const stateData = await _fetchState();
+  if (!stateData) {
+    return new Response(JSON.stringify({ ok: false, error: 'state_unavailable' }), { status: 503, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+  }
+  // Verify the share token actually exists
+  if (!stateData.__downloadShares || !stateData.__downloadShares[token]) {
+    return new Response(JSON.stringify({ ok: false, error: 'unknown_token' }), { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+  }
+  const node = _ensureTrackingNode(stateData, token);
+  // Anonymous visitors get bucketed under '_anon' so the share record
+  // still shows that someone clicked even when no Telegram identity is
+  // available (e.g. they pasted the URL directly).
+  const userKey = uid ? String(uid) : '_anon';
+  if (!node.users[userKey]) {
+    node.users[userKey] = {
+      id: uid || null,
+      username: null,
+      first_name: uid ? null : 'Anonymous visitor',
+      visited_at: Date.now(),
+      files: {},
+    };
+  }
+  const u = node.users[userKey];
+  if (event === 'visited') {
+    if (!u.visited_at) u.visited_at = Date.now();
+    u.last_seen_at = Date.now();
+  } else if (event === 'started_file' && file) {
+    if (!u.files) u.files = {};
+    u.files[file] = u.files[file] || {};
+    u.files[file].state = 'started';
+    u.files[file].started_at = Date.now();
+    u.last_seen_at = Date.now();
+  } else if (event === 'completed_file' && file) {
+    if (!u.files) u.files = {};
+    u.files[file] = u.files[file] || {};
+    u.files[file].state = 'completed';
+    u.files[file].completed_at = Date.now();
+    u.last_seen_at = Date.now();
+  } else {
+    return new Response(JSON.stringify({ ok: false, error: 'bad_event' }), { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+  }
+  await _writeStateData(stateData);
+  return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+}
+
 // ── /p — preview/redirect endpoint for Telegram link previews ──
 // Bots: returns HTML with og:image + og:title pointing to the player.
 // Users: redirects to the GitHub Pages player URL.
@@ -620,6 +801,9 @@ export default {
     }
     if (url.pathname === '/tg/avatar') {
       return handleTgAvatar(request, env);
+    }
+    if (url.pathname === '/tg/track') {
+      return handleTgTrack(request, env);
     }
 
     // Telegram link-preview / redirect for player deep links

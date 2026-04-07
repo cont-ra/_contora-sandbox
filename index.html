@@ -790,13 +790,16 @@
   </div>
 </div>
 <div class="shot-overlay hidden" id="doneShotsOverlay" onclick="if(event.target===this)closeDoneShots()">
-  <div class="shot-panel" style="max-width:700px;width:90vw">
+  <div class="shot-panel" style="max-width:1000px;width:95vw">
     <div class="shot-header">
       <span class="shot-header-id">✅ Done Shots</span>
       <span class="shot-header-desc" id="doneShotsLegend" style="font-size:11px"><span style="color:#3fb950">● done+file</span> &nbsp; <span style="color:#d29922">● file, status≠done</span> &nbsp; <span style="color:#f85149">● done, no file</span></span>
       <button class="shot-close" onclick="closeDoneShots()">&times;</button>
     </div>
-    <div id="doneShotsBody" style="padding:16px;max-height:70vh;overflow:auto"></div>
+    <div style="display:flex;max-height:70vh;border-top:1px solid #21262d">
+      <div id="doneShotsTracker" style="width:280px;border-right:1px solid #21262d;overflow-y:auto;padding:12px;background:#0d1117"></div>
+      <div id="doneShotsBody" style="padding:16px;flex:1;overflow:auto"></div>
+    </div>
   </div>
 </div>
 <div class="shot-overlay hidden" id="shotOverlay" onclick="if(event.target===this)closeShot()">
@@ -957,7 +960,7 @@
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
 <div id="updateBanner" class="update-banner hidden"><span id="updateBannerText"></span><button id="updateBannerNow">Reload now</button><button id="updateBannerCancel">Later</button></div>
-<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0053</div>
+<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0054</div>
 
 <script>
 const USERS = {
@@ -1518,6 +1521,7 @@ function _initRealtime(){
             if(noteTaskId&&noteType==='chat')renderChat();
             if(_shotCurrentId&&_shotTab==='files')_renderShotFiles(_shotCurrentId);
             if(_shotCurrentId&&_shotTab==='versions')_renderShotBody(_shotCurrentId);
+            if(_doneShotsMode&&typeof _renderDoneShotsTracker==='function')_renderDoneShotsTracker();
           }
         }
       }catch(e){}
@@ -1822,6 +1826,142 @@ function openDoneShots(){
   _shotCurrentId='__doneshots';
   document.getElementById("doneShotsOverlay").classList.remove("hidden");
   _renderShotFiles('__doneshots');
+  _renderDoneShotsTracker();
+}
+// Aggregate the visitor status for ONE share token.
+// Returns {color, label} where color reflects the worst (least progressed) state
+// across all visitors of that share. Used for the per-token outline in the sidebar.
+function _trackerStatusFor(user){
+  // No files touched at all → red (visited but never started a download)
+  // Some files completed → purple
+  // All files completed → green
+  // Some started, none/some completed → yellow (downloading)
+  const files=user?.files||{};
+  const keys=Object.keys(files);
+  if(keys.length===0)return {color:'#f85149',label:'visited, no download'};
+  let started=0,completed=0;
+  for(const k of keys){
+    const s=files[k]?.state;
+    if(s==='completed')completed++;
+    else if(s==='started')started++;
+  }
+  if(completed===keys.length&&completed>0)return {color:'#3fb950',label:'all done'};
+  if(completed>0)return {color:'#a371f7',label:`${completed}/${keys.length} done`};
+  if(started>0)return {color:'#d29922',label:'downloading'};
+  return {color:'#f85149',label:'visited, no download'};
+}
+function _renderDoneShotsTracker(){
+  const el=document.getElementById('doneShotsTracker');
+  if(!el)return;
+  const tracking=state.__downloadTracking||{};
+  const shares=state.__downloadShares||{};
+  const tokens=Object.keys(shares).filter(t=>tracking[t]||shares[t]);
+  if(tokens.length===0){
+    el.innerHTML='<div style="color:#484f58;font-size:11px;text-align:center;padding:20px">No active share links yet.<br>Use 🔗 Share to create one.</div>';
+    return;
+  }
+  let html='<div style="font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;font-weight:600">Share Links</div>';
+  // Sort tokens by created date desc
+  const sorted=tokens.slice().sort((a,b)=>(shares[b]?.created||0)-(shares[a]?.created||0));
+  for(const tok of sorted){
+    const share=shares[tok];
+    const node=tracking[tok]||{users:{}};
+    const users=Object.values(node.users||{});
+    const ids=share?.ids||[];
+    const url=`https://spark700.github.io/kh-vfx-tracker/?download=${tok}`;
+    const created=share?.created?new Date(share.created).toLocaleDateString():'—';
+    html+=`<div class="dst-share" style="margin-bottom:18px;background:#161b22;border:1px solid #30363d;border-radius:8px;padding:10px">`;
+    html+=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">`;
+    html+=`<span style="font-size:11px;color:#8b949e;flex:1">📅 ${esc(created)}</span>`;
+    html+=`<button onclick="navigator.clipboard.writeText('${esc(url)}');this.textContent='✓';setTimeout(()=>this.textContent='🔗',1500)" title="Copy link" style="background:#21262d;border:1px solid #30363d;color:#58a6ff;padding:2px 6px;border-radius:4px;font-size:10px;cursor:pointer">🔗</button>`;
+    html+=`</div>`;
+    html+=`<div style="font-size:10px;color:#6e7681;margin-bottom:8px;word-break:break-all">${ids.map(i=>esc(i)).join(', ')}</div>`;
+    if(users.length===0){
+      html+=`<div style="font-size:10px;color:#484f58;font-style:italic">No visitors yet</div>`;
+    } else {
+      html+=`<div style="display:flex;flex-wrap:wrap;gap:6px">`;
+      for(const u of users){
+        const st=_trackerStatusFor(u);
+        const initials=(u.first_name||u.username||'?').substring(0,2).toUpperCase();
+        const name=u.first_name||u.username||'Anon';
+        const tipData=_buildVisitorTip(u,st);
+        html+=`<div class="dst-user" data-tip='${esc(JSON.stringify(tipData))}' style="display:flex;align-items:center;gap:6px;background:#0d1117;border:2px solid ${st.color};border-radius:14px;padding:3px 10px 3px 4px;cursor:default;font-size:11px">`;
+        html+=`<div style="width:20px;height:20px;border-radius:50%;background:#21262d;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#8b949e">${esc(initials)}</div>`;
+        html+=`<span style="color:#c9d1d9">${esc(name)}</span>`;
+        html+=`</div>`;
+      }
+      html+=`</div>`;
+    }
+    html+=`</div>`;
+  }
+  el.innerHTML=html;
+  // Wire hover tooltips for visitors
+  el.querySelectorAll('.dst-user').forEach(u=>{
+    u.addEventListener('mouseenter',e=>_dstShowTip(u,e));
+    u.addEventListener('mousemove',e=>_dstMoveTip(e));
+    u.addEventListener('mouseleave',()=>_dstHideTip());
+  });
+}
+function _buildVisitorTip(u,st){
+  const files=u?.files||{};
+  const completed=[],inProgress=[];
+  for(const[name,info] of Object.entries(files)){
+    if(info.state==='completed')completed.push(name);
+    else if(info.state==='started')inProgress.push(name);
+  }
+  return {
+    name:u.first_name||u.username||'Anon',
+    username:u.username?'@'+u.username:'',
+    status:st.label,
+    color:st.color,
+    visited:u.visited_at?new Date(u.visited_at).toLocaleString():'—',
+    completed,
+    inProgress,
+    completedCount:completed.length,
+    inProgressCount:inProgress.length,
+  };
+}
+let _dstTipEl=null;
+function _dstShowTip(el,e){
+  _dstHideTip();
+  let data;try{data=JSON.parse(el.dataset.tip);}catch(err){return;}
+  const tip=document.createElement('div');
+  tip.className='dst-tip';
+  tip.style.cssText=`position:fixed;z-index:11000;background:#161b22;border:2px solid ${data.color};border-radius:8px;padding:12px 14px;font-size:12px;color:#c9d1d9;pointer-events:none;box-shadow:0 8px 32px rgba(0,0,0,0.7);max-width:340px;line-height:1.5`;
+  let html=`<div style="font-weight:700;color:${data.color};margin-bottom:2px">${esc(data.name)}</div>`;
+  if(data.username)html+=`<div style="font-size:10px;color:#6e7681;margin-bottom:6px">${esc(data.username)}</div>`;
+  html+=`<div style="font-size:11px;color:#8b949e;margin-bottom:8px">Status: <b style="color:${data.color}">${esc(data.status)}</b></div>`;
+  html+=`<div style="font-size:10px;color:#6e7681;margin-bottom:8px">Visited: ${esc(data.visited)}</div>`;
+  if(data.completedCount){
+    html+=`<div style="font-size:11px;color:#3fb950;margin-bottom:4px">✓ Downloaded (${data.completedCount}):</div>`;
+    html+=`<div style="font-size:10px;color:#8b949e;margin-bottom:8px;padding-left:8px">${data.completed.slice(0,8).map(f=>esc(f)).join('<br>')}${data.completed.length>8?'<br>…+'+(data.completed.length-8)+' more':''}</div>`;
+  }
+  if(data.inProgressCount){
+    html+=`<div style="font-size:11px;color:#d29922;margin-bottom:4px">⏳ In progress (${data.inProgressCount}):</div>`;
+    html+=`<div style="font-size:10px;color:#8b949e;padding-left:8px">${data.inProgress.slice(0,8).map(f=>esc(f)).join('<br>')}${data.inProgress.length>8?'<br>…+'+(data.inProgress.length-8)+' more':''}</div>`;
+  }
+  if(!data.completedCount&&!data.inProgressCount){
+    html+=`<div style="font-size:11px;color:#8b949e;font-style:italic">No download events yet</div>`;
+  }
+  tip.innerHTML=html;
+  document.body.appendChild(tip);
+  _dstTipEl=tip;
+  _dstMoveTip(e);
+}
+function _dstMoveTip(e){
+  if(!_dstTipEl)return;
+  const w=_dstTipEl.offsetWidth||300;
+  const h=_dstTipEl.offsetHeight||120;
+  let left=e.clientX+16;
+  let top=e.clientY+16;
+  if(left+w>window.innerWidth-8)left=e.clientX-w-16;
+  if(top+h>window.innerHeight-8)top=window.innerHeight-h-8;
+  if(top<8)top=8;
+  _dstTipEl.style.left=left+'px';
+  _dstTipEl.style.top=top+'px';
+}
+function _dstHideTip(){
+  if(_dstTipEl){_dstTipEl.remove();_dstTipEl=null;}
 }
 function closeDoneShots(){
   document.getElementById("doneShotsOverlay").classList.add("hidden");
@@ -2178,7 +2318,25 @@ async function _initPublicDownload(token){
   const shares=state.__downloadShares||{};
   const info=shares[token];
   if(!info||!info.ids||!info.ids.length){_showPubError('Invalid or expired link');return;}
+  // Stash token + Telegram uid (from ?u=) for tracking events
+  window.__pubDlToken=token;
+  const uParam=new URLSearchParams(location.search).get('u');
+  window.__pubDlUid=uParam||'';
+  _pubTrack('visited');
   _renderPublicDownload(info.ids);
+}
+// Public download: log visit / file fetch progress to the worker so the
+// admin tracker UI can show who downloaded what. uid comes from the
+// `?u=<telegramId>` param the bot adds to the deep-link redirect.
+function _pubTrack(event,file){
+  if(!window.__pubDlToken)return;
+  try{
+    fetch('https://killhouse-vfx.contora.workers.dev/tg/track',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({token:window.__pubDlToken,uid:window.__pubDlUid||'',event,file:file||''})
+    }).catch(()=>{});
+  }catch(e){}
 }
 function _renderPublicDownload(ids){
   // Build per-shot file list
@@ -2217,7 +2375,7 @@ function _renderPublicDownload(ids){
           <span class="pe-icon">📄</span>
           <span class="pe-name" style="flex:1;color:#e6edf3">${esc(f.name)}</span>
           <span class="pe-size" style="color:#8b949e;font-size:12px">${_formatSize(f.size)}</span>
-          <a class="files-btn" href="${esc(f.url)}" download="${esc(f.name)}" target="_blank" style="background:#21262d;border:1px solid #30363d;padding:4px 10px;border-radius:4px;color:#58a6ff;text-decoration:none;font-size:12px">⬇ Download</a>
+          <a class="files-btn pub-dl-link" data-track-file="${esc(g.id+'_FINAL/'+f.name)}" href="${esc(f.url)}" download="${esc(f.name)}" target="_blank" style="background:#21262d;border:1px solid #30363d;padding:4px 10px;border-radius:4px;color:#58a6ff;text-decoration:none;font-size:12px">⬇ Download</a>
         </div>`;
       }
     }
@@ -2234,6 +2392,20 @@ function _renderPublicDownload(ids){
     el.addEventListener('mouseenter',e=>{_dsHoverShow(shotId,e,'#3fb950');});
     el.addEventListener('mousemove',e=>{_dsHoverMove(e);});
     el.addEventListener('mouseleave',()=>{_dsHoverHide();});
+  });
+  // Wire tracking for individual file Download links. The native <a download>
+  // hits R2 directly so we can't observe completion bytes — fall back to
+  // marking 'started' on click and 'completed' optimistically a few seconds
+  // later (long enough for tiny files; large files use the ZIP path which
+  // has real completion). The user can still see something happened.
+  document.querySelectorAll('.pub-dl-link').forEach(a=>{
+    a.addEventListener('click',()=>{
+      const file=a.dataset.trackFile;
+      _pubTrack('started_file',file);
+      // Best-effort completion marker; we can't know the real end of the
+      // browser download, so emit after a short delay.
+      setTimeout(()=>{_pubTrack('completed_file',file);},4000);
+    });
   });
 }
 function _pubOnSelect(cb){
@@ -2278,10 +2450,12 @@ async function _pubDownloadSelected(){
     if(g&&f)files.push({url:f.url,path:g.id+'_FINAL/'+f.name});
   }
   if(!files.length)return;
+  files.forEach(f=>_pubTrack('started_file',f.path));
   const btn=document.getElementById('pubDlSelBtn');
   if(btn){btn.disabled=true;btn.textContent='Preparing ZIP...';}
   try{
     await _downloadAsZip(files,'killhouse_selected');
+    files.forEach(f=>_pubTrack('completed_file',f.path));
     if(btn){btn.textContent='✓ Done — saved to disk';btn.disabled=false;setTimeout(()=>{btn.textContent='⬇ Download Selected ('+(window.__pubSelected?.size||0)+')';},2500);}
   }catch(e){
     if(btn){btn.textContent='Failed — retry';btn.disabled=false;}
@@ -2296,11 +2470,13 @@ async function _pubDownloadAll(){
     }
   }
   if(!files.length)return;
+  files.forEach(f=>_pubTrack('started_file',f.path));
   const btn=document.getElementById("pubDlAllBtn");
   if(btn){btn.disabled=true;btn.textContent='Preparing ZIP...';}
   const prog=document.getElementById("pubDlProgress");
   try{
     await _downloadAsZip(files,'killhouse_download');
+    files.forEach(f=>_pubTrack('completed_file',f.path));
     if(btn){btn.textContent='✓ Done — saved to disk';btn.disabled=false;}
   }catch(e){
     if(btn){btn.textContent='Failed — retry';btn.disabled=false;}
