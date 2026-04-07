@@ -960,7 +960,7 @@
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
 <div id="updateBanner" class="update-banner hidden"><span id="updateBannerText"></span><button id="updateBannerNow">Reload now</button><button id="updateBannerCancel">Later</button></div>
-<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0066</div>
+<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0067</div>
 
 <script>
 const USERS = {
@@ -6028,9 +6028,11 @@ function _getFilesRoot(id){
   // Done Shots: admin-only — shots that are done OR have a final file
   if(id==='__doneshots'){
     const result=[];
-    // Helper: a shot is "delivered" once at least one Telegram visitor that
-    // came via a CLIENT-CHAT push (not the internal test target) has marked
-    // every versions/final file as completed in /tg/track.
+    // Helper: a shot is "delivered" once at least one Telegram visitor has
+    // marked every versions/final file as 'completed' in /tg/track. We do
+    // NOT require share.pushedTo (older shares predate that field, and an
+    // internal test target still goes through the same bot deep-link flow).
+    // The admin can verify the actual recipient in the sidebar visitor list.
     const _isDelivered=(shotId)=>{
       const tracking=state.__downloadTracking||{};
       const shares=state.__downloadShares||{};
@@ -6038,11 +6040,6 @@ function _getFilesRoot(id){
       if(!finalNames.length)return false;
       for(const[token,share] of Object.entries(shares)){
         if(!share||!Array.isArray(share.ids)||!share.ids.includes(shotId))continue;
-        // Only client-chat pushes count. 'pushedTo' is added by the worker
-        // on each client-chat push; 'internal' marks the test target.
-        const pushedTo=share.pushedTo||[];
-        const hasClientPush=pushedTo.some(t=>t&&t!=='internal');
-        if(!hasClientPush)continue;
         const node=tracking[token];
         if(!node||!node.users)continue;
         for(const[uid,u] of Object.entries(node.users)){
