@@ -161,15 +161,15 @@
   .search-row input { background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; padding: 8px 12px; border-radius: 6px; font-size: 14px; width: 260px; }
   .search-row input::placeholder { color: #484f58; }
   /* Stack of "All Artists" + "Unassigned" — two artist-cards layered.
-     The front card peeks the back one out the bottom-right with a tilt
-     so it's clear something is hidden underneath. On hover the two
-     cards slide diagonally apart so you can pick one. */
+     The back card peeks out top-LEFT with a CCW tilt so the user can
+     see something hiding underneath. Hover spreads them widely so
+     either card is comfortably clickable. */
   .all-stack { position: relative; align-self: stretch; }
   .all-stack .stack-front { position: relative; z-index: 2; transition: transform 0.3s ease, box-shadow 0.3s; }
-  .all-stack .stack-back  { position: absolute; inset: 0; z-index: 1; transform: translate(7px, 5px) rotate(4deg); transition: transform 0.3s ease, box-shadow 0.3s; transform-origin: top left; }
+  .all-stack .stack-back  { position: absolute; inset: 0; z-index: 1; transform: translate(-9px, -7px) rotate(-5deg); transition: transform 0.3s ease, box-shadow 0.3s; transform-origin: bottom right; }
   .all-stack:hover { z-index: 50; }
-  .all-stack:hover .stack-front { transform: translate(-18px, -22px) rotate(-4deg); box-shadow: 0 6px 18px rgba(0,0,0,0.55); }
-  .all-stack:hover .stack-back  { transform: translate(18px, -22px) rotate(4deg);  box-shadow: 0 6px 18px rgba(0,0,0,0.55); }
+  .all-stack:hover .stack-front { transform: translate(-65px, -38px) rotate(-7deg); box-shadow: 0 8px 22px rgba(0,0,0,0.6); }
+  .all-stack:hover .stack-back  { transform: translate(65px, -38px) rotate(7deg);  box-shadow: 0 8px 22px rgba(0,0,0,0.6); }
   .artist-card { background: #161b22; border-radius: 8px; padding: 6px 12px; text-align: center; min-width: 80px; transition: .15s; cursor: pointer; user-select: none; border: 1px solid #30363d; }
   .artist-card:hover { border-color: #58a6ff !important; }
   /* Active state: outline instead of border-width change so the padding
@@ -997,7 +997,7 @@
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
 <div id="updateBanner" class="update-banner hidden"><span id="updateBannerText"></span><button id="updateBannerNow">Reload now</button><button id="updateBannerCancel">Later</button></div>
-<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0089</div>
+<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0090</div>
 
 <script>
 const USERS = {
