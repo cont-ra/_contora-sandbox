@@ -168,25 +168,21 @@
      without overwriting the spread. Front card keeps its z-index 2
      so during the transition it's never covered by the back card. */
   .all-stack { position: relative; align-self: stretch; }
-  /* Invisible hover bridge — extends the hit area so the user can move
-     the mouse between the two spread cards without dropping :hover. */
-  .all-stack::before {
-    content: '';
-    position: absolute;
-    top: -55px; left: -60px; right: -60px; bottom: -10px;
-    z-index: 0;
-  }
+  /* No invisible hover bridge — used to extend the hit area but it
+     bled into the next artist card and made Nikita hover trigger the
+     stack. Now the spread is driven by JS mouseenter/mouseleave with
+     a small grace timeout, see _allStackHover() further down. */
   .all-stack .stack-front { position: relative; z-index: 2; transition: translate 0.3s ease, rotate 0.3s ease, box-shadow 0.3s; }
   .all-stack .stack-back  { position: absolute; inset: 0; z-index: 1; translate: -9px -7px; rotate: -5deg; transition: translate 0.3s ease, rotate 0.3s ease, box-shadow 0.3s; transform-origin: bottom right; }
-  .all-stack:hover [data-artist="all"]        { translate: -45px -30px; rotate: -6deg; box-shadow: 0 8px 22px rgba(0,0,0,0.6); animation: cardFloatA 3.1s ease-in-out 0.32s infinite; }
-  .all-stack:hover [data-artist="unassigned"] { translate: 45px -30px;  rotate: 6deg;  box-shadow: 0 8px 22px rgba(0,0,0,0.6); animation: cardFloatB 2.3s ease-in-out 0.78s infinite; }
+  .all-stack.is-open [data-artist="all"]        { translate: -45px -30px; rotate: -6deg; box-shadow: 0 8px 22px rgba(0,0,0,0.6); animation: cardFloatA 3.1s ease-in-out 0.32s infinite; }
+  .all-stack.is-open [data-artist="unassigned"] { translate: 45px -30px;  rotate: 6deg;  box-shadow: 0 8px 22px rgba(0,0,0,0.6); animation: cardFloatB 2.3s ease-in-out 0.78s infinite; }
   /* Direct hover on a spread card swaps its float for a snappier
      "lift" animation — more amplitude, scale-up, brighter shadow.
      The other card keeps drifting in the background so the focused
      one stands out clearly. */
-  .all-stack:hover [data-artist="all"]:hover        { animation: cardLiftA 1.6s ease-in-out infinite; box-shadow: 0 14px 32px rgba(88,166,255,0.35); z-index: 4; transform-origin: center center; }
-  .all-stack:hover [data-artist="unassigned"]:hover { animation: cardLiftB 1.6s ease-in-out infinite; box-shadow: 0 14px 32px rgba(139,148,158,0.35); z-index: 4; transform-origin: center center; }
-  .all-stack:hover { z-index: 50; }
+  .all-stack.is-open [data-artist="all"]:hover        { animation: cardLiftA 1.6s ease-in-out infinite; box-shadow: 0 14px 32px rgba(88,166,255,0.35); z-index: 4; transform-origin: center center; }
+  .all-stack.is-open [data-artist="unassigned"]:hover { animation: cardLiftB 1.6s ease-in-out infinite; box-shadow: 0 14px 32px rgba(139,148,158,0.35); z-index: 4; transform-origin: center center; }
+  .all-stack.is-open { z-index: 50; }
   /* Two desynced floats — different durations, different phases,
      different rotation amplitudes. They drift apart over time which
      is what "asynchronously" looks like. */
@@ -1045,7 +1041,7 @@
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
 <div id="updateBanner" class="update-banner hidden"><span id="updateBannerText"></span><button id="updateBannerNow">Reload now</button><button id="updateBannerCancel">Later</button></div>
-<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0101</div>
+<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0102</div>
 
 <script>
 const USERS = {
@@ -2211,12 +2207,39 @@ document.getElementById("artistStats").addEventListener("click",e=>{
   artistFilter=id;
   // Remember which side of the All / Unassigned stack the user picked
   // so the next render shows it on top.
-  if(id==='all'||id==='unassigned')window._allStackTop=id;
+  if(id==='all'||id==='unassigned'){
+    window._allStackTop=id;
+    // Collapse the stack after a click so the spread doesn't linger
+    document.querySelectorAll('.all-stack.is-open').forEach(s=>s.classList.remove('is-open'));
+  }
   // Keep whatever status filter the user already had selected — picking
   // a different artist must not silently drop the REVIEW / DONE / TODO
   // filter that was in effect.
   render();
   _pulseDoneReview();
+});
+// Stack open/close — driven by mouseenter/mouseleave on the .all-stack
+// element. A 180ms grace timer on leave keeps the stack open while the
+// cursor briefly traverses the gap between the two spread cards. The
+// hover region is the .all-stack box ITSELF (no invisible bridge), so
+// hovering Nikita or any other artist card never triggers the spread.
+let _allStackCloseT=null;
+document.getElementById("artistStats").addEventListener("mouseover",e=>{
+  const stack=e.target.closest('.all-stack');
+  if(!stack)return;
+  if(_allStackCloseT){clearTimeout(_allStackCloseT);_allStackCloseT=null;}
+  stack.classList.add('is-open');
+});
+document.getElementById("artistStats").addEventListener("mouseout",e=>{
+  const stack=e.target.closest('.all-stack');
+  if(!stack)return;
+  // Only fire if cursor truly leaves the stack subtree
+  if(stack.contains(e.relatedTarget))return;
+  if(_allStackCloseT)clearTimeout(_allStackCloseT);
+  _allStackCloseT=setTimeout(()=>{
+    stack.classList.remove('is-open');
+    _allStackCloseT=null;
+  },180);
 });
 // Sheen helper: at every filter interaction the highlight runs over
 // rows whose status is done OR review only — green for done rows, blue
