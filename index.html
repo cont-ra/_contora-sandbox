@@ -1045,7 +1045,7 @@
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
 <div id="updateBanner" class="update-banner hidden"><span id="updateBannerText"></span><button id="updateBannerNow">Reload now</button><button id="updateBannerCancel">Later</button></div>
-<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0095</div>
+<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0096</div>
 
 <script>
 const USERS = {
@@ -2169,7 +2169,7 @@ function openAddShotDialog(){
 }
 async function deleteShot(id){
   if(!isEditMode()||!isAdmin())return;
-  const ok=await _showConfirm('Delete Shot','Delete <b>'+esc(id)+'</b> and all its data?');
+  const ok=await _showConfirmCountdown('Delete Shot','Permanently delete <b>'+esc(id)+'</b> and every file, version, drawing and chat message?<br><br>This cannot be undone.',4,'Delete forever');
   if(!ok)return;
   const idx=TASKS.findIndex(t=>t.id===id);
   if(idx>=0)TASKS.splice(idx,1);
@@ -2180,6 +2180,17 @@ async function deleteShot(id){
   saveState(state);
   try{await r2Delete('video/'+id+'_prev.mp4');}catch(e){}
   try{await r2Delete('thumbs/'+id+'.jpg');}catch(e){}
+  const tbody=document.getElementById("tbody");if(tbody)tbody.dataset.ids="";
+  render();updateStats();
+}
+// Toggle the hidden flag on a shot. Hidden shots disappear from
+// counters and from the table outside of edit mode, so the admin can
+// declutter without losing data.
+function toggleHideShot(id){
+  if(!isEditMode()||!isAdmin())return;
+  if(!state[id])state[id]={};
+  state[id].hidden=!state[id].hidden;
+  saveState(state);
   const tbody=document.getElementById("tbody");if(tbody)tbody.dataset.ids="";
   render();updateStats();
 }
@@ -4099,13 +4110,17 @@ function updateStats(){
   let c={todo:0,progress:0,review:0,done:0,skip:0};
   const ac={};
   let unassignedCount=0;
-  TASKS.forEach(t=>{
+  // Hidden shots never count toward the top counters or per-artist stats
+  // — they only exist for the admin in edit mode to declutter the list
+  // without losing data.
+  const visible=TASKS.filter(t=>!state[t.id]?.hidden);
+  visible.forEach(t=>{
     const st=getStatus(t.id);c[st]++;
     const a=getAssignee(t.id);
     if(a){if(!ac[a])ac[a]={total:0,done:0,todo:0,progress:0,review:0};ac[a].total++;ac[a][st]=(ac[a][st]||0)+1;}
     else {unassignedCount++;}
   });
-  const total=TASKS.length;
+  const total=visible.length;
   document.getElementById("stat-all").textContent=total;
   document.getElementById("stat-todo").textContent=c.todo;
   document.getElementById("stat-progress").textContent=c.progress;
@@ -4164,7 +4179,7 @@ function updateStats(){
         ${doneBadge}
         <div style="font-size:11px;color:#8b949e;font-weight:600">${esc(a.display)}</div>
         <div style="font-size:20px;font-weight:700;color:${col};line-height:1.1;margin-top:6px">${active}</div>
-        <div style="font-size:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:-5px;position:relative;pointer-events:none"><span style="color:#a13730">${s.todo}○</span><span style="color:#896318">${s.progress}◐</span></div>
+        <div style="font-size:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:-5px;position:relative;pointer-events:none"><span style="color:#a13730">◌&nbsp;${s.todo}</span><span style="color:#896318">◐&nbsp;${s.progress}</span></div>
         ${reviewBadge}
       </div>`;
     });
@@ -7936,6 +7951,36 @@ function _showConfirm(title,msg,yesLabel){
     ov.addEventListener("click",(e)=>{if(e.target===ov){ov.remove();resolve(false);}});
   });
 }
+// Same as _showConfirm but the confirm button is disabled for `seconds`
+// seconds and shows a countdown so the user has time to reconsider.
+function _showConfirmCountdown(title,msg,seconds,yesLabel){
+  const total=seconds||4;
+  return new Promise((resolve)=>{
+    const ov=document.createElement("div");
+    ov.className="confirm-overlay";
+    const label=yesLabel||'Delete';
+    ov.innerHTML=`<div class="confirm-box"><div class="confirm-title">${title}</div><div class="confirm-msg">${msg}</div><div class="confirm-btns"><button class="confirm-btn cancel" id="cdNo">Cancel</button><button class="confirm-btn danger" id="cdYes" disabled style="opacity:0.55;cursor:not-allowed">${label} (${total})</button></div></div>`;
+    document.body.appendChild(ov);
+    const yes=ov.querySelector('#cdYes');
+    let left=total;
+    const tick=setInterval(()=>{
+      left-=1;
+      if(left<=0){
+        clearInterval(tick);
+        yes.disabled=false;
+        yes.style.opacity='';
+        yes.style.cursor='';
+        yes.textContent=label;
+      } else {
+        yes.textContent=`${label} (${left})`;
+      }
+    },1000);
+    function close(v){clearInterval(tick);ov.remove();resolve(v);}
+    yes.onclick=()=>{if(yes.disabled)return;close(true);};
+    ov.querySelector('#cdNo').onclick=()=>close(false);
+    ov.addEventListener('click',(e)=>{if(e.target===ov)close(false);});
+  });
+}
 // 3-button choice dialog. Returns 'a','b', or null (cancel/backdrop)
 function _showChoice(title,msg,btnA,btnB){
   return new Promise((resolve)=>{
@@ -8499,7 +8544,9 @@ async function _generateThumbnail(videoUrl,thumbKey){
 function render(){
   if(_pubUploadMode)return;
   const tbody=document.getElementById("tbody");
-  let rows=TASKS.map((t,i)=>({...t,idx:i+1,status:getStatus(t.id),assignee:getAssignee(t.id)}));
+  let rows=TASKS.map((t,i)=>({...t,idx:i+1,status:getStatus(t.id),assignee:getAssignee(t.id),hidden:!!state[t.id]?.hidden}));
+  // Hidden shots are visible only inside Edit Shots mode
+  if(!isEditMode())rows=rows.filter(r=>!r.hidden);
   if(searchQuery){const q=searchQuery.toLowerCase();rows=rows.filter(r=>r.id.toLowerCase().includes(q)||r.desc.toLowerCase().includes(q));}
   if(currentFilter!=="all")rows=rows.filter(r=>r.status===currentFilter);
   if(artistFilter!=="all"){if(artistFilter==="unassigned")rows=rows.filter(r=>!r.assignee);else rows=rows.filter(r=>r.assignee===artistFilter);}
@@ -8572,7 +8619,7 @@ function _buildRow(r){
       <option value="skip" ${st==="skip"?"selected":""}>Skip</option></select></td>
     <td class="desc-cell admin-col${canEditAdminNote()&&isEditMode()?' editable':''}" ${canEditAdminNote()&&isEditMode()?`onclick="startEditAdmin('${r.id}',this,event)"`:''} data-tid="${r.id}">${an||'<span style="color:#484f58">...</span>'}</td>
     <td style="vertical-align:top;padding-top:32px"><div class="note-cell${cp.text?' has-text':''}${hasUnread(r.id)?' unread':' read'}" onclick="openNote('${r.id}','chat')"><div class="chat-preview-fade">${cp.lines.length?cp.lines.map(l=>`<div class="cp-bubble cp-${l.role}">${esc(l.text)}</div>`).join(''):'<span style="color:#484f58;font-size:11px">...</span>'}</div></div></td>
-    ${isAdmin()&&isEditMode()?`<td style="text-align:center"><button style="background:#da3633;color:#fff;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:11px" onclick="event.stopPropagation();deleteShot('${r.id}')">✕</button></td>`:''}
+    ${isAdmin()&&isEditMode()?`<td style="text-align:center;white-space:nowrap"><button title="${state[r.id]?.hidden?'Unhide shot':'Hide shot — keeps data, removes from counters & list'}" style="background:#21262d;color:${state[r.id]?.hidden?'#d29922':'#8b949e'};border:1px solid #30363d;border-radius:4px;padding:4px 7px;cursor:pointer;font-size:11px;margin-right:4px" onclick="event.stopPropagation();toggleHideShot('${r.id}')">${state[r.id]?.hidden?'👁':'⊘'}</button><button title="Delete shot permanently" style="background:#da3633;color:#fff;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:11px" onclick="event.stopPropagation();deleteShot('${r.id}')">✕</button></td>`:''}
   </tr>`;
 }
 
