@@ -1042,7 +1042,7 @@
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
 <div id="updateBanner" class="update-banner hidden"><span id="updateBannerText"></span><button id="updateBannerNow">Reload now</button><button id="updateBannerCancel">Later</button></div>
-<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0107</div>
+<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0108</div>
 
 <script>
 const USERS = {
@@ -2118,18 +2118,28 @@ function _eventArtist(event){
 }
 
 function _perArtistStats(events, cycles){
-  const KNOWN=["nikita","igor","katya","moon_carrots"];
-  // Discover any extra artists from data
-  const seen=new Set(KNOWN);
+  // Identify REAL artists. Never include admin / client / guest / system.
+  // Prefer USERS[id].role==="artist" check; fall back to canonical 4.
+  const isArtist=(id)=>{
+    if(!id||id==="system"||id==="anon"||id==="backfill")return false;
+    if(typeof USERS!=="undefined"&&USERS[id]){
+      return USERS[id].role==="artist";
+    }
+    return ["nikita","igor","katya","moon_carrots"].includes(id);
+  };
+  const seen=new Set();
+  for(const id of["nikita","igor","katya","moon_carrots"]){
+    if(isArtist(id))seen.add(id);
+  }
   for(const e of events){
     const a=_eventArtist(e);
-    if(a)seen.add(a);
+    if(a&&isArtist(a))seen.add(a);
   }
   for(const c of cycles){
     const a=_shotAssignee(c.shotId);
-    if(a)seen.add(a);
+    if(a&&isArtist(a))seen.add(a);
   }
-  const artists=Array.from(seen).filter(a=>a&&a!=="system");
+  const artists=Array.from(seen);
 
   // Per-artist closed cycles + in-flight count
   const perArtist={};
