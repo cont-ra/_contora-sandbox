@@ -184,8 +184,8 @@
      "lift" animation — more amplitude, scale-up, brighter shadow.
      The other card keeps drifting in the background so the focused
      one stands out clearly. */
-  .all-stack:hover [data-artist="all"]:hover        { animation: cardLiftA 1.4s ease-in-out infinite; box-shadow: 0 14px 32px rgba(88,166,255,0.35); z-index: 4; }
-  .all-stack:hover [data-artist="unassigned"]:hover { animation: cardLiftB 1.4s ease-in-out infinite; box-shadow: 0 14px 32px rgba(139,148,158,0.35); z-index: 4; }
+  .all-stack:hover [data-artist="all"]:hover        { animation: cardLiftA 1.6s ease-in-out infinite; box-shadow: 0 14px 32px rgba(88,166,255,0.35); z-index: 4; transform-origin: center center; }
+  .all-stack:hover [data-artist="unassigned"]:hover { animation: cardLiftB 1.6s ease-in-out infinite; box-shadow: 0 14px 32px rgba(139,148,158,0.35); z-index: 4; transform-origin: center center; }
   .all-stack:hover { z-index: 50; }
   /* Two desynced floats — different durations, different phases,
      different rotation amplitudes. They drift apart over time which
@@ -204,15 +204,19 @@
     85%  { transform: translateY(-1px) rotate(0.4deg); }
     100% { transform: translateY(0)    rotate(0deg); }
   }
-  /* Lift keyframes — used while the cursor is directly over a card.
-     Bigger Y offset, scale-up. */
+  /* Lift keyframes — scale only, NO translateY. translateY would
+     move the box out from under the cursor → hover is lost → the
+     animation reverts → hover re-enters → flicker loop. The card
+     scales up from its centre instead, which keeps the cursor inside
+     the new bounds. transform-origin: center is set on the rule
+     above. */
   @keyframes cardLiftA {
-    0%, 100% { transform: translateY(-6px) rotate(-1deg) scale(1.08); }
-    50%      { transform: translateY(-9px) rotate(1deg)  scale(1.10); }
+    0%, 100% { transform: rotate(-0.6deg) scale(1.10); }
+    50%      { transform: rotate(0.6deg)  scale(1.13); }
   }
   @keyframes cardLiftB {
-    0%, 100% { transform: translateY(-6px) rotate(1deg)  scale(1.08); }
-    50%      { transform: translateY(-9px) rotate(-1deg) scale(1.10); }
+    0%, 100% { transform: rotate(0.6deg)  scale(1.10); }
+    50%      { transform: rotate(-0.6deg) scale(1.13); }
   }
   .artist-card { background: #161b22; border-radius: 8px; padding: 6px 12px; text-align: center; min-width: 80px; transition: .15s; cursor: pointer; user-select: none; border: 1px solid #30363d; }
   .artist-card:hover { border-color: #58a6ff !important; }
@@ -1041,7 +1045,7 @@
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
 <div id="updateBanner" class="update-banner hidden"><span id="updateBannerText"></span><button id="updateBannerNow">Reload now</button><button id="updateBannerCancel">Later</button></div>
-<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0093</div>
+<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0094</div>
 
 <script>
 const USERS = {
