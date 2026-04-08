@@ -1003,6 +1003,7 @@
   <div id="headerActionBtns" style="margin-left:auto;display:flex;gap:8px">
     <button id="doneShotsBtn" style="display:none;background:#21262d;color:#e6edf3;border:1px solid #30363d;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px;font-weight:600" onclick="openDoneShots()">✅ Done Shots</button>
     <button id="myFilesBtn" style="display:none;background:#21262d;color:#e6edf3;border:1px solid #30363d;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px;font-weight:600" onclick="openMyFiles()">📁 My Files</button>
+    <button id="analyticsBtn" style="display:none;background:#21262d;color:#e6edf3;border:1px solid #30363d;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px;font-weight:600" onclick="openAnalytics()">📊 Analytics</button>
   </div>
 </div>
 <p class="subtitle">Declined tasks (Coffeepost) — 28 shots to review</p>
@@ -1041,7 +1042,7 @@
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
 <div id="updateBanner" class="update-banner hidden"><span id="updateBannerText"></span><button id="updateBannerNow">Reload now</button><button id="updateBannerCancel">Later</button></div>
-<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0102</div>
+<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0103</div>
 
 <script>
 const USERS = {
@@ -1227,6 +1228,8 @@ async function showLoggedIn(){document.getElementById("loginOverlay").classList.
   if(mfb)mfb.style.display=isGuest()?'none':'block';
   const dsb=document.getElementById("doneShotsBtn");
   if(dsb)dsb.style.display=isAdmin()?'block':'none';
+  const anb=document.getElementById("analyticsBtn");
+  if(anb)anb.style.display=isGuest()?'none':'block';
   render();
   _handleChatDeepLink();
   _handlePlayerDeepLink();
@@ -1500,10 +1503,1046 @@ function _initAuth(){
 
 function loadState(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY))||{};}catch{return {};}}
 
+// ANALYTICS — Phase 1: append-only task_events log
+// ============================================================
+// Strategy: wrap saveState() to diff oldState vs newState and emit
+// events automatically. This catches all mutations regardless of
+// where in the codebase they happen — no need to instrument every
+// call site separately.
+let _analyticsLastSnapshot=null;
+const _ANALYTICS_FIELDS=["status","assignee","owner","category","priority","deadline"];
+
+function _analyticsActor(){
+  if(typeof currentUser!=="undefined"&&currentUser){
+    return {id:currentUser.id,name:currentUser.display||currentUser.id};
+  }
+  return {id:"anon",name:null};
+}
+
+async function _logEvent(eventType,shotId,payload){
+  try{
+    const a=_analyticsActor();
+    const body=JSON.stringify({
+      shot_id:String(shotId),
+      event_type:eventType,
+      actor_id:a.id,
+      actor_name:a.name,
+      payload:payload||{},
+      source:"live",
+      confidence:1.0
+    });
+    const r=await fetch(SUPA_URL+"/rest/v1/task_events",{
+      method:"POST",
+      headers:{...SUPA_HEADERS,"Prefer":"return=minimal"},
+      body
+    });
+    if(!r.ok){
+      const t=await r.text();
+      console.warn("[analytics] _logEvent failed",eventType,shotId,t);
+    }
+  }catch(e){
+    console.warn("[analytics] _logEvent threw",e);
+  }
+}
+
+function _isShotKey(k){return typeof k==="string"&&!k.startsWith("__");}
+
+function _diffShot(oldShot,newShot){
+  const events=[];
+  for(const f of _ANALYTICS_FIELDS){
+    const a=oldShot?oldShot[f]:undefined;
+    const b=newShot?newShot[f]:undefined;
+    if(a!==b){
+      if(f==="status"){
+        // Detect semantic transitions before falling back to generic status_changed.
+        // App uses short keys: todo / progress / review / done / skip (see line ~1938).
+        if(a==="review"&&b==="done")        events.push({type:"approved",       payload:{from:a,to:b}});
+        else if(a==="review"&&b==="progress") events.push({type:"reopened",     payload:{from:a,to:b}});
+        else if(a==="done"&&b&&b!=="done") events.push({type:"reopened",       payload:{from:a,to:b}});
+        else                                events.push({type:"status_changed", payload:{from:a,to:b}});
+      }else if(f==="assignee"||f==="owner"){
+        events.push({type:"assigned",payload:{field:f,from:a,to:b}});
+      }else{
+        events.push({type:f+"_changed",payload:{from:a,to:b}});
+      }
+    }
+  }
+  // Versions array diff
+  const oldV=(oldShot&&Array.isArray(oldShot.versions))?oldShot.versions:[];
+  const newV=(newShot&&Array.isArray(newShot.versions))?newShot.versions:[];
+  if(newV.length>oldV.length){
+    for(let i=oldV.length;i<newV.length;i++){
+      const v=newV[i]||{};
+      events.push({type:"version_uploaded",payload:{
+        version_number:v.version||(i+1),
+        is_final:!!v.final,
+        url:v.url||null
+      }});
+    }
+  }else if(newV.length<oldV.length){
+    events.push({type:"version_deleted",payload:{from_count:oldV.length,to_count:newV.length}});
+  }
+  return events;
+}
+
+function _diffAndLog(oldState,newState){
+  if(!oldState||!newState)return 0;
+  let count=0;
+  const oldKeys=new Set(Object.keys(oldState).filter(_isShotKey));
+  const newKeys=new Set(Object.keys(newState).filter(_isShotKey));
+  for(const k of newKeys){
+    if(!oldKeys.has(k)){
+      const s=newState[k]||{};
+      _logEvent("shot_created",k,{initial_status:s.status||null,category:s.category||null});
+      count++;
+      continue;
+    }
+    const events=_diffShot(oldState[k],newState[k]);
+    for(const ev of events){_logEvent(ev.type,k,ev.payload);count++;}
+  }
+  for(const k of oldKeys){
+    if(!newKeys.has(k)){_logEvent("shot_deleted",k,{});count++;}
+  }
+  if(count>0)console.log("[analytics] logged",count,"events");
+  return count;
+}
+
+function _snapshotForAnalytics(s){
+  // Shallow over the meta keys, JSON-clone over the shot subtrees we care about
+  const clone={};
+  for(const k of Object.keys(s)){
+    if(_isShotKey(k)){
+      try{clone[k]=JSON.parse(JSON.stringify(s[k]));}catch(e){clone[k]={};}
+    }
+  }
+  return clone;
+}
+// ============================================================
+// END PHASE 1 ANALYTICS HELPERS
+// ============================================================
+
+// ============================================================
+// ANALYTICS — Phase 3: cycle time + dashboard
+// ============================================================
+async function _analyticsFetchEvents(){
+  const r=await fetch(SUPA_URL+"/rest/v1/task_events?order=occurred_at.asc&limit=10000",{
+    headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}
+  });
+  if(!r.ok)throw new Error("fetch task_events failed: "+await r.text());
+  return r.json();
+}
+
+function _analyticsGroupByShot(events){
+  const m={};
+  for(const e of events){
+    if(!m[e.shot_id])m[e.shot_id]=[];
+    m[e.shot_id].push(e);
+  }
+  return m;
+}
+
+// effective_start: hierarchy of signals from most precise to broadest fallback.
+// User's intent: "from in_progress" — but in backfill we don't have explicit
+// in_progress flips. Fallback chain: first_material → shot_created → first_version.
+// shot_created is min(all timestamps) so it's the earliest known activity,
+// which best approximates "when work began" for historical shots.
+function _effectiveStart(shotEvents){
+  // Tier 1: explicit live status_changed -> progress (highest confidence)
+  let m=shotEvents.filter(e=>e.event_type==="status_changed"&&e.payload&&e.payload.to==="progress");
+  if(m.length){const e=m[0];return {ts:Date.parse(e.occurred_at),conf:e.confidence,src:"status_progress"};}
+  // Tier 2: reopened (returned from done/review — clear restart of work)
+  m=shotEvents.filter(e=>e.event_type==="reopened");
+  if(m.length){const e=m[0];return {ts:Date.parse(e.occurred_at),conf:e.confidence,src:"reopened"};}
+  // Tier 3: first material_uploaded (real moment artist began working on assets)
+  m=shotEvents.filter(e=>e.event_type==="material_uploaded");
+  if(m.length){const e=m[0];return {ts:Date.parse(e.occurred_at),conf:e.confidence,src:"first_material"};}
+  // Tier 4: shot_created (min of all signals — broadest available start)
+  m=shotEvents.filter(e=>e.event_type==="shot_created");
+  if(m.length){const e=m[0];return {ts:Date.parse(e.occurred_at),conf:e.confidence,src:"shot_created"};}
+  // Tier 5: first version_uploaded (last resort — only for shots that have nothing earlier)
+  m=shotEvents.filter(e=>e.event_type==="version_uploaded");
+  if(m.length){const e=m[0];return {ts:Date.parse(e.occurred_at),conf:Math.min(e.confidence,0.5),src:"first_version_fallback"};}
+  return null;
+}
+
+// effective_end: hierarchy of "done" signals from strongest (ground truth) to weakest.
+// User defined the priority: real delivery > final file upload > status flip > etc.
+function _effectiveEnd(shotEvents){
+  // Tier 1: delivered (client downloaded — ground truth)
+  let m=shotEvents.filter(e=>e.event_type==="delivered");
+  if(m.length){const e=m[m.length-1];return {ts:Date.parse(e.occurred_at),conf:e.confidence,src:"delivered"};}
+  // Tier 2: final_uploaded (file appeared in versions/final folder)
+  m=shotEvents.filter(e=>e.event_type==="final_uploaded");
+  if(m.length){const e=m[m.length-1];return {ts:Date.parse(e.occurred_at),conf:e.confidence,src:"final_uploaded"};}
+  // Tier 3: live approved event (Phase 1 hook, review→done)
+  m=shotEvents.filter(e=>e.event_type==="approved");
+  if(m.length){const e=m[m.length-1];return {ts:Date.parse(e.occurred_at),conf:e.confidence,src:"approved"};}
+  // Tier 4: status_changed → done (live or synth)
+  m=shotEvents.filter(e=>e.event_type==="status_changed"&&e.payload&&e.payload.to==="done");
+  if(m.length){const e=m[m.length-1];return {ts:Date.parse(e.occurred_at),conf:e.confidence,src:"status_done"};}
+  return null;
+}
+
+// Mirror production Done Shots categorization (see line ~6722).
+// Returns: 'delivered' | 'done_with_file' | 'file_no_done' | 'done_no_file' |
+//          'in_progress' | 'todo' | 'skip'
+// Note: prod uses getStatus(id) which defaults missing status to "todo" — see
+// the one-liner at line ~2864. We must mirror that, NOT introduce a phantom
+// "no_status" bucket.
+function _doneKind(shotId){
+  const sh=state[shotId]||{};
+  // getStatus() default-to-todo semantics — never trust raw sh.status here.
+  const status=(typeof getStatus==="function")?getStatus(shotId):(sh.status||"todo");
+  const finalArr=(sh.files&&sh.files['versions/final'])||[];
+  const hasFinal=finalArr.length>0;
+  const isDone=status==="done";
+  if(!hasFinal&&!isDone){
+    if(status==="progress")return "in_progress";
+    if(status==="skip")return "skip";
+    return "todo"; // includes both explicit "todo" and default-to-todo cases
+  }
+  // Mirror prod _isDelivered logic
+  const shares=state.__downloadShares||{};
+  const tracking=state.__downloadTracking||{};
+  const finalNames=finalArr.map(f=>shotId+"_FINAL/"+f.name);
+  let delivered=false;
+  if(finalNames.length){
+    outer: for(const token of Object.keys(shares)){
+      const share=shares[token];
+      if(!share||!Array.isArray(share.ids)||!share.ids.includes(shotId))continue;
+      const node=tracking[token];
+      if(!node||!node.users)continue;
+      for(const uid of Object.keys(node.users)){
+        if(uid==="_anon")continue;
+        const uf=node.users[uid].files||{};
+        const allDone=finalNames.every(fn=>uf[fn]&&uf[fn].state==="completed");
+        if(allDone){delivered=true;break outer;}
+      }
+    }
+  }
+  if(delivered)return "delivered";
+  if(hasFinal&&!isDone)return "file_no_done";  // yellow
+  if(hasFinal&&isDone)return "done_with_file"; // green
+  return "done_no_file"; // red
+}
+
+// Category accessors — DELEGATE to prod functions to stay consistent.
+// Prod has: getCat(id) [defaults to "other"], getCatLabel(cat) [uses CAT_LABELS],
+// getCatColor(cat) [uses CAT_COLORS]. These are populated at startup from
+// state.__categories via _loadCustomCats(). Never read state[id].cat directly.
+function _shotCategory(shotId){
+  if(typeof getCat==="function")return getCat(shotId);
+  // Fallback if accessor missing for some reason
+  const sh=state[shotId];
+  if(sh&&sh.cat)return sh.cat;
+  for(const t of(state.__tasks||[])){if(t&&t.id===shotId&&t.cat)return t.cat;}
+  return "other";
+}
+function _categoryLabel(catKey){
+  if(typeof getCatLabel==="function")return getCatLabel(catKey);
+  return catKey||"other";
+}
+
+const _DONE_KIND_META={
+  delivered:     {label:"Delivered",      color:"#6e7681", priority:5},
+  done_with_file:{label:"Done + file",    color:"#3fb950", priority:4},
+  file_no_done:  {label:"File, no done",  color:"#d29922", priority:3},
+  done_no_file:  {label:"Done, no file",  color:"#f85149", priority:2},
+  in_progress:   {label:"In progress",    color:"#58a6ff", priority:1},
+  todo:          {label:"Todo",           color:"#8b949e", priority:0},
+  skip:          {label:"Skip",           color:"#484f58", priority:-1},
+};
+
+// Canonical shot list — iterate __tasks (matches prod openDoneShots logic).
+// Falls back to state keys for any orphaned shots that aren't in __tasks anymore.
+function _allShotIds(){
+  const ids=[];
+  const seen=new Set();
+  const tasks=state.__tasks||[];
+  for(const t of tasks){
+    if(t&&t.id&&!seen.has(t.id)){seen.add(t.id);ids.push(t.id);}
+  }
+  // Catch any shots that have state[id] but aren't in __tasks (e.g. legacy/orphan)
+  for(const k of Object.keys(state)){
+    if(k.startsWith("__")||k==="null"||seen.has(k))continue;
+    if(state[k]&&typeof state[k]==="object"){seen.add(k);ids.push(k);}
+  }
+  return ids;
+}
+
+function _cycleForShot(shotId, events){
+  // Skip-шоты — out of scope. Не идут ни в closed, ни в open, ни в no_data.
+  // User intent: «files marked as skip — мы пока что не планируем делать,
+  // они не идут в зачёт».
+  if(_doneKind(shotId)==="skip"){
+    return {shotId,kind:"skipped",n_events:events.length};
+  }
+  const end=_effectiveEnd(events);
+  // Find start: scan events strictly BEFORE end (if end exists). This avoids
+  // negative cycles when materials were uploaded after approval (post-delivery
+  // assets are common — they shouldn't count as "work start").
+  const startPool=end?events.filter(e=>Date.parse(e.occurred_at)<end.ts):events;
+  const start=_effectiveStart(startPool);
+  if(!start)return {shotId,kind:"no_data",n_events:events.length};
+  if(!end){
+    return {shotId,kind:"open",start_ts:start.ts,start_conf:start.conf,start_src:start.src,
+            age_days:(Date.now()-start.ts)/86400000,n_events:events.length};
+  }
+  const days=(end.ts-start.ts)/86400000;
+  const conf=Math.sqrt(start.conf*end.conf);
+  return {
+    shotId,kind:"closed",
+    start_ts:start.ts,start_conf:start.conf,start_src:start.src,
+    end_ts:end.ts,end_conf:end.conf,end_src:end.src,
+    days,conf,n_events:events.length
+  };
+}
+
+function _weightedPercentile(pairs, p){
+  if(!pairs.length)return null;
+  const sorted=[...pairs].sort((a,b)=>a[0]-b[0]);
+  const totalW=sorted.reduce((s,[_,w])=>s+w,0);
+  if(totalW<=0)return sorted[Math.floor(sorted.length*p)][0];
+  let acc=0;
+  for(const [v,w] of sorted){
+    acc+=w;
+    if(acc/totalW>=p)return v;
+  }
+  return sorted[sorted.length-1][0];
+}
+
+function _aggregateCycles(cycles){
+  // Skip-шоты исключены из всех агрегатов целиком (out of scope).
+  const closed=cycles.filter(c=>c.kind==="closed"&&c.conf>=0.30&&c.days>=0);
+  const open=cycles.filter(c=>c.kind==="open");
+  const noData=cycles.filter(c=>c.kind==="no_data");
+  const skipped=cycles.filter(c=>c.kind==="skipped");
+  if(!closed.length){
+    return {closed_count:0,open_count:open.length,no_data_count:noData.length,skipped_count:skipped.length,
+            median:null,p85:null,p95:null,mean:null,eff_n:0,closed:[],open,noData,skipped};
+  }
+  const weighted=closed.map(c=>[c.days,c.conf*c.conf]);
+  const median=_weightedPercentile(weighted,0.5);
+  const p85=_weightedPercentile(weighted,0.85);
+  const p95=_weightedPercentile(weighted,0.95);
+  const mean=closed.reduce((s,c)=>s+c.days,0)/closed.length;
+  const w=weighted.map(x=>x[1]);
+  const sumW=w.reduce((s,x)=>s+x,0);
+  const sumW2=w.reduce((s,x)=>s+x*x,0);
+  const effN=sumW>0?(sumW*sumW)/sumW2:0;
+  return {closed_count:closed.length,open_count:open.length,no_data_count:noData.length,
+          skipped_count:skipped.length,
+          median,p85,p95,mean,eff_n:effN,closed,open,noData,skipped};
+}
+
+function _categoryStats(closedCycles, globalMean, k){
+  // Group by shot category via prod getCat() (defaults to "other" — see line 1340)
+  k=k||5;
+  const byCat={};
+  for(const c of closedCycles){
+    const cat=_shotCategory(c.shotId)||"other";
+    if(!byCat[cat])byCat[cat]={shots:[],sum:0,n:0};
+    byCat[cat].shots.push(c);
+    byCat[cat].sum+=c.days;
+    byCat[cat].n+=1;
+  }
+  // Empirical Bayes shrinkage to global mean
+  const result=[];
+  for(const cat of Object.keys(byCat).sort()){
+    const b=byCat[cat];
+    const empMean=b.sum/b.n;
+    const shrunk=(b.n*empMean+k*globalMean)/(b.n+k);
+    result.push({cat,label:_categoryLabel(cat),n:b.n,emp_mean:empMean,shrunk_mean:shrunk});
+  }
+  return result;
+}
+
+// ============================================================
+// PHASE 3.5 — per-status / per-phase duration tracking
+// ============================================================
+// Approach: try exact reconstruction from status_changed events first.
+// Fall back to signal-based approximation when only synth/sparse data exists.
+//
+// Phases:
+//   work     = from first activity (created/material/first version) → last preview version
+//   review   = from last preview version → final_uploaded (or delivered if no final)
+//   delivery = from final_uploaded → delivered
+//
+// For LIVE data (Phase 1 hooks logging every status_changed) we'll later
+// switch to a precise timeline-based calculation. For now (only synth backfill
+// in DB) the approximation gives a usable two/three-phase split.
+
+function _phaseDurations(shotId, events){
+  const sorted=events.slice().sort((a,b)=>Date.parse(a.occurred_at)-Date.parse(b.occurred_at));
+  const find=t=>sorted.find(e=>e.event_type===t);
+  const findAll=t=>sorted.filter(e=>e.event_type===t);
+
+  const created=find("shot_created");
+  const firstMaterial=findAll("material_uploaded")[0];
+  const versions=findAll("version_uploaded");
+  const lastVersion=versions[versions.length-1];
+  const firstFinal=findAll("final_uploaded")[0];
+  const delivered=find("delivered");
+
+  const ts=e=>e?Date.parse(e.occurred_at):null;
+  const days=(a,b)=>(a!==null&&b!==null&&b>=a)?(b-a)/86400000:null;
+
+  // Pick earliest of (created, firstMaterial, firstVersion) as work start
+  const startCandidates=[ts(created),ts(firstMaterial),ts(versions[0])].filter(x=>x!==null);
+  const workStart=startCandidates.length?Math.min(...startCandidates):null;
+
+  // Work ends at last preview version (artist's last submission before approval)
+  const workEnd=ts(lastVersion);
+
+  // Review ends at first final upload (or delivered if no final)
+  const reviewEnd=ts(firstFinal)||ts(delivered);
+
+  // Delivery ends when client downloaded
+  const deliveryEnd=ts(delivered);
+
+  return {
+    work_days:days(workStart,workEnd),
+    review_days:days(workEnd,reviewEnd),
+    delivery_days:days(reviewEnd,deliveryEnd),
+    has_work:workStart!==null&&workEnd!==null,
+    has_review:workEnd!==null&&reviewEnd!==null,
+    has_delivery:reviewEnd!==null&&deliveryEnd!==null,
+    source:"synth_approx",
+    confidence:0.55,
+  };
+}
+
+// For OPEN shots: how long has it been sitting in its current status?
+// Used for "stuck" warnings and as conditional residual input for Phase 4 forecast.
+function _timeInCurrentStatus(shotId, events){
+  const status=(typeof getStatus==="function")?getStatus(shotId):(state[shotId]&&state[shotId].status)||"todo";
+  // Latest status_changed event into the current status (live signal)
+  const transitions=events.filter(e=>e.event_type==="status_changed"&&e.payload&&e.payload.to===status)
+    .sort((a,b)=>Date.parse(b.occurred_at)-Date.parse(a.occurred_at));
+  if(transitions.length){
+    return {days:(Date.now()-Date.parse(transitions[0].occurred_at))/86400000,source:"status_changed",status};
+  }
+  // Fallback: time since the shot first appeared in our data
+  const created=events.find(e=>e.event_type==="shot_created");
+  if(created){
+    return {days:(Date.now()-Date.parse(created.occurred_at))/86400000,source:"shot_created",status};
+  }
+  return {days:null,source:"no_data",status};
+}
+
+// ============================================================
+// PHASE 4 — Monte Carlo project completion forecast
+// ============================================================
+// Strategy:
+//   For each iteration (10k):
+//     1. For each in-scope shot, sample remaining time based on its current
+//        pipeline state (todo / in_progress / done_no_file etc)
+//     2. Allocate to artist queues (respect assignee), parallel
+//     3. project_completion = max(artist queues)
+//   Aggregate iterations -> P50/P85/P95 days from now -> human dates
+
+function _sampleFromDist(samples){
+  if(!samples||!samples.length)return null;
+  const totalW=samples.reduce((s,p)=>s+p[1],0);
+  if(totalW<=0)return samples[Math.floor(Math.random()*samples.length)][0];
+  let r=Math.random()*totalW;
+  for(const [v,w] of samples){
+    r-=w;
+    if(r<=0)return v;
+  }
+  return samples[samples.length-1][0];
+}
+
+// Bias-corrected residual: from historical durations of length d, given that
+// we're already X days in, sample only from cycles ≥ X days, return remainder.
+// Handles tail extrapolation when current age exceeds historical max.
+function _conditionalResidual(samples, timeSpent){
+  if(!samples||!samples.length)return null;
+  if(timeSpent<0)timeSpent=0;
+  const candidates=samples.filter(p=>p[0]>=timeSpent);
+  if(!candidates.length){
+    // Already past historical max — assume we're in long tail, ~50% more to go
+    const maxV=Math.max.apply(null,samples.map(p=>p[0]));
+    return Math.max(0.25,(timeSpent-maxV)*0.5);
+  }
+  const sampledTotal=_sampleFromDist(candidates);
+  return Math.max(0,sampledTotal-timeSpent);
+}
+
+// Get raw weighted sample arrays for a phase from cycles+events
+function _phaseSamples(cycles, eventsByShot){
+  const out={work:[],review:[],delivery:[]};
+  for(const c of cycles){
+    if(c.kind!=="closed")continue;
+    const p=_phaseDurations(c.shotId,eventsByShot[c.shotId]||[]);
+    const w=c.conf*c.conf;
+    if(p.work_days!==null&&p.work_days>=0)out.work.push([p.work_days,w]);
+    if(p.review_days!==null&&p.review_days>=0)out.review.push([p.review_days,w]);
+    if(p.delivery_days!==null&&p.delivery_days>=0)out.delivery.push([p.delivery_days,w]);
+  }
+  return out;
+}
+
+// Sample remaining ARTIST WORK time for one shot. Returns {artist_work, wait_after}
+// where artist_work = days the artist is busy on this shot (consumes queue capacity)
+// and wait_after = days of review+delivery that happen AFTER artist finishes
+// (these don't block the artist — they happen in parallel while artist works on next shot).
+function _sampleRemainingForShot(shotId, eventsByShot, samples){
+  const k=_doneKind(shotId);
+  if(k==="delivered"||k==="done_with_file"||k==="skip"){
+    return {artist_work:0,wait_after:0};
+  }
+  // done_no_file: status=done, no final yet. Artist still needs to render+upload final.
+  // Render time is small relative to creative work — model as ~0.2d artist + delivery wait.
+  if(k==="done_no_file"){
+    const d=_sampleFromDist(samples.delivery);
+    return {artist_work:0.2,wait_after:(d!==null?d:0.5)};
+  }
+  // in_progress: residual work for the artist + review/delivery as wait
+  if(k==="in_progress"){
+    const tis=_timeInCurrentStatus(shotId,eventsByShot[shotId]||[]);
+    const timeSpentInWork=tis.days||0;
+    const remainingWork=_conditionalResidual(samples.work,timeSpentInWork);
+    const review=_sampleFromDist(samples.review);
+    const delivery=_sampleFromDist(samples.delivery);
+    return {
+      artist_work:remainingWork||0,
+      wait_after:(review!==null?review:0.3)+(delivery!==null?delivery:0.5)
+    };
+  }
+  // todo / no_data / unknown: full work for artist + review/delivery as wait
+  const work=_sampleFromDist(samples.work);
+  const review=_sampleFromDist(samples.review);
+  const delivery=_sampleFromDist(samples.delivery);
+  return {
+    artist_work:(work!==null?work:1),
+    wait_after:(review!==null?review:0.3)+(delivery!==null?delivery:0.5)
+  };
+}
+
+// Resolve assignee for a shot via prod accessor (defaults to "")
+function _shotAssignee(shotId){
+  if(typeof getAssignee==="function")return getAssignee(shotId)||null;
+  return (state[shotId]&&state[shotId].assignee)||null;
+}
+
+// Run a single MC iteration: returns project completion time in days from now.
+// MODEL: artists work sequentially (1 shot at a time per artist). Once artist
+// finishes WORK on a shot, they're free to start the next one. Review/delivery
+// happen in parallel (client + render farm) and don't block the artist.
+// Project complete = max(shot_complete_time) where shot_complete = artist_finish + wait_after
+function _mcSingleIteration(activeShots, eventsByShot, samples, artistList){
+  const artistFree={}; // artist → "free at" time in days from now
+  for(const a of artistList)artistFree[a]=0;
+  const perArtistWork={}; // total artist work per artist (for bottleneck display)
+  for(const a of artistList)perArtistWork[a]=0;
+  let projectFinish=0;
+  for(const sid of activeShots){
+    const r=_sampleRemainingForShot(sid,eventsByShot,samples);
+    let assignee=_shotAssignee(sid);
+    if(!assignee||!(assignee in artistFree)){
+      // Load balance: artist with earliest free time
+      let best=artistList[0],bestT=artistFree[best];
+      for(const a of artistList){if(artistFree[a]<bestT){best=a;bestT=artistFree[a];}}
+      assignee=best;
+    }
+    const workStart=artistFree[assignee];
+    const workEnd=workStart+r.artist_work;
+    artistFree[assignee]=workEnd; // artist free as soon as work is done
+    perArtistWork[assignee]+=r.artist_work;
+    const shotComplete=workEnd+r.wait_after; // wait phases happen in parallel
+    if(shotComplete>projectFinish)projectFinish=shotComplete;
+  }
+  return {projectFinish,perArtist:Object.assign({},perArtistWork)};
+}
+
+function _runMonteCarlo(activeShots, eventsByShot, samples, iterations){
+  iterations=iterations||10000;
+  // Discover artist list from current shots
+  const artistSet=new Set();
+  for(const sid of activeShots){
+    const a=_shotAssignee(sid);
+    if(a)artistSet.add(a);
+  }
+  // Always include the canonical 4 from prod even if some have no shots assigned
+  const KNOWN_ARTISTS=["nikita","igor","katya","moon_carrots"];
+  for(const a of KNOWN_ARTISTS)artistSet.add(a);
+  const artistList=Array.from(artistSet);
+
+  // Bail early if work distribution is empty (cannot forecast)
+  if(!samples.work||samples.work.length===0){
+    return {ok:false,reason:"no_work_distribution",artistList};
+  }
+
+  const projectResults=[];
+  const perArtistAccum={};
+  for(const a of artistList)perArtistAccum[a]=[];
+  for(let i=0;i<iterations;i++){
+    const r=_mcSingleIteration(activeShots,eventsByShot,samples,artistList);
+    projectResults.push(r.projectFinish);
+    for(const a of artistList)perArtistAccum[a].push(r.perArtist[a]||0);
+  }
+  projectResults.sort((a,b)=>a-b);
+  function pct(arr,p){return arr[Math.min(arr.length-1,Math.floor(arr.length*p))];}
+  const result={
+    ok:true,
+    iterations,
+    p50:pct(projectResults,0.5),
+    p85:pct(projectResults,0.85),
+    p95:pct(projectResults,0.95),
+    min:projectResults[0],
+    max:projectResults[projectResults.length-1],
+    mean:projectResults.reduce((s,x)=>s+x,0)/projectResults.length,
+    perArtist:{}
+  };
+  for(const a of artistList){
+    const arr=perArtistAccum[a].sort((x,y)=>x-y);
+    result.perArtist[a]={
+      p50:pct(arr,0.5),p85:pct(arr,0.85),p95:pct(arr,0.95),
+      shot_count:activeShots.filter(sid=>_shotAssignee(sid)===a).length
+    };
+  }
+  return result;
+}
+
+// ============================================================
+// PHASE 4b — Throughput-based forecast (Little's Law)
+// ============================================================
+// Industry-standard kanban approach: measure recent shots-completed-per-day,
+// divide remaining queue by it. Much more honest than per-shot work estimates
+// because it captures REAL team velocity, not synth-approximated work durations.
+
+function _computeThroughput(events){
+  // For each shot, take its EARLIEST "done milestone" event:
+  //   delivered  > final_uploaded > status_changed→done > approved
+  const firstDone={};
+  for(const e of events){
+    let isDoneMilestone=false;
+    if(e.event_type==="delivered"||e.event_type==="final_uploaded"||e.event_type==="approved")isDoneMilestone=true;
+    else if(e.event_type==="status_changed"&&e.payload&&e.payload.to==="done")isDoneMilestone=true;
+    if(!isDoneMilestone)continue;
+    // Skip excluded shots
+    if(_doneKind(e.shot_id)==="skip")continue;
+    const ts=Date.parse(e.occurred_at);
+    if(!firstDone[e.shot_id]||ts<firstDone[e.shot_id]){
+      firstDone[e.shot_id]=ts;
+    }
+  }
+  const dates=Object.values(firstDone).sort((a,b)=>a-b);
+  if(dates.length<2){
+    return {n:dates.length,velocity:null,reason:"need at least 2 completed shots"};
+  }
+  const firstTs=dates[0],lastTs=dates[dates.length-1];
+  const now=Date.now();
+  const spanDays=Math.max(1/24,(Math.min(now,lastTs)-firstTs)/86400000);
+  return {
+    n:dates.length,
+    first_done:firstTs,
+    last_done:lastTs,
+    span_days:spanDays,
+    velocity:dates.length/spanDays, // shots per day
+    velocity_per_artist:null, // filled in by caller if artist count known
+    raw_dates:dates,
+  };
+}
+
+// Compute velocity in different rolling windows (gives sense of recent vs overall)
+function _velocityWindows(throughput, windows){
+  windows=windows||[1,3,7];
+  if(!throughput||!throughput.raw_dates||throughput.raw_dates.length<2)return [];
+  const now=Date.now();
+  const out=[];
+  for(const w of windows){
+    const cutoff=now-w*86400000;
+    const inWin=throughput.raw_dates.filter(d=>d>=cutoff);
+    if(inWin.length===0){
+      out.push({window_days:w,shots_in_window:0,velocity:0});
+      continue;
+    }
+    // Use min(window, time_since_oldest_in_window) as denominator
+    const oldestInWin=Math.min(...inWin);
+    const effectiveSpan=Math.max(1/24,(now-oldestInWin)/86400000);
+    out.push({
+      window_days:w,
+      shots_in_window:inWin.length,
+      effective_span_days:effectiveSpan,
+      velocity:inWin.length/effectiveSpan,
+    });
+  }
+  return out;
+}
+
+function _throughputForecast(remainingShots, throughput, velocityWindows){
+  if(!throughput||!throughput.velocity)return null;
+  // Use the MOST RECENT non-zero velocity window as the "central" estimate.
+  // Fall back to overall velocity if no recent window has data.
+  const recent=(velocityWindows||[]).filter(w=>w.velocity>0).sort((a,b)=>a.window_days-b.window_days)[0];
+  const central=recent?recent.velocity:throughput.velocity;
+  // Range from min/max velocity across windows for rough uncertainty
+  const allVelocities=[throughput.velocity].concat((velocityWindows||[]).map(w=>w.velocity).filter(v=>v>0));
+  const minV=Math.min.apply(null,allVelocities);
+  const maxV=Math.max.apply(null,allVelocities);
+  return {
+    remaining_shots:remainingShots,
+    central_velocity:central,
+    overall_velocity:throughput.velocity,
+    optimistic_days:remainingShots/maxV,
+    central_days:remainingShots/central,
+    pessimistic_days:remainingShots/minV,
+    used_window:recent?recent.window_days+"d window":"overall",
+  };
+}
+// ============================================================
+
+function _addDays(date, days){
+  const d=new Date(date.getTime());
+  d.setTime(d.getTime()+days*86400000);
+  return d;
+}
+
+function _fmtDate(d){
+  if(!d)return "—";
+  const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return months[d.getMonth()]+" "+d.getDate();
+}
+// ============================================================
+
+function _aggregatePhases(cycles, eventsByShot){
+  const phases={work:[],review:[],delivery:[]};
+  for(const c of cycles){
+    if(c.kind!=="closed")continue;
+    const p=_phaseDurations(c.shotId,eventsByShot[c.shotId]||[]);
+    if(p.work_days!==null&&p.work_days>=0)phases.work.push([p.work_days,c.conf*c.conf]);
+    if(p.review_days!==null&&p.review_days>=0)phases.review.push([p.review_days,c.conf*c.conf]);
+    if(p.delivery_days!==null&&p.delivery_days>=0)phases.delivery.push([p.delivery_days,c.conf*c.conf]);
+  }
+  function summarize(samples){
+    if(!samples.length)return null;
+    const median=_weightedPercentile(samples,0.5);
+    const p85=_weightedPercentile(samples,0.85);
+    const p95=_weightedPercentile(samples,0.95);
+    const mean=samples.reduce((s,[v,_])=>s+v,0)/samples.length;
+    const sumW=samples.reduce((s,[_,w])=>s+w,0);
+    const sumW2=samples.reduce((s,[_,w])=>s+w*w,0);
+    const effN=sumW>0?(sumW*sumW)/sumW2:0;
+    return {n:samples.length,median,p85,p95,mean,eff_n:effN};
+  }
+  return {work:summarize(phases.work),review:summarize(phases.review),delivery:summarize(phases.delivery)};
+}
+// ============================================================
+
+function _fmtDays(d){
+  if(d===null||d===undefined||isNaN(d))return "—";
+  if(d<1)return (d*24).toFixed(1)+"h";
+  return d.toFixed(2)+"d";
+}
+
+function _confBadge(c){
+  if(c===null||c===undefined)return '<span style="color:#8b949e">—</span>';
+  let color="#3fb950";if(c<0.7)color="#d29922";if(c<0.5)color="#f85149";
+  return '<span style="color:'+color+'">'+c.toFixed(2)+'</span>';
+}
+
+async function openAnalytics(){
+  // Build modal shell first so user sees instant feedback
+  let ov=document.getElementById("analyticsOverlay");
+  if(ov)ov.remove();
+  ov=document.createElement("div");
+  ov.id="analyticsOverlay";
+  ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:10000;display:flex;align-items:flex-start;justify-content:center;padding:40px;overflow:auto";
+  ov.innerHTML='<div style="background:#0d1117;border:1px solid #30363d;border-radius:10px;max-width:1100px;width:100%;color:#c9d1d9;font-family:-apple-system,sans-serif"><div style="padding:20px;border-bottom:1px solid #30363d;display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0;font-size:18px">📊 Analytics — Cycle Time</h2><button id="anaClose" style="background:none;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:6px 12px;cursor:pointer">Close</button></div><div id="anaBody" style="padding:20px"><div style="text-align:center;color:#8b949e">Loading…</div></div></div>';
+  document.body.appendChild(ov);
+  ov.querySelector("#anaClose").onclick=()=>ov.remove();
+  ov.addEventListener("click",e=>{if(e.target===ov)ov.remove();});
+
+  try{
+    const events=await _analyticsFetchEvents();
+    const grouped=_analyticsGroupByShot(events);
+    // Iterate canonical shot list (not grouped) so shots with zero events still
+    // get classified as no_data / skip / etc — otherwise they silently disappear.
+    const cycles=_allShotIds().map(sid=>_cycleForShot(sid,grouped[sid]||[]));
+    const agg=_aggregateCycles(cycles);
+
+    // Source breakdowns
+    const startSrc={},endSrc={};
+    for(const c of agg.closed){
+      startSrc[c.start_src]=(startSrc[c.start_src]||0)+1;
+      endSrc[c.end_src]=(endSrc[c.end_src]||0)+1;
+    }
+    // Per-category with shrinkage
+    const catStats=agg.closed_count>0?_categoryStats(agg.closed,agg.mean,5):[];
+
+    // Phase 3.5: per-phase breakdown (work / review / delivery)
+    const phaseAgg=_aggregatePhases(cycles,grouped);
+
+    // Pre-compute time-in-status for all open shots (for stuck warnings)
+    const openStuck=[];
+    for(const c of cycles){
+      if(c.kind!=="open")continue;
+      const tis=_timeInCurrentStatus(c.shotId,grouped[c.shotId]||[]);
+      openStuck.push({shotId:c.shotId,status:tis.status,days:tis.days,source:tis.source});
+    }
+
+    // Weekly throughput from approved/status_done/final_uploaded/delivered events.
+    // Skip skip-шоты — they're out of scope.
+    const weekBuckets={};
+    const now=Date.now();
+    for(const e of events){
+      if(_doneKind(e.shot_id)==="skip")continue;
+      if(e.event_type==="approved"||e.event_type==="delivered"||e.event_type==="final_uploaded"||(e.event_type==="status_changed"&&e.payload&&e.payload.to==="done")){
+        const t=Date.parse(e.occurred_at);
+        const weeksAgo=Math.floor((now-t)/(7*86400000));
+        if(weeksAgo>=0&&weeksAgo<8){
+          weekBuckets[weeksAgo]=(weekBuckets[weeksAgo]||0)+1;
+        }
+      }
+    }
+    const maxWeekCount=Math.max(1,...Object.values(weekBuckets));
+
+    let html='';
+
+    // Summary cards
+    html+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">';
+    html+='<div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px"><div style="color:#8b949e;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">Median cycle</div><div style="font-size:24px;font-weight:600;color:#3fb950;margin-top:4px">'+_fmtDays(agg.median)+'</div></div>';
+    html+='<div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px"><div style="color:#8b949e;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">P85</div><div style="font-size:24px;font-weight:600;color:#d29922;margin-top:4px">'+_fmtDays(agg.p85)+'</div></div>';
+    html+='<div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px"><div style="color:#8b949e;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">P95</div><div style="font-size:24px;font-weight:600;color:#f85149;margin-top:4px">'+_fmtDays(agg.p95)+'</div></div>';
+    html+='<div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px"><div style="color:#8b949e;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">Effective N (Kish)</div><div style="font-size:24px;font-weight:600;color:#58a6ff;margin-top:4px">'+agg.eff_n.toFixed(1)+'</div><div style="color:#8b949e;font-size:11px;margin-top:4px">of '+agg.closed_count+' closed</div></div>';
+    html+='</div>';
+
+    // Coverage line
+    const inScopeTotal=agg.closed_count+agg.open_count+agg.no_data_count;
+    html+='<div style="color:#8b949e;font-size:13px;margin-bottom:16px">Coverage: <b style="color:#3fb950">'+agg.closed_count+' closed</b> · <b style="color:#d29922">'+agg.open_count+' open (right-censored)</b> · <b style="color:#f85149">'+agg.no_data_count+' no data</b> · <b style="color:#484f58">'+agg.skipped_count+' skipped (excluded)</b> · '+inScopeTotal+' in scope · '+events.length+' events total</div>';
+
+    // Canonical shot list (used by both forecast and pipeline-state breakdown below)
+    const allShotIds=_allShotIds();
+
+    // === PHASE 4b: Throughput-based forecast (PRIMARY) ===
+    // Build active shot list (everything in scope that's not yet delivered/done+file)
+    const activeShots=allShotIds.filter(sid=>{
+      const k=_doneKind(sid);
+      return k!=="delivered"&&k!=="done_with_file"&&k!=="skip";
+    });
+    const throughput=_computeThroughput(events);
+    const velWindows=_velocityWindows(throughput,[1,2,3,7]);
+    const tpFcst=_throughputForecast(activeShots.length,throughput,velWindows);
+
+    if(tpFcst){
+      const now=new Date();
+      const optDate=_addDays(now,tpFcst.optimistic_days);
+      const centDate=_addDays(now,tpFcst.central_days);
+      const pessDate=_addDays(now,tpFcst.pessimistic_days);
+      html+='<div style="background:linear-gradient(135deg,#0d1117,#1a1f29);border:2px solid #3fb950;border-radius:10px;padding:18px 20px;margin-bottom:14px">';
+      html+='<h3 style="margin:0 0 4px;font-size:15px;color:#3fb950">🎯 Project completion ETA — Throughput-based (Little\'s Law)</h3>';
+      html+='<p style="margin:0 0 14px;color:#8b949e;font-size:11px">Based on REAL team velocity from recent done milestones — bypasses per-shot work estimates entirely.</p>';
+      html+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px">';
+      html+='<div style="background:#161b22;border:1px solid #3fb950;border-radius:8px;padding:14px"><div style="color:#3fb950;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Optimistic (recent peak)</div><div style="font-size:26px;font-weight:700;color:#e6edf3;margin-top:6px">'+_fmtDate(optDate)+'</div><div style="color:#8b949e;font-size:11px;margin-top:2px">in '+_fmtDays(tpFcst.optimistic_days)+'</div></div>';
+      html+='<div style="background:#161b22;border:1px solid #58a6ff;border-radius:8px;padding:14px"><div style="color:#58a6ff;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Central ('+esc(tpFcst.used_window)+')</div><div style="font-size:26px;font-weight:700;color:#e6edf3;margin-top:6px">'+_fmtDate(centDate)+'</div><div style="color:#8b949e;font-size:11px;margin-top:2px">in '+_fmtDays(tpFcst.central_days)+'</div></div>';
+      html+='<div style="background:#161b22;border:1px solid #d29922;border-radius:8px;padding:14px"><div style="color:#d29922;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Pessimistic (overall avg)</div><div style="font-size:26px;font-weight:700;color:#e6edf3;margin-top:6px">'+_fmtDate(pessDate)+'</div><div style="color:#8b949e;font-size:11px;margin-top:2px">in '+_fmtDays(tpFcst.pessimistic_days)+'</div></div>';
+      html+='</div>';
+      // Velocity table
+      html+='<div style="color:#8b949e;font-size:12px;margin-bottom:6px">Recent velocity (shots completed per day):</div>';
+      html+='<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;margin-bottom:8px">';
+      for(const w of velWindows){
+        const color=w.velocity>0?"#3fb950":"#484f58";
+        html+='<div style="color:#8b949e">last '+w.window_days+'d: <span style="color:'+color+';font-weight:600">'+w.velocity.toFixed(2)+'/day</span> ('+w.shots_in_window+' shots)</div>';
+      }
+      html+='<div style="color:#8b949e">overall: <span style="color:#58a6ff;font-weight:600">'+throughput.velocity.toFixed(2)+'/day</span> ('+throughput.n+' shots over '+throughput.span_days.toFixed(1)+'d)</div>';
+      html+='</div>';
+      html+='<div style="color:#8b949e;font-size:11px">Remaining: '+activeShots.length+' active shots ÷ velocity</div>';
+      html+='</div>';
+    }else{
+      html+='<div style="background:#21262d;border:1px solid #d29922;border-radius:8px;padding:14px;margin-bottom:14px;color:#d29922"><b>Throughput forecast unavailable:</b> '+esc((throughput&&throughput.reason)||"insufficient data")+'. Need at least 2 completed shots.</div>';
+    }
+
+    // === PHASE 4: Monte Carlo per-artist breakdown (SECONDARY) ===
+    // Kept as supporting info — useful for spotting bottleneck artist, but the
+    // total ETA is over-pessimistic because synth work distribution conflates
+    // active artist time with calendar idle time.
+    const phaseSamples=_phaseSamples(cycles,grouped);
+    const mc=_runMonteCarlo(activeShots,grouped,phaseSamples,10000);
+    if(mc.ok){
+      html+='<details style="margin-bottom:20px"><summary style="cursor:pointer;color:#8b949e;font-size:12px;padding:8px 0">⚙ Monte Carlo per-artist breakdown (supporting info — see caveat)</summary>';
+      html+='<div style="background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:14px;margin-top:6px">';
+      html+='<p style="margin:0 0 10px;font-size:11px;color:#8b949e">Per-shot Monte Carlo (10k iterations) using synth work distribution. <b style="color:#d29922">Caveat:</b> synth work time conflates real artist hours with calendar idle time, so per-shot estimates and total ETA tend to be 2–4× pessimistic. Use this only to spot the bottleneck artist; trust the throughput forecast above for total ETA.</p>';
+      html+='<div style="color:#8b949e;font-size:12px;margin-bottom:8px">MC totals (calendar days incl. artist work): P50 '+_fmtDays(mc.p50)+' · P85 '+_fmtDays(mc.p85)+' · P95 '+_fmtDays(mc.p95)+'</div>';
+      html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">';
+      const artistOrder=Object.keys(mc.perArtist).sort((a,b)=>mc.perArtist[b].p50-mc.perArtist[a].p50);
+      let bottleneckArtist=artistOrder[0];
+      for(const a of artistOrder){
+        const pa=mc.perArtist[a];
+        const isBottleneck=a===bottleneckArtist&&pa.shot_count>0;
+        const borderColor=isBottleneck?"#f85149":"#30363d";
+        html+='<div style="background:#0d1117;border:1px solid '+borderColor+';border-radius:6px;padding:8px 12px"><div style="font-weight:600;color:#e6edf3">'+esc(a)+(isBottleneck?' <span style="color:#f85149;font-size:10px">← bottleneck</span>':'')+'</div><div style="color:#8b949e;font-size:11px;margin-top:2px">'+pa.shot_count+' shot'+(pa.shot_count===1?'':'s')+' · work P50 '+_fmtDays(pa.p50)+'</div></div>';
+      }
+      html+='</div>';
+      html+='</div></details>';
+    }
+
+    // Done-kind breakdown (mirrors prod Done Shots categorization)
+    // (allShotIds already declared above for forecast)
+    const kindCounts={};
+    for(const sid of allShotIds){
+      const k=_doneKind(sid)||"unknown";
+      if(!kindCounts[k])kindCounts[k]={count:0,shots:[]};
+      kindCounts[k].count+=1;
+      kindCounts[k].shots.push(sid);
+    }
+    html+='<h3 style="font-size:14px;margin:24px 0 8px">Pipeline state (mirrors Done Shots categorization)</h3>';
+    html+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">';
+    const kindOrder=["delivered","done_with_file","file_no_done","done_no_file","in_progress","todo","skip"];
+    for(const k of kindOrder){
+      const meta=_DONE_KIND_META[k];if(!meta)continue;
+      const data=kindCounts[k]||{count:0,shots:[]};
+      html+='<div style="background:#161b22;border:1px solid '+meta.color+';border-radius:8px;padding:10px 14px;min-width:130px"><div style="color:'+meta.color+';font-size:11px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">'+meta.label+'</div><div style="font-size:22px;font-weight:600;color:#e6edf3;margin-top:4px">'+data.count+'</div></div>';
+    }
+    html+='</div>';
+
+    // Throughput chart
+    html+='<h3 style="font-size:14px;margin:24px 0 8px">Throughput (last 8 weeks of done events)</h3>';
+    html+='<div style="display:flex;align-items:flex-end;gap:6px;height:80px;background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px">';
+    for(let w=7;w>=0;w--){
+      const c=weekBuckets[w]||0;
+      const h=Math.round(60*c/maxWeekCount);
+      const label=w===0?"this":(w+"w ago");
+      html+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%"><div style="background:#3fb950;width:100%;height:'+h+'px;border-radius:3px 3px 0 0" title="'+c+' done events"></div><div style="font-size:10px;color:#8b949e;margin-top:4px">'+c+'</div><div style="font-size:9px;color:#484f58">'+label+'</div></div>';
+    }
+    html+='</div>';
+
+    // Phase breakdown (work / review / delivery from approximated phases)
+    html+='<h3 style="font-size:14px;margin:24px 0 8px">Phase breakdown <span style="color:#484f58;font-weight:normal">— per-phase durations from synth approximation (live status events will sharpen this over time)</span></h3>';
+    html+='<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:#161b22"><th style="text-align:left;padding:8px;border:1px solid #30363d">Phase</th><th style="text-align:right;padding:8px;border:1px solid #30363d">N</th><th style="text-align:right;padding:8px;border:1px solid #30363d">Median</th><th style="text-align:right;padding:8px;border:1px solid #30363d">P85</th><th style="text-align:right;padding:8px;border:1px solid #30363d">P95</th><th style="text-align:right;padding:8px;border:1px solid #30363d">Mean</th><th style="text-align:left;padding:8px;border:1px solid #30363d">What it represents</th></tr></thead><tbody>';
+    const phaseRows=[
+      ["work",  phaseAgg.work,   "#58a6ff", "Active work — artist iterating from first activity to last preview submission"],
+      ["review",phaseAgg.review, "#d29922", "Client review — last preview to final upload (or to delivery if no separate final)"],
+      ["delivery",phaseAgg.delivery,"#3fb950","Delivery — final upload to client download (often near-zero)"]
+    ];
+    for(const [name,p,color,desc] of phaseRows){
+      if(!p){
+        html+='<tr><td style="padding:8px;border:1px solid #30363d;color:'+color+';font-weight:600">'+name+'</td><td colspan="5" style="padding:8px;border:1px solid #30363d;color:#8b949e;text-align:center">no samples</td><td style="padding:8px;border:1px solid #30363d;color:#8b949e">'+desc+'</td></tr>';
+        continue;
+      }
+      html+='<tr><td style="padding:8px;border:1px solid #30363d;color:'+color+';font-weight:600">'+name+'</td><td style="padding:8px;border:1px solid #30363d;text-align:right">'+p.n+'</td><td style="padding:8px;border:1px solid #30363d;text-align:right;font-weight:600">'+_fmtDays(p.median)+'</td><td style="padding:8px;border:1px solid #30363d;text-align:right">'+_fmtDays(p.p85)+'</td><td style="padding:8px;border:1px solid #30363d;text-align:right">'+_fmtDays(p.p95)+'</td><td style="padding:8px;border:1px solid #30363d;text-align:right;color:#8b949e">'+_fmtDays(p.mean)+'</td><td style="padding:8px;border:1px solid #30363d;color:#8b949e;font-size:11px">'+desc+'</td></tr>';
+    }
+    html+='</tbody></table>';
+
+    // Stuck-in-status warnings for open shots
+    // Compute warning threshold per status: 1.5x P85 of corresponding closed phase, with floor of 2 days
+    const stuckThresholds={
+      "progress": Math.max(2, (phaseAgg.work&&phaseAgg.work.p85?phaseAgg.work.p85*1.5:3)),
+      "review":   Math.max(1, (phaseAgg.review&&phaseAgg.review.p85?phaseAgg.review.p85*1.5:2)),
+      "todo":     7  // todo shouldn't sit too long, ~1 week threshold
+    };
+    const stuckList=openStuck.filter(s=>{
+      const thr=stuckThresholds[s.status];
+      return thr&&s.days!==null&&s.days>thr;
+    }).sort((a,b)=>b.days-a.days);
+    if(stuckList.length){
+      html+='<h3 style="font-size:14px;margin:24px 0 8px;color:#d29922">⚠ Stuck shots ('+stuckList.length+') — currently sitting in their status longer than 1.5×P85 of historical data</h3>';
+      html+='<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#161b22"><th style="text-align:left;padding:6px;border:1px solid #30363d">Shot</th><th style="text-align:left;padding:6px;border:1px solid #30363d">Status</th><th style="text-align:right;padding:6px;border:1px solid #30363d">Time in status</th><th style="text-align:right;padding:6px;border:1px solid #30363d">Threshold (1.5×P85)</th><th style="text-align:left;padding:6px;border:1px solid #30363d">Source</th></tr></thead><tbody>';
+      for(const s of stuckList){
+        const thr=stuckThresholds[s.status];
+        const ratio=s.days/thr;
+        const color=ratio>2?"#f85149":(ratio>1.5?"#d29922":"#8b949e");
+        html+='<tr><td style="padding:6px;border:1px solid #30363d">'+esc(s.shotId)+'</td><td style="padding:6px;border:1px solid #30363d">'+esc(s.status)+'</td><td style="padding:6px;border:1px solid #30363d;text-align:right;color:'+color+';font-weight:600">'+_fmtDays(s.days)+'</td><td style="padding:6px;border:1px solid #30363d;text-align:right;color:#8b949e">'+_fmtDays(thr)+'</td><td style="padding:6px;border:1px solid #30363d;color:#484f58;font-size:11px">'+esc(s.source)+'</td></tr>';
+      }
+      html+='</tbody></table>';
+    }
+
+    // Category table with shrinkage
+    if(catStats.length){
+      html+='<h3 style="font-size:14px;margin:24px 0 8px">Per-category cycle time (with Empirical Bayes shrinkage, k=5)</h3>';
+      html+='<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:#161b22"><th style="text-align:left;padding:8px;border:1px solid #30363d">Category</th><th style="text-align:right;padding:8px;border:1px solid #30363d">N</th><th style="text-align:right;padding:8px;border:1px solid #30363d">Empirical mean</th><th style="text-align:right;padding:8px;border:1px solid #30363d">Shrunk mean</th></tr></thead><tbody>';
+      for(const cs of catStats){
+        const labelCell=esc(cs.label||cs.cat||"—")+(cs.label&&cs.label!==cs.cat?' <span style="color:#484f58">('+esc(cs.cat)+')</span>':'');
+        html+='<tr><td style="padding:8px;border:1px solid #30363d">'+labelCell+'</td><td style="padding:8px;border:1px solid #30363d;text-align:right">'+cs.n+'</td><td style="padding:8px;border:1px solid #30363d;text-align:right">'+_fmtDays(cs.emp_mean)+'</td><td style="padding:8px;border:1px solid #30363d;text-align:right;color:#58a6ff">'+_fmtDays(cs.shrunk_mean)+'</td></tr>';
+      }
+      html+='</tbody></table>';
+    }
+
+    // Per-shot detail table
+    html+='<h3 style="font-size:14px;margin:24px 0 8px">Per-shot detail (sorted by pipeline state, then cycle desc)</h3>';
+    html+='<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#161b22"><th style="text-align:left;padding:6px;border:1px solid #30363d">Shot</th><th style="text-align:left;padding:6px;border:1px solid #30363d">Pipeline state</th><th style="text-align:left;padding:6px;border:1px solid #30363d">Category</th><th style="text-align:right;padding:6px;border:1px solid #30363d;color:#58a6ff">Work</th><th style="text-align:right;padding:6px;border:1px solid #30363d;color:#d29922">Review</th><th style="text-align:right;padding:6px;border:1px solid #30363d;color:#3fb950">Delivery</th><th style="text-align:right;padding:6px;border:1px solid #30363d">Total</th><th style="text-align:right;padding:6px;border:1px solid #30363d">Conf</th><th style="text-align:right;padding:6px;border:1px solid #30363d">Events</th></tr></thead><tbody>';
+    // Build a lookup: shotId → cycle result
+    const cycleByShot={};
+    for(const c of cycles)cycleByShot[c.shotId]=c;
+    // Sort shots by done_kind priority desc, then by cycle/age
+    const allShotsForRow=_allShotIds();
+    allShotsForRow.sort((a,b)=>{
+      const ka=_doneKind(a)||"todo",kb=_doneKind(b)||"todo";
+      const pa=(_DONE_KIND_META[ka]||{}).priority||0;
+      const pb=(_DONE_KIND_META[kb]||{}).priority||0;
+      if(pa!==pb)return pb-pa;
+      const ca=cycleByShot[a],cb=cycleByShot[b];
+      const va=ca&&ca.kind==="closed"?ca.days:(ca&&ca.kind==="open"?ca.age_days:-1);
+      const vb=cb&&cb.kind==="closed"?cb.days:(cb&&cb.kind==="open"?cb.age_days:-1);
+      return vb-va;
+    });
+    for(const sid of allShotsForRow){
+      const c=cycleByShot[sid];
+      const catKey=_shotCategory(sid);
+      const cat=catKey?_categoryLabel(catKey):"";
+      const k=_doneKind(sid)||"todo";
+      const meta=_DONE_KIND_META[k]||{label:k,color:"#8b949e"};
+      const isSkip=k==="skip";
+      const rowStyle=isSkip?'opacity:0.45':'';
+      const kindBadge='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+meta.color+';margin-right:6px;vertical-align:middle"></span><span style="color:'+meta.color+'">'+meta.label+(isSkip?' (excluded)':'')+'</span>';
+      // Compute phase durations for this shot (from approx)
+      const ph=c?_phaseDurations(sid,grouped[sid]||[]):null;
+      let totalCell,confCell,workCell,reviewCell,deliveryCell;
+      if(isSkip){
+        totalCell='<span style="color:#484f58">excluded</span>';confCell='—';workCell='—';reviewCell='—';deliveryCell='—';
+      }else if(c&&c.kind==="closed"){
+        totalCell=_fmtDays(c.days);
+        confCell=_confBadge(c.conf);
+        workCell=ph?_fmtDays(ph.work_days):"—";
+        reviewCell=ph?_fmtDays(ph.review_days):"—";
+        deliveryCell=ph?_fmtDays(ph.delivery_days):"—";
+      }else if(c&&c.kind==="open"){
+        totalCell='≥'+_fmtDays(c.age_days);
+        confCell=_confBadge(c.start_conf);
+        // Show stuck-in-status badge
+        const tis=_timeInCurrentStatus(sid,grouped[sid]||[]);
+        const thr=stuckThresholds[tis.status]||null;
+        const stuckBadge=(thr&&tis.days&&tis.days>thr)?' <span style="color:#d29922">⚠</span>':'';
+        workCell='<span style="color:#8b949e">'+_fmtDays(tis.days)+' in '+esc(tis.status)+stuckBadge+'</span>';
+        reviewCell='—';deliveryCell='—';
+      }else{
+        totalCell="—";confCell="—";workCell="—";reviewCell="—";deliveryCell="—";
+      }
+      const nEvents=c?c.n_events:0;
+      html+='<tr style="'+rowStyle+'"><td style="padding:6px;border:1px solid #30363d">'+esc(sid)+'</td><td style="padding:6px;border:1px solid #30363d">'+kindBadge+'</td><td style="padding:6px;border:1px solid #30363d;color:#8b949e">'+esc(cat)+'</td><td style="padding:6px;border:1px solid #30363d;text-align:right">'+workCell+'</td><td style="padding:6px;border:1px solid #30363d;text-align:right">'+reviewCell+'</td><td style="padding:6px;border:1px solid #30363d;text-align:right">'+deliveryCell+'</td><td style="padding:6px;border:1px solid #30363d;text-align:right;font-weight:600">'+totalCell+'</td><td style="padding:6px;border:1px solid #30363d;text-align:right">'+confCell+'</td><td style="padding:6px;border:1px solid #30363d;text-align:right;color:#8b949e">'+nEvents+'</td></tr>';
+    }
+    html+='</tbody></table>';
+
+    // Footnote
+    html+='<p style="font-size:11px;color:#484f58;margin-top:16px">Cycle time = effective_end − effective_start. Confidence = √(c_start × c_end). Aggregates use confidence² weights (Kish). Open tasks are right-censored and excluded from percentiles. Per-category shrinkage uses Empirical Bayes with k=5.</p>';
+
+    ov.querySelector("#anaBody").innerHTML=html;
+  }catch(e){
+    ov.querySelector("#anaBody").innerHTML='<div style="color:#f85149">Error: '+esc(e.message||String(e))+'</div>';
+    console.error("openAnalytics failed",e);
+  }
+}
+// ============================================================
+// END ANALYTICS HELPERS
+// ============================================================
+
 function saveState(s){
   localStorage.setItem(STORAGE_KEY,JSON.stringify(s));
   const n=document.getElementById("saveNotice");
   n.textContent="Saving...";n.classList.add("show");
+  // [ANALYTICS] diff vs last snapshot, log events, update snapshot.
+  // Done synchronously *before* the push so events are logged regardless of
+  // network outcome. _logEvent calls are fire-and-forget POSTs.
+  try{
+    if(_analyticsLastSnapshot===null){
+      _analyticsLastSnapshot=_snapshotForAnalytics(s);
+    }else{
+      const newSnap=_snapshotForAnalytics(s);
+      _diffAndLog(_analyticsLastSnapshot,newSnap);
+      _analyticsLastSnapshot=newSnap;
+    }
+  }catch(e){console.warn("[analytics] diff threw",e);}
   if(_saving){_pendingSave=true;return;}
   _saving=true;
   _pushRemote(s).finally(()=>{
