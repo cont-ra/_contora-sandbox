@@ -1042,7 +1042,7 @@
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
 <div id="updateBanner" class="update-banner hidden"><span id="updateBannerText"></span><button id="updateBannerNow">Reload now</button><button id="updateBannerCancel">Later</button></div>
-<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0106</div>
+<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0107</div>
 
 <script>
 const USERS = {
@@ -2106,6 +2106,110 @@ function _runMonteCarlo(activeShots, eventsByShot, samples, iterations){
 }
 
 // ============================================================
+// Per-artist breakdown (speed + activity)
+// ============================================================
+// Attribution: prefer actor_id when set to a real user; fall back to the
+// shot's current assignee (state[shot_id].assignee) so synth backfill events
+// (which use actor_id="system") still count toward the right artist.
+function _eventArtist(event){
+  const a=event.actor_id;
+  if(a&&a!=="system"&&a!=="anon"&&a!=="backfill")return a;
+  return _shotAssignee(event.shot_id);
+}
+
+function _perArtistStats(events, cycles){
+  const KNOWN=["nikita","igor","katya","moon_carrots"];
+  // Discover any extra artists from data
+  const seen=new Set(KNOWN);
+  for(const e of events){
+    const a=_eventArtist(e);
+    if(a)seen.add(a);
+  }
+  for(const c of cycles){
+    const a=_shotAssignee(c.shotId);
+    if(a)seen.add(a);
+  }
+  const artists=Array.from(seen).filter(a=>a&&a!=="system");
+
+  // Per-artist closed cycles + in-flight count
+  const perArtist={};
+  for(const a of artists){
+    perArtist[a]={
+      completed:[],
+      in_flight:0,
+      activity_by_day:{}, // ISO date → count
+      total_events:0,
+      done_events:0,
+    };
+  }
+
+  // Walk cycles to compute completion stats
+  for(const c of cycles){
+    const a=_shotAssignee(c.shotId);
+    if(!a||!(a in perArtist))continue;
+    if(c.kind==="closed"&&c.days>=0){
+      perArtist[a].completed.push(c);
+    }else if(c.kind==="open"){
+      perArtist[a].in_flight+=1;
+    }
+  }
+
+  // Walk events to count activity per day
+  const now=Date.now();
+  const startWindow=now-14*86400000;
+  for(const e of events){
+    const a=_eventArtist(e);
+    if(!a||!(a in perArtist))continue;
+    perArtist[a].total_events+=1;
+    if(e.event_type==="delivered"||e.event_type==="final_uploaded"||e.event_type==="approved"||(e.event_type==="status_changed"&&e.payload&&e.payload.to==="done")){
+      perArtist[a].done_events+=1;
+    }
+    const ts=Date.parse(e.occurred_at);
+    if(ts>=startWindow&&ts<=now){
+      const day=new Date(ts).toISOString().slice(0,10); // YYYY-MM-DD
+      perArtist[a].activity_by_day[day]=(perArtist[a].activity_by_day[day]||0)+1;
+    }
+  }
+
+  // Compute summary per artist
+  const result=[];
+  for(const a of artists){
+    const p=perArtist[a];
+    const closed=p.completed;
+    let median=null,mean=null;
+    if(closed.length){
+      const sorted=closed.map(c=>c.days).sort((x,y)=>x-y);
+      median=sorted[Math.floor(sorted.length/2)];
+      mean=sorted.reduce((s,x)=>s+x,0)/sorted.length;
+    }
+    // 14-day activity sparkline (oldest → newest)
+    const days=[];
+    for(let i=13;i>=0;i--){
+      const d=new Date(now-i*86400000).toISOString().slice(0,10);
+      days.push({day:d,count:p.activity_by_day[d]||0});
+    }
+    result.push({
+      artist:a,
+      completed_count:closed.length,
+      in_flight_count:p.in_flight,
+      median_cycle:median,
+      mean_cycle:mean,
+      total_events:p.total_events,
+      done_events:p.done_events,
+      activity_14d:days,
+      activity_total:days.reduce((s,d)=>s+d.count,0),
+    });
+  }
+  // Sort by completion count desc, then by speed (lower median=faster)
+  result.sort((a,b)=>{
+    if(b.completed_count!==a.completed_count)return b.completed_count-a.completed_count;
+    return (a.median_cycle||999)-(b.median_cycle||999);
+  });
+  return result;
+}
+// ============================================================
+
+// ============================================================
 // PHASE 4b — Throughput-based forecast (Little's Law)
 // ============================================================
 // Industry-standard kanban approach: measure recent shots-completed-per-day,
@@ -2446,6 +2550,60 @@ async function openAnalytics(){
         html+='<tr><td style="padding:6px;border:1px solid #30363d">'+esc(s.shotId)+'</td><td style="padding:6px;border:1px solid #30363d">'+esc(s.status)+'</td><td style="padding:6px;border:1px solid #30363d;text-align:right;color:'+color+';font-weight:600">'+_fmtDays(s.days)+'</td><td style="padding:6px;border:1px solid #30363d;text-align:right;color:#8b949e">'+_fmtDays(thr)+'</td><td style="padding:6px;border:1px solid #30363d;color:#484f58;font-size:11px">'+esc(s.source)+'</td></tr>';
       }
       html+='</tbody></table>';
+    }
+
+    // === Per-artist breakdown (speed + activity) ===
+    const artistStats=_perArtistStats(events,cycles);
+    if(artistStats.length){
+      html+='<h3 style="font-size:14px;margin:24px 0 8px">Per-artist breakdown</h3>';
+      // Compute max for sparkline scaling
+      let maxDayCount=1;
+      for(const a of artistStats){
+        for(const d of a.activity_14d){
+          if(d.count>maxDayCount)maxDayCount=d.count;
+        }
+      }
+      // Find slowest artist for color hint
+      let fastestSpeed=Infinity,slowestSpeed=0;
+      for(const a of artistStats){
+        if(a.median_cycle!==null){
+          if(a.median_cycle<fastestSpeed)fastestSpeed=a.median_cycle;
+          if(a.median_cycle>slowestSpeed)slowestSpeed=a.median_cycle;
+        }
+      }
+
+      html+='<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:8px"><thead><tr style="background:#161b22"><th style="text-align:left;padding:8px;border:1px solid #30363d">Artist</th><th style="text-align:right;padding:8px;border:1px solid #30363d">Completed</th><th style="text-align:right;padding:8px;border:1px solid #30363d">In flight</th><th style="text-align:right;padding:8px;border:1px solid #30363d">Typical shot time</th><th style="text-align:left;padding:8px;border:1px solid #30363d;width:240px">Activity (last 14 days)</th><th style="text-align:right;padding:8px;border:1px solid #30363d">Events</th></tr></thead><tbody>';
+
+      for(const a of artistStats){
+        // Color the typical shot cell — green for fastest, red for slowest
+        let speedColor="#8b949e",speedLabel="—";
+        if(a.median_cycle!==null){
+          speedLabel=_fmtDays(a.median_cycle);
+          if(a.median_cycle<=fastestSpeed*1.1)speedColor="#3fb950";
+          else if(a.median_cycle>=slowestSpeed*0.9&&slowestSpeed>fastestSpeed)speedColor="#f85149";
+          else speedColor="#d29922";
+        }
+        // Build sparkline as inline SVG-like flex bars
+        let spark='<div style="display:flex;align-items:flex-end;gap:1px;height:32px">';
+        for(const d of a.activity_14d){
+          const h=d.count>0?Math.max(2,Math.round(30*d.count/maxDayCount)):2;
+          const c=d.count>0?"#58a6ff":"#21262d";
+          spark+='<div title="'+d.day+': '+d.count+' events" style="flex:1;background:'+c+';height:'+h+'px;border-radius:1px"></div>';
+        }
+        spark+='</div>';
+        // Today label
+        const today=a.activity_14d[a.activity_14d.length-1];
+        const todayLabel='<div style="font-size:10px;color:#484f58;margin-top:2px">today: '+today.count+' events · 14d total: '+a.activity_total+'</div>';
+
+        html+='<tr><td style="padding:8px;border:1px solid #30363d;font-weight:600">'+esc(a.artist)+'</td>';
+        html+='<td style="padding:8px;border:1px solid #30363d;text-align:right;color:#3fb950;font-weight:600">'+a.completed_count+'</td>';
+        html+='<td style="padding:8px;border:1px solid #30363d;text-align:right;color:#58a6ff">'+a.in_flight_count+'</td>';
+        html+='<td style="padding:8px;border:1px solid #30363d;text-align:right;color:'+speedColor+';font-weight:600">'+speedLabel+'</td>';
+        html+='<td style="padding:8px;border:1px solid #30363d">'+spark+todayLabel+'</td>';
+        html+='<td style="padding:8px;border:1px solid #30363d;text-align:right;color:#8b949e">'+a.total_events+'</td></tr>';
+      }
+      html+='</tbody></table>';
+      html+='<p style="font-size:11px;color:#484f58;margin:0 0 16px">Activity bars show events attributed to the artist over the last 14 days (one bar per day, oldest left). Includes both their direct actions and events on shots assigned to them. <span style="color:#3fb950">Green</span>=fastest typical shot · <span style="color:#d29922">amber</span>=mid · <span style="color:#f85149">red</span>=slowest. Synth backfill events use the shot\'s assignee.</p>';
     }
 
     // Category table with shrinkage
