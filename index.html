@@ -1050,7 +1050,7 @@
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
 <div id="updateBanner" class="update-banner hidden"><span id="updateBannerText"></span><button id="updateBannerNow">Reload now</button><button id="updateBannerCancel">Later</button></div>
-<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0117</div>
+<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0118</div>
 
 <script>
 const USERS = {
@@ -7089,15 +7089,21 @@ function _vid(){return document.getElementById("gifVideo");}
 function openGif(id){
   _cleanupGif();
   _gifCurrentId=id;
-  // Determine which version to open: cached > latest version > original
+  // Determine which version to open: cached > approved > latest > original
   const versions=state[id]?.versions||[];
   const cachedIdx=_getPlayerCache(id);
   if(cachedIdx!==null&&cachedIdx>=-1&&cachedIdx<versions.length){
     _gifVersionIdx=cachedIdx;
-  } else if(versions.length>0){
-    _gifVersionIdx=versions.length-1;
   } else {
-    _gifVersionIdx=-1;
+    const approvedV=state[id]?.approvedVersion||0;
+    if(approvedV>0){
+      const aidx=versions.findIndex(v=>_parseVersionName(v.name||'').vNum===approvedV);
+      _gifVersionIdx=aidx>=0?aidx:versions.length-1;
+    } else if(versions.length>0){
+      _gifVersionIdx=versions.length-1;
+    } else {
+      _gifVersionIdx=-1;
+    }
   }
   _drawMode=false;
   document.getElementById("drawToggle").classList.remove("active");
@@ -7810,9 +7816,13 @@ function _renderShotBody(id){
   versions.forEach((v,i)=>{
     const thumbHtml=v.thumb?`<img src="${v.thumb}" alt="V${i+1}">`:`<div class="version-thumb"><span class="version-num">V${i+1}</span></div>`;
     const delBtn=canUp?`<button class="ver-del" onclick="event.stopPropagation();deleteVersion('${id}',${i})" title="Delete">&times;</button>`:'';
-    html+=`<div class="shot-media-card" onclick="closeShot();_playVersion('${id}',${i})">
+    const vNumParsed=_parseVersionName(v.name||'').vNum;
+    const isApproved=state[id]?.approvedVersion===vNumParsed&&vNumParsed>0;
+    const approveBtn=isAdmin()?`<button class="ver-del" onclick="event.stopPropagation();approveVersion('${id}',${vNumParsed})" title="${isApproved?'Approved — click to remove':'Approve as final'}" style="color:${isApproved?'#3fb950':'#484f58'};font-size:${isApproved?'14':'12'}px">${isApproved?'★':'☆'}</button>`:'';
+    const approvedBadge=isApproved?'<span style="color:#3fb950;font-size:10px;margin-left:4px">APPROVED</span>':'';
+    html+=`<div class="shot-media-card" onclick="closeShot();_playVersion('${id}',${i})" style="${isApproved?'outline:2px solid #3fb950;outline-offset:-2px':''}">
       <div class="shot-media-img">${thumbHtml}</div>
-      <div class="shot-media-label"><span class="play-icon">▶</span> ${esc(v.name||'Version '+(i+1))}${delBtn}</div>
+      <div class="shot-media-label"><span class="play-icon">▶</span> ${esc(v.name||'Version '+(i+1))}${approvedBadge}${approveBtn}${delBtn}</div>
     </div>`;
   });
   if(_uploads[id]){
@@ -8005,14 +8015,18 @@ function _getFilesRoot(id){
       else if(hasFinal&&!isDone){colorTag='#d29922';priority=2;} // yellow
       else if(hasFinal&&isDone){colorTag='#3fb950';priority=3;}  // green
       else {colorTag='#f85149';priority=1;}                       // red (done, no file)
-      const children=finalArr.map(f=>({
+      const approvedV=state[t.id]?.approvedVersion||0;
+      const filteredFinals=approvedV>0?finalArr.filter(f=>{const p=_parseVersionName(f.name);return p.vNum===approvedV;}):finalArr;
+      const displayFinals=filteredFinals.length>0?filteredFinals:finalArr;
+      const children=displayFinals.map(f=>({
         name:f.name,
         size:_formatSize(f.size),
         _bytes:f.size||0,
         date:f.date||'—',
         url:CDN_BASE+'/'+f.r2key
       }));
-      result.push({name:t.id,displayName:t.id+'_FINAL',type:'folder',locked:false,children,colorTag,_priority:priority});
+      const approvedLabel=approvedV>0&&filteredFinals.length>0?' (v'+String(approvedV).padStart(3,'0')+' ★)':'';
+      result.push({name:t.id,displayName:t.id+'_FINAL'+approvedLabel,type:'folder',locked:false,children,colorTag,_priority:priority});
     }
     // Sort: red (1) → yellow (2) → green (3) → grey (4). Within the grey
     // bucket sort alphabetically by shot id (the user explicitly asked for
@@ -8876,7 +8890,12 @@ function _setupDoneShotsHoverPreview(container){
 }
 function _dsHoverPickPreviewUrl(shotId){
   const versions=state[shotId]?.versions||[];
-  // Prefer latest version preview (the approved one)
+  // Prefer approved version, then latest
+  const approvedV=state[shotId]?.approvedVersion||0;
+  if(approvedV>0){
+    const approved=versions.find(v=>{const p=_parseVersionName(v.name||'');return p.vNum===approvedV;});
+    if(approved?.url)return {url:approved.url,label:(approved.name||'v'+approvedV)+' ★'};
+  }
   for(let i=versions.length-1;i>=0;i--){
     if(versions[i]?.url)return {url:versions[i].url,label:versions[i].name||('v'+(i+1))};
   }
@@ -9221,18 +9240,20 @@ async function _uploadFilesToR2(id,fileList){
     return;
   }
 
-  // versions/final — must have _v### matching latest version
+  // versions/final — must have _v### matching an existing preview version
   if(stateKey==='versions/final'){
     const maxV=_getMaxVersion(id,id);
     if(maxV===0){await _showAlert('No versions yet','Upload a version preview first.');return;}
+    const existingVersions=state[id]?.versions||[];
     for(const file of fileList){
       const {vNum}=_parseVersionName(file.name);
       if(vNum===0){
-        await _showAlert('Missing version','Final render must include <b>_v###</b><br>Latest: <b>_v'+String(maxV).padStart(3,'0')+'</b><br>Example: <span style="color:#3fb950">'+esc(id)+'_v'+String(maxV).padStart(3,'0')+'.'+file.name.split('.').pop()+'</span>');
+        await _showAlert('Missing version','Final render must include <b>_v###</b><br>Example: <span style="color:#3fb950">'+esc(id)+'_v'+String(maxV).padStart(3,'0')+'.'+file.name.split('.').pop()+'</span>');
         continue;
       }
-      if(vNum!==maxV){
-        const ok=await _showConfirm('Version mismatch','File has <b>_v'+String(vNum).padStart(3,'0')+'</b> but latest is <b>_v'+String(maxV).padStart(3,'0')+'</b>. Continue?','Upload anyway');
+      const hasPreview=existingVersions.some(v=>{const p=_parseVersionName(v.name||'');return p.vNum===vNum;});
+      if(!hasPreview){
+        const ok=await _showConfirm('No matching preview','No preview <b>_v'+String(vNum).padStart(3,'0')+'</b> exists. Upload final anyway?','Upload anyway');
         if(!ok)continue;
       }
       if(state[id]?.files?.[stateKey]?.some(f=>f.name===file.name)){await _showAlert('Duplicate',esc(file.name)+' already exists.');continue;}
@@ -9932,12 +9953,23 @@ function _showPushPrompt(title,subject){
     });
   });
 }
+function approveVersion(id,vNum){
+  if(!isAdmin()||!vNum)return;
+  if(!state[id])state[id]={};
+  if(state[id].approvedVersion===vNum){delete state[id].approvedVersion;}
+  else{state[id].approvedVersion=vNum;}
+  saveState(state);
+  if(_shotCurrentId===id)_renderShotBody(id);
+}
 async function deleteVersion(id,idx){
   if(!_canUpload(id)||!state[id]?.versions)return;
   const v=state[id].versions[idx];
   if(!v)return;
   const ok=await _showConfirm("Delete version?",esc(v.name||"Version "+(idx+1))+"<br>This will permanently remove the file.");
   if(!ok)return;
+  // Clear approved status if deleting the approved version
+  const delVNum=_parseVersionName(v.name||'').vNum;
+  if(delVNum&&state[id]?.approvedVersion===delVNum)delete state[id].approvedVersion;
   state[id].versions.splice(idx,1);
   saveState(state);
   if(_shotCurrentId===id)_renderShotBody(id);
