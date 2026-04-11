@@ -521,6 +521,12 @@
   .scrubber-marker::before { content: ''; width: 2px; height: 60%; background: #f85149; border-radius: 1px; transition: width .15s, height .15s, box-shadow .15s; }
   .scrubber-marker:hover::before { width: 4px; height: 100%; box-shadow: 0 0 6px #f85149; }
   .gif-frame-label { color: #8b949e; font-size: 12px; font-family: 'SF Mono', monospace; min-width: 160px; text-align: center; }
+  .gif-volume-wrap { display: flex; align-items: center; gap: 6px; }
+  .gif-vol-btn { width: 36px; height: 36px; font-size: 16px; }
+  .gif-volume { width: 0; opacity: 0; pointer-events: none; -webkit-appearance: none; appearance: none; height: 4px; background: rgba(255,255,255,0.15); border-radius: 2px; outline: none; cursor: pointer; transition: width .2s ease, opacity .2s ease; }
+  .gif-volume-wrap:hover .gif-volume, .gif-volume:focus { width: 90px; opacity: 1; pointer-events: auto; }
+  .gif-volume::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #fff; cursor: pointer; }
+  .gif-volume::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: #fff; cursor: pointer; border: none; }
   .gif-close-btn { position: absolute; top: 20px; right: 24px; background: none; border: none; color: #8b949e; font-size: 32px; cursor: pointer; line-height: 1; z-index: 10; }
   .gif-close-btn:hover { color: #fff; }
 
@@ -942,7 +948,7 @@
               </span>
             </div>
             <div class="video-wrap" id="videoWrap">
-              <video id="gifVideo" loop muted playsinline onclick="toggleGifPause()"></video>
+              <video id="gifVideo" loop playsinline onclick="toggleGifPause()"></video>
             </div>
           </div>
         </div>
@@ -952,6 +958,10 @@
           <button class="gif-ctrl-btn" onclick="stepFrame(1)" title="Next frame">|&gt;</button>
           <div class="scrubber-wrap"><div class="scrubber-markers" id="scrubberMarkers"></div><input type="range" class="gif-scrubber" id="gifScrubber" min="0" max="100" value="0" oninput="seekGif(this.value)" onchange="seekGif(this.value)"></div>
           <span class="gif-frame-label" id="gifFrameLabel">0 / 0</span>
+          <div class="gif-volume-wrap">
+            <button class="gif-ctrl-btn gif-vol-btn" id="gifVolBtn" onclick="toggleGifMute()" title="Mute (M)">&#128266;</button>
+            <input type="range" class="gif-volume" id="gifVolume" min="0" max="100" value="100" oninput="setGifVolume(this.value)" title="Volume">
+          </div>
         </div>
       </div>
       <div class="player-notes-panel" id="playerNotesPanel">
@@ -1050,7 +1060,7 @@
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
 <div id="updateBanner" class="update-banner hidden"><span id="updateBannerText"></span><button id="updateBannerNow">Reload now</button><button id="updateBannerCancel">Later</button></div>
-<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0118</div>
+<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0119</div>
 
 <script>
 const USERS = {
@@ -2605,6 +2615,104 @@ function _confBadge(c){
   return '<span style="color:'+color+'">'+c.toFixed(2)+'</span>';
 }
 
+// === STORAGE ANALYTICS ===
+// Collects all sized file entries from state. Returns array of
+// {ts, bytes, kind, shotId, name}. ts may be 0 for legacy entries lacking date/ts.
+function _collectStorageEntries(){
+  const entries=[];
+  const ids=_allShotIds();
+  for(const sid of ids){
+    const s=state[sid];if(!s)continue;
+    if(s.files){
+      for(const cat in s.files){
+        const arr=s.files[cat]||[];
+        for(const f of arr){
+          if(!f||!f.size)continue;
+          const ts=f.date?Date.parse(f.date):0;
+          entries.push({ts:isNaN(ts)?0:ts,bytes:f.size,kind:cat,shotId:sid,name:f.name||''});
+        }
+      }
+    }
+    if(s.versions){
+      for(const v of s.versions){
+        if(!v||!v.size)continue;
+        entries.push({ts:v.ts||0,bytes:v.size,kind:'versions/preview',shotId:sid,name:v.name||''});
+      }
+    }
+  }
+  // Admin folder uploads
+  const adm=state.__admin&&state.__admin.files;
+  if(adm){
+    for(const folder in adm){
+      const arr=adm[folder]||[];
+      for(const f of arr){
+        if(!f||!f.size)continue;
+        const ts=f.date?Date.parse(f.date):0;
+        entries.push({ts:isNaN(ts)?0:ts,bytes:f.size,kind:'admin/'+folder,shotId:'__admin',name:f.name||''});
+      }
+    }
+  }
+  return entries;
+}
+
+// Group entries into cumulative daily timeline. Entries without ts are
+// lumped into the earliest known day so total still adds up.
+function _storageTimeline(entries){
+  if(!entries.length)return {points:[],totalBytes:0};
+  const byDay={};
+  let earliest=Infinity;
+  for(const e of entries){
+    if(e.ts>0&&e.ts<earliest)earliest=e.ts;
+  }
+  if(!isFinite(earliest))earliest=Date.now();
+  const earliestKey=new Date(earliest).toISOString().slice(0,10);
+  let totalBytes=0;
+  for(const e of entries){
+    totalBytes+=e.bytes;
+    const key=e.ts>0?new Date(e.ts).toISOString().slice(0,10):earliestKey;
+    byDay[key]=(byDay[key]||0)+e.bytes;
+  }
+  const sortedDays=Object.keys(byDay).sort();
+  let cum=0;
+  const points=sortedDays.map(d=>{cum+=byDay[d];return {date:d,delta:byDay[d],cum:cum};});
+  return {points,totalBytes};
+}
+
+// Renders an inline SVG cumulative-storage area chart.
+function _renderStorageChart(points,width,height){
+  if(!points.length)return '<div style="color:#8b949e;font-size:12px;text-align:center;padding:30px">No storage data yet</div>';
+  const pad={l:50,r:10,t:10,b:24};
+  const w=width-pad.l-pad.r,h=height-pad.t-pad.b;
+  const maxY=points[points.length-1].cum;
+  const t0=Date.parse(points[0].date),t1=Date.parse(points[points.length-1].date);
+  const span=Math.max(1,t1-t0);
+  const xOf=p=>pad.l+(Date.parse(p.date)-t0)/span*w;
+  const yOf=v=>pad.t+h-(v/maxY)*h;
+  let path='';
+  points.forEach((p,i)=>{path+=(i===0?'M':'L')+xOf(p).toFixed(1)+','+yOf(p.cum).toFixed(1);});
+  const area=path+'L'+xOf(points[points.length-1]).toFixed(1)+','+(pad.t+h)+'L'+xOf(points[0]).toFixed(1)+','+(pad.t+h)+'Z';
+  // Y-axis labels (4 ticks)
+  let yLabels='';
+  for(let i=0;i<=4;i++){
+    const v=maxY*i/4;const y=yOf(v);
+    yLabels+='<line x1="'+pad.l+'" y1="'+y.toFixed(1)+'" x2="'+(pad.l+w)+'" y2="'+y.toFixed(1)+'" stroke="#21262d" stroke-width="1"/>';
+    yLabels+='<text x="'+(pad.l-6)+'" y="'+(y+3).toFixed(1)+'" fill="#8b949e" font-size="10" text-anchor="end" font-family="SF Mono,monospace">'+_formatSize(v)+'</text>';
+  }
+  // X-axis labels: first, mid, last
+  let xLabels='';
+  const xTicks=[points[0],points[Math.floor(points.length/2)],points[points.length-1]];
+  for(const p of xTicks){
+    xLabels+='<text x="'+xOf(p).toFixed(1)+'" y="'+(pad.t+h+14)+'" fill="#8b949e" font-size="10" text-anchor="middle" font-family="SF Mono,monospace">'+p.date+'</text>';
+  }
+  return '<svg width="'+width+'" height="'+height+'" viewBox="0 0 '+width+' '+height+'" style="display:block">'
+    +'<defs><linearGradient id="anaStorageGrad" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#58a6ff" stop-opacity="0.5"/><stop offset="100%" stop-color="#58a6ff" stop-opacity="0.05"/></linearGradient></defs>'
+    +yLabels
+    +'<path d="'+area+'" fill="url(#anaStorageGrad)" stroke="none"/>'
+    +'<path d="'+path+'" fill="none" stroke="#58a6ff" stroke-width="2"/>'
+    +xLabels
+    +'</svg>';
+}
+
 async function openAnalytics(){
   // Build modal shell first so user sees instant feedback
   let ov=document.getElementById("analyticsOverlay");
@@ -2674,6 +2782,71 @@ async function openAnalytics(){
     // Coverage line
     const inScopeTotal=agg.closed_count+agg.open_count+agg.no_data_count;
     html+='<div style="color:#8b949e;font-size:13px;margin-bottom:16px"><b style="color:#3fb950">'+agg.closed_count+' completed</b> · <b style="color:#d29922">'+agg.open_count+' in flight</b> · <b style="color:#f85149">'+agg.no_data_count+' no data yet</b> · <b style="color:#484f58">'+agg.skipped_count+' skipped (out of scope)</b> · '+inScopeTotal+' shots in scope</div>';
+
+    // === STORAGE GROWTH ===
+    const storageEntries=_collectStorageEntries();
+    const tl=_storageTimeline(storageEntries);
+    const storageTotal=tl.totalBytes;
+    const storageFiles=storageEntries.length;
+    // Last 7 days delta
+    const sevenDaysAgo=Date.now()-7*86400000;
+    let last7Bytes=0,last7Files=0;
+    for(const e of storageEntries){
+      if(e.ts>=sevenDaysAgo){last7Bytes+=e.bytes;last7Files++;}
+    }
+    // Per-shot totals → biggest shot
+    const perShot={};
+    for(const e of storageEntries){
+      if(e.shotId==='__admin')continue;
+      perShot[e.shotId]=(perShot[e.shotId]||0)+e.bytes;
+    }
+    const biggestShot=Object.entries(perShot).sort((a,b)=>b[1]-a[1])[0];
+    // Per-kind breakdown
+    const perKind={};
+    for(const e of storageEntries){perKind[e.kind]=(perKind[e.kind]||0)+e.bytes;}
+    const kindOrder2=Object.entries(perKind).sort((a,b)=>b[1]-a[1]);
+    // Days with no upload between first and now (gauge of activity gaps)
+    const daysSpan=tl.points.length>1?Math.round((Date.parse(tl.points[tl.points.length-1].date)-Date.parse(tl.points[0].date))/86400000)+1:1;
+    const avgPerDay=daysSpan>0?storageTotal/daysSpan:0;
+
+    html+='<h3 style="font-size:14px;margin:24px 0 8px">💾 Storage growth</h3>';
+    html+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px">';
+    html+='<div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px"><div style="color:#8b949e;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">Total in R2</div><div style="font-size:24px;font-weight:600;color:#58a6ff;margin-top:4px">'+_formatSize(storageTotal)+'</div><div style="color:#8b949e;font-size:11px;margin-top:4px">'+storageFiles+' tracked files</div></div>';
+    html+='<div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px"><div style="color:#8b949e;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">Last 7 days</div><div style="font-size:24px;font-weight:600;color:#3fb950;margin-top:4px">+'+_formatSize(last7Bytes)+'</div><div style="color:#8b949e;font-size:11px;margin-top:4px">'+last7Files+' new files</div></div>';
+    html+='<div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px"><div style="color:#8b949e;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">Avg / day</div><div style="font-size:24px;font-weight:600;color:#d29922;margin-top:4px">'+_formatSize(avgPerDay)+'</div><div style="color:#8b949e;font-size:11px;margin-top:4px">over '+daysSpan+' days</div></div>';
+    if(biggestShot){
+      html+='<div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px"><div style="color:#8b949e;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">Biggest shot</div><div style="font-size:18px;font-weight:600;color:#f85149;margin-top:4px">'+esc(biggestShot[0])+'</div><div style="color:#8b949e;font-size:11px;margin-top:4px">'+_formatSize(biggestShot[1])+'</div></div>';
+    } else {
+      html+='<div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px"><div style="color:#8b949e;font-size:11px">—</div></div>';
+    }
+    html+='</div>';
+    // Cumulative chart
+    html+='<div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:14px;margin-bottom:14px">';
+    html+='<div style="color:#8b949e;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Cumulative R2 usage over time</div>';
+    html+=_renderStorageChart(tl.points,1040,200);
+    html+='</div>';
+    // Per-kind breakdown bar
+    if(kindOrder2.length){
+      html+='<div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:14px;margin-bottom:20px">';
+      html+='<div style="color:#8b949e;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">Where the bytes go</div>';
+      const kindColors={'source/preview':'#58a6ff','source/original':'#3fb950','source/assets':'#d29922','versions/preview':'#a371f7','versions/final':'#f85149'};
+      // Stacked horizontal bar
+      html+='<div style="display:flex;width:100%;height:18px;border-radius:4px;overflow:hidden;margin-bottom:8px">';
+      for(const [k,b] of kindOrder2){
+        const pct=(b/storageTotal*100).toFixed(2);
+        const col=kindColors[k]||'#484f58';
+        html+='<div style="width:'+pct+'%;background:'+col+'" title="'+esc(k)+': '+_formatSize(b)+' ('+pct+'%)"></div>';
+      }
+      html+='</div>';
+      // Legend
+      html+='<div style="display:flex;flex-wrap:wrap;gap:14px;font-size:11px">';
+      for(const [k,b] of kindOrder2){
+        const pct=(b/storageTotal*100).toFixed(1);
+        const col=kindColors[k]||'#484f58';
+        html+='<div style="color:#8b949e;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:10px;height:10px;background:'+col+';border-radius:2px"></span>'+esc(k)+' <b style="color:#c9d1d9">'+_formatSize(b)+'</b> ('+pct+'%)</div>';
+      }
+      html+='</div></div>';
+    }
 
     // Canonical shot list (used by both forecast and pipeline-state breakdown below)
     const allShotIds=_allShotIds();
@@ -7079,6 +7252,14 @@ function thumbPreviewStop(wrap){
   if(playIcon)playIcon.style.display='';
 }
 let _gifPaused=false, _gifUpdater=null, _gifCurrentId=null, _videoFPS=24, _gifVersionIdx=-1;
+let _playerVolume=1.0, _playerMuted=false;
+(function _loadVolumePref(){try{const s=JSON.parse(localStorage.getItem('kh_player_volume')||'{}');if(typeof s.volume==='number')_playerVolume=Math.max(0,Math.min(1,s.volume));if(typeof s.muted==='boolean')_playerMuted=s.muted;}catch(e){}})();
+function _saveVolumePref(){try{localStorage.setItem('kh_player_volume',JSON.stringify({volume:_playerVolume,muted:_playerMuted}));}catch(e){}}
+function _volIcon(){return _playerMuted||_playerVolume===0?'&#128263;':(_playerVolume<0.5?'&#128264;':'&#128266;');}
+function _applyVolumeUI(){const btn=document.getElementById('gifVolBtn');if(btn)btn.innerHTML=_volIcon();const sl=document.getElementById('gifVolume');if(sl)sl.value=Math.round((_playerMuted?0:_playerVolume)*100);}
+function _applyVolumeToVideo(){const vid=_vid();if(!vid)return;vid.volume=_playerVolume;vid.muted=_playerMuted;}
+function setGifVolume(v){const f=Math.max(0,Math.min(1,Number(v)/100));_playerVolume=f;if(f>0)_playerMuted=false;_applyVolumeToVideo();_applyVolumeUI();_saveVolumePref();}
+function toggleGifMute(){_playerMuted=!_playerMuted;if(!_playerMuted&&_playerVolume===0)_playerVolume=0.5;_applyVolumeToVideo();_applyVolumeUI();_saveVolumePref();}
 function _setPlayerCache(id,idx){try{const c=JSON.parse(localStorage.getItem('kh_player_cache')||'{}');c[id]=idx;localStorage.setItem('kh_player_cache',JSON.stringify(c));}catch(e){}}
 function _getPlayerCache(id){try{const c=JSON.parse(localStorage.getItem('kh_player_cache')||'{}');return c[id]!==undefined?c[id]:null;}catch(e){return null;}}
 const TOOL_ICONS={pen:'✏️',triangle:'△',rect:'▭',circle:'○',arrow:'→'};
@@ -7109,6 +7290,7 @@ function openGif(id){
   document.getElementById("drawToggle").classList.remove("active");
   const vid=_vid();
   document.getElementById("gifOverlay").classList.remove("hidden");
+  _applyVolumeUI();
   renderPlayerNotes();
   renderVersionsPanel();
 
@@ -7140,9 +7322,15 @@ function openGif(id){
     _updateMarkers();
     _gifPaused=false;
     document.getElementById("gifPlayBtn").textContent="❚❚";
+    _applyVolumeToVideo();
     vid.play().catch(()=>{
-      _gifPaused=true;
-      document.getElementById("gifPlayBtn").textContent="▶";
+      // Autoplay with sound blocked — fall back to muted playback, user can unmute manually
+      vid.muted=true;
+      _applyVolumeUI();
+      vid.play().catch(()=>{
+        _gifPaused=true;
+        document.getElementById("gifPlayBtn").textContent="▶";
+      });
     });
     _gifUpdater=requestAnimationFrame(_tickUpdate);
   }
@@ -7734,6 +7922,7 @@ document.addEventListener("keydown",e=>{
   if(e.key==="Escape"){if(typing){ae.blur();return;}closeGif();}
   if(typing)return;
   if(e.key===" "){e.preventDefault();toggleGifPause();}
+  if(e.key==="m"||e.key==="M"){e.preventDefault();toggleGifMute();}
   if(e.key==="ArrowLeft"){e.preventDefault();stepFrame(-1);}
   if(e.key==="ArrowRight"){e.preventDefault();stepFrame(1);}
   if(e.key==="ArrowUp"||e.key==="ArrowDown"){
@@ -9584,6 +9773,7 @@ function _playVersion(id,idx){
   const vid=document.getElementById("gifVideo");
   _cleanupGif();_gifCurrentId=id;_gifVersionIdx=idx;
   document.getElementById("gifOverlay").classList.remove("hidden");
+  _applyVolumeUI();
   renderPlayerNotes();
   renderVersionsPanel();
   _updatePlayerPushBtn();
@@ -9593,7 +9783,9 @@ function _playVersion(id,idx){
     scrub.max=Math.round(vid.duration*1000);scrub.value=0;
     _initDrawCanvas();
     _updateMarkers();
-    vid.play();_gifPaused=false;
+    _applyVolumeToVideo();
+    vid.play().catch(()=>{vid.muted=true;_applyVolumeUI();vid.play().catch(()=>{});});
+    _gifPaused=false;
     document.getElementById("gifPlayBtn").textContent="❚❚";
   },{once:true});
 }
@@ -9655,6 +9847,7 @@ function switchVersion(idx){
     _loadDrawingsForFrame();
     _redrawAll();
     _updateMarkers();
+    _applyVolumeToVideo();
   },{once:true});
   renderPlayerNotes();
   renderVersionsPanel();
