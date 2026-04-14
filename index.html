@@ -1060,7 +1060,7 @@
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
 <div id="updateBanner" class="update-banner hidden"><span id="updateBannerText"></span><button id="updateBannerNow">Reload now</button><button id="updateBannerCancel">Later</button></div>
-<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0119</div>
+<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0120</div>
 
 <script>
 const USERS = {
@@ -1717,7 +1717,12 @@ function _doneKind(shotId){
   // status==='delivered' is the strongest "done" signal — short-circuit.
   if(status==="delivered")return "delivered";
   const finalArr=(sh.files&&sh.files['versions/final'])||[];
-  const hasFinal=finalArr.length>0;
+  // If a preview version is starred (approvedVersion), only finals matching
+  // that version count — old/unrelated finals must not turn the shot green.
+  const apprV=sh.approvedVersion||0;
+  const _vNum=(nm)=>{const ne=(nm||"").replace(/\.[^.]+$/,"");const m=ne.match(/^(.+?)_prev_v(\d{3,4})$/i)||ne.match(/^(.+?)_v(\d{3,4})$/i);return m?parseInt(m[2],10):0;};
+  const matchingFinals=apprV>0?finalArr.filter(f=>_vNum(f.name)===apprV):finalArr;
+  const hasFinal=matchingFinals.length>0;
   const isDone=status==="done";
   if(!hasFinal&&!isDone){
     if(status==="progress")return "in_progress";
@@ -1727,7 +1732,7 @@ function _doneKind(shotId){
   // Mirror prod _isDelivered logic
   const shares=state.__downloadShares||{};
   const tracking=state.__downloadTracking||{};
-  const finalNames=finalArr.map(f=>shotId+"_FINAL/"+f.name);
+  const finalNames=matchingFinals.map(f=>shotId+"_FINAL/"+f.name);
   let delivered=false;
   if(finalNames.length){
     outer: for(const token of Object.keys(shares)){
@@ -1748,6 +1753,9 @@ function _doneKind(shotId){
   if(hasFinal&&isDone)return "done_with_file"; // green
   return "done_no_file"; // red
 }
+
+// Replace finalNames used by _doneKind's delivered check so old unrelated
+// finals can't mark a re-approved shot as delivered. (Applied above.)
 
 // Category accessors — DELEGATE to prod functions to stay consistent.
 // Prod has: getCat(id) [defaults to "other"], getCatLabel(cat) [uses CAT_LABELS],
@@ -3792,6 +3800,7 @@ function _renderDoneShotsTracker(){
     html+=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">`;
     html+=`<span style="font-size:11px;color:#8b949e;flex:1">📅 ${esc(created)}</span>`;
     html+=`<button onclick="navigator.clipboard.writeText('${esc(url)}');this.textContent='✓';setTimeout(()=>this.textContent='🔗',1500)" title="Copy link" style="background:#21262d;border:1px solid #30363d;color:#58a6ff;padding:2px 6px;border-radius:4px;font-size:10px;cursor:pointer">🔗</button>`;
+    html+=`<button onclick="_revokeShareLink('${esc(tok)}')" title="Revoke link (bot can no longer serve it)" style="background:#21262d;border:1px solid #30363d;color:#f85149;padding:2px 6px;border-radius:4px;font-size:10px;cursor:pointer">🗑</button>`;
     html+=`</div>`;
     html+=`<div style="font-size:10px;color:#6e7681;margin-bottom:8px;word-break:break-all">${ids.map(i=>esc(i)).join(', ')}</div>`;
     // Compute the FULL expected file list for this share so visitor status
@@ -4446,6 +4455,26 @@ function _dlRevokeShare(token){
   delete state.__downloadShares[token];
   saveState(state);
   document.getElementById("dlShareOverlay")?.remove();
+}
+// Revoke a share link from the Done Shots sidebar. Once removed from
+// __downloadShares the public download page (line ~4596) refuses the token
+// with "Invalid or expired link", so any copy the bot previously sent —
+// or the user kept in their Telegram chat — stops working immediately.
+// Tracking data is also dropped so the sidebar doesn't show a ghost entry.
+async function _revokeShareLink(token){
+  if(!isAdmin())return;
+  const shares=state.__downloadShares||{};
+  const info=shares[token];
+  const ids=info?.ids||[];
+  const created=info?.created?new Date(info.created).toLocaleDateString():'—';
+  const body='Date: '+esc(created)+'<br>Shots: '+(ids.length?esc(ids.join(', ')):'—')
+    +'<br><br>The link will stop working immediately. Anyone who saved or received it from the bot will see <i>Invalid or expired link</i>.';
+  const ok=await _showConfirm('Revoke share link?',body);
+  if(!ok)return;
+  if(state.__downloadShares)delete state.__downloadShares[token];
+  if(state.__downloadTracking)delete state.__downloadTracking[token];
+  saveState(state);
+  if(typeof _renderDoneShotsTracker==='function')_renderDoneShotsTracker();
 }
 function _doneShareFolder(shotId){
   _shareDownloadLink([shotId],'Final files for shot:');
@@ -8178,7 +8207,10 @@ function _getFilesRoot(id){
     const _isDelivered=(shotId)=>{
       const tracking=state.__downloadTracking||{};
       const shares=state.__downloadShares||{};
-      const finalNames=((state[shotId]?.files?.['versions/final'])||[]).map(f=>shotId+'_FINAL/'+f.name);
+      const apprV=state[shotId]?.approvedVersion||0;
+      const allFinals=(state[shotId]?.files?.['versions/final'])||[];
+      const relevant=apprV>0?allFinals.filter(f=>{const p=_parseVersionName(f.name);return p.vNum===apprV;}):allFinals;
+      const finalNames=relevant.map(f=>shotId+'_FINAL/'+f.name);
       if(!finalNames.length)return false;
       for(const[token,share] of Object.entries(shares)){
         if(!share||!Array.isArray(share.ids)||!share.ids.includes(shotId))continue;
@@ -8195,18 +8227,23 @@ function _getFilesRoot(id){
     };
     for(const t of TASKS){
       const finalArr=(state[t.id]?.files?.['versions/final'])||[];
-      const hasFinal=finalArr.length>0;
-      const isDone=getStatus(t.id)==='done';
-      if(!hasFinal&&!isDone)continue;
-      let colorTag,priority;
-      const delivered=_isDelivered(t.id);
-      if(delivered){colorTag='#6e7681';priority=4;}        // grey: client got it
-      else if(hasFinal&&!isDone){colorTag='#d29922';priority=2;} // yellow
-      else if(hasFinal&&isDone){colorTag='#3fb950';priority=3;}  // green
-      else {colorTag='#f85149';priority=1;}                       // red (done, no file)
       const approvedV=state[t.id]?.approvedVersion||0;
+      // If a preview version is starred, only the matching final counts as
+      // "delivery material". Old/unrelated finals must not leak to the client.
       const filteredFinals=approvedV>0?finalArr.filter(f=>{const p=_parseVersionName(f.name);return p.vNum===approvedV;}):finalArr;
-      const displayFinals=filteredFinals.length>0?filteredFinals:finalArr;
+      const hasMatchingFinal=filteredFinals.length>0;
+      const isDone=getStatus(t.id)==='done';
+      // Show the shot if either:
+      //   - it has any final (even mismatched — we'll flag it red), OR
+      //   - it's marked done (legacy "done, no file" case)
+      if(!finalArr.length&&!isDone)continue;
+      let colorTag,priority;
+      const delivered=hasMatchingFinal&&_isDelivered(t.id);
+      if(delivered){colorTag='#6e7681';priority=4;}                              // grey
+      else if(hasMatchingFinal&&!isDone){colorTag='#d29922';priority=2;}          // yellow
+      else if(hasMatchingFinal&&isDone){colorTag='#3fb950';priority=3;}           // green
+      else {colorTag='#f85149';priority=1;}                                       // red (approved but no matching final, or done w/o file)
+      const displayFinals=filteredFinals; // no silent fallback to old finals
       const children=displayFinals.map(f=>({
         name:f.name,
         size:_formatSize(f.size),
@@ -8214,7 +8251,7 @@ function _getFilesRoot(id){
         date:f.date||'—',
         url:CDN_BASE+'/'+f.r2key
       }));
-      const approvedLabel=approvedV>0&&filteredFinals.length>0?' (v'+String(approvedV).padStart(3,'0')+' ★)':'';
+      const approvedLabel=approvedV>0?(' (v'+String(approvedV).padStart(3,'0')+' ★)'):'';
       result.push({name:t.id,displayName:t.id+'_FINAL'+approvedLabel,type:'folder',locked:false,children,colorTag,_priority:priority});
     }
     // Sort: red (1) → yellow (2) → green (3) → grey (4). Within the grey
