@@ -990,9 +990,883 @@ function handlePreview(request) {
   return Response.redirect(targetUrl, 302);
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// MCP SERVER — Streamable HTTP JSON-RPC 2.0 at /mcp
+// Lets admin connect Claude Code (or any MCP client) to the tracker via
+// a Bearer token issued from the admin panel. Tools cover the common
+// project-manager workflows: CRUD shots, set status/assignee, upload /
+// delete files, generate share + auth links, post chat messages,
+// approve versions.
+// ═══════════════════════════════════════════════════════════════════════
+const MCP_PROTOCOL_VERSION = '2024-11-05';
+const MCP_SERVER_VERSION = '1.0.0';
+const MCP_CHARACTER_LIMIT = 25000;
+const MCP_LEGACY_PROJECT_ID = 'main';
+const MCP_REGISTRY_ROW_ID = '__registry';
+// R2 direct-access credentials (duplicated from the browser client — both
+// run the same AWS SigV4 flow. Cloudflare anon R2 key, not a root key).
+const MCP_R2_ACCESS_KEY = 'd9fd350d6e623ab85ccb0a58930a35d8';
+const MCP_R2_SECRET_KEY = '4498ba8839c82bd88fd4a9d3e4d9edb44268ff73a646d818314d6df8be6eb1f8';
+const MCP_R2_ENDPOINT = 'https://6b4341dd25b4f283d53ad86424e39e74.r2.cloudflarestorage.com';
+const MCP_R2_BUCKET = 'kh-vfx-video';
+const MCP_CDN_BASE = R2_CDN;
+
+function _mcpCorsHeaders() {
+  return {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Mcp-Session-Id',
+    'Access-Control-Max-Age': '86400',
+  };
+}
+function _mcpJsonRpc(id, result) {
+  return { jsonrpc: '2.0', id, result };
+}
+function _mcpJsonRpcErr(id, code, message) {
+  return { jsonrpc: '2.0', id, error: { code, message } };
+}
+function _mcpToolError(msg) {
+  return { isError: true, content: [{ type: 'text', text: 'Error: ' + msg }] };
+}
+function _mcpToolText(text) {
+  return { content: [{ type: 'text', text }] };
+}
+function _mcpToolJson(obj) {
+  let text = JSON.stringify(obj, null, 2);
+  if (text.length > MCP_CHARACTER_LIMIT) {
+    text = text.substring(0, MCP_CHARACTER_LIMIT) + '\n... (truncated; use filters/pagination to narrow results)';
+  }
+  return { content: [{ type: 'text', text }] };
+}
+
+function _mcpProjectPath(projectId, key) {
+  if (!projectId || projectId === MCP_LEGACY_PROJECT_ID) return key;
+  if (!key) return key;
+  const prefix = projectId + '/';
+  return key.startsWith(prefix) ? key : prefix + key;
+}
+
+async function _mcpFetchRow(rowId) {
+  const r = await fetch(SUPA_URL + '/rest/v1/tracker_state?id=eq.' + encodeURIComponent(rowId) + '&select=data,updated_at', {
+    headers: { apikey: SUPA_ANON_KEY, Authorization: 'Bearer ' + SUPA_ANON_KEY },
+  });
+  if (!r.ok) return null;
+  const rows = await r.json();
+  if (!rows.length) return null;
+  return { data: rows[0].data || {}, updatedAt: rows[0].updated_at, version: rows[0].data?.__version || 0 };
+}
+async function _mcpPatchRow(rowId, data, lastVersion) {
+  const newVersion = (typeof lastVersion === 'number' ? lastVersion : 0) + 1;
+  data.__version = newVersion;
+  let url = SUPA_URL + '/rest/v1/tracker_state?id=eq.' + encodeURIComponent(rowId);
+  if (typeof lastVersion === 'number') url += '&data->__version=eq.' + lastVersion;
+  const r = await fetch(url, {
+    method: 'PATCH',
+    headers: {
+      apikey: SUPA_ANON_KEY, Authorization: 'Bearer ' + SUPA_ANON_KEY,
+      'Content-Type': 'application/json', 'Prefer': 'return=representation',
+    },
+    body: JSON.stringify({ data, updated_at: new Date().toISOString() }),
+  });
+  if (!r.ok) throw new Error('Supabase patch failed: ' + r.status + ' ' + (await r.text()));
+  const rows = await r.json();
+  if (Array.isArray(rows) && rows.length === 0 && typeof lastVersion === 'number') {
+    return { conflict: true };
+  }
+  return { conflict: false, data: rows[0]?.data, version: rows[0]?.data?.__version };
+}
+// Read-modify-write with optimistic locking + automatic retry on conflict.
+async function _mcpUpdateRow(rowId, mutator, retries = 4) {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    const row = await _mcpFetchRow(rowId);
+    const data = row?.data || {};
+    const version = row?.version ?? null;
+    const mutated = await mutator(data);   // may return a result for the caller
+    const res = await _mcpPatchRow(rowId, data, version);
+    if (!res.conflict) return { data, result: mutated };
+    // Conflict — small backoff then retry
+    await new Promise(r => setTimeout(r, 50 + Math.random() * 150));
+  }
+  throw new Error('Conflict: concurrent edits, retries exhausted');
+}
+
+// --- AWS SigV4 for R2 direct access ---
+async function _mcpHmac(key, msg) {
+  const k = typeof key === 'string' ? new TextEncoder().encode(key) : key;
+  const cryptoKey = await crypto.subtle.importKey('raw', k, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  return new Uint8Array(await crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(msg)));
+}
+async function _mcpSha256Hex(input) {
+  const data = typeof input === 'string' ? new TextEncoder().encode(input) : input;
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+async function _mcpSigningKey(secret, date, region, service) {
+  let k = await _mcpHmac('AWS4' + secret, date);
+  k = await _mcpHmac(k, region); k = await _mcpHmac(k, service);
+  return await _mcpHmac(k, 'aws4_request');
+}
+async function _mcpSignR2(method, key, contentType, bodyHash) {
+  const now = new Date();
+  const amzDate = now.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  const dateStamp = amzDate.substring(0, 8);
+  const region = 'auto', service = 's3';
+  const host = new URL(MCP_R2_ENDPOINT).host;
+  const encodedPath = '/' + MCP_R2_BUCKET + '/' + key.split('/').map(s => encodeURIComponent(s)).join('/');
+  const headers = { host, 'x-amz-content-sha256': bodyHash || 'UNSIGNED-PAYLOAD', 'x-amz-date': amzDate };
+  if (contentType) headers['content-type'] = contentType;
+  const signedHeaders = Object.keys(headers).sort().join(';');
+  const canonicalHeaders = Object.keys(headers).sort().map(k => k + ':' + headers[k]).join('\n') + '\n';
+  const canonicalRequest = [method, encodedPath, '', canonicalHeaders, signedHeaders, bodyHash || 'UNSIGNED-PAYLOAD'].join('\n');
+  const scope = dateStamp + '/' + region + '/' + service + '/aws4_request';
+  const stringToSign = ['AWS4-HMAC-SHA256', amzDate, scope, await _mcpSha256Hex(canonicalRequest)].join('\n');
+  const signingKey = await _mcpSigningKey(MCP_R2_SECRET_KEY, dateStamp, region, service);
+  const sig = [...await _mcpHmac(signingKey, stringToSign)].map(b => b.toString(16).padStart(2, '0')).join('');
+  const auth = 'AWS4-HMAC-SHA256 Credential=' + MCP_R2_ACCESS_KEY + '/' + scope + ', SignedHeaders=' + signedHeaders + ', Signature=' + sig;
+  return { url: MCP_R2_ENDPOINT + encodedPath, headers: { ...headers, Authorization: auth } };
+}
+async function _mcpR2Put(key, bytes, contentType) {
+  const bodyHash = await _mcpSha256Hex(bytes);
+  const signed = await _mcpSignR2('PUT', key, contentType, bodyHash);
+  const r = await fetch(signed.url, { method: 'PUT', headers: signed.headers, body: bytes });
+  if (!r.ok) throw new Error('R2 PUT failed: ' + r.status + ' ' + (await r.text()).slice(0, 200));
+  return { key, url: MCP_CDN_BASE + '/' + key };
+}
+async function _mcpR2Delete(key) {
+  const signed = await _mcpSignR2('DELETE', key, null);
+  const r = await fetch(signed.url, { method: 'DELETE', headers: signed.headers });
+  if (!r.ok && r.status !== 404) throw new Error('R2 DELETE failed: ' + r.status);
+  return true;
+}
+
+// Project scope check — token may be limited to specific projects.
+function _mcpCanAccess(tokenEntry, projectId) {
+  const scopes = tokenEntry.projects || [];
+  if (scopes.includes('*') || scopes.length === 0) return true;
+  return scopes.includes(projectId);
+}
+async function _mcpResolveProject(projectId, tokenEntry) {
+  const reg = await _mcpFetchRow(MCP_REGISTRY_ROW_ID);
+  const projects = reg?.data?.projects || [];
+  // Default to first available project when client omits one
+  const pid = projectId || (tokenEntry.projects?.[0] && tokenEntry.projects[0] !== '*' ? tokenEntry.projects[0] : projects[0]?.id) || MCP_LEGACY_PROJECT_ID;
+  if (!_mcpCanAccess(tokenEntry, pid)) throw new Error('Token not authorized for project "' + pid + '"');
+  const project = projects.find(p => p.id === pid);
+  if (!project) throw new Error('Unknown project "' + pid + '"');
+  return { project, registry: reg.data };
+}
+
+function _mcpShotSummary(s) {
+  if (!s) return null;
+  return {
+    status: s.status || 'todo',
+    assignee: s.assignee || null,
+    cat: s.cat || null,
+    desc: s.desc || null,
+    approvedVersion: s.approvedVersion ?? null,
+    filesCount: s.files ? Object.values(s.files).reduce((n, arr) => n + (Array.isArray(arr) ? arr.length : 0), 0) : 0,
+    versionsCount: Array.isArray(s.versions) ? s.versions.length : 0,
+    chatCount: Array.isArray(s.artistNotes) ? s.artistNotes.length : 0,
+  };
+}
+
+// ── Tool definitions (JSON schemas) ────────────────────────────────────
+const MCP_TOOL_DEFS = [
+  {
+    name: 'kh_list_projects',
+    description: 'List every project in the registry. Returns id, human name, color, and per-project shot count + user assignments. Use this to discover which project IDs to pass to other tools.',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    annotations: { title: 'List Projects', readOnlyHint: true, openWorldHint: false },
+  },
+  {
+    name: 'kh_list_shots',
+    description: 'List shots (tasks) in a project with optional filters. Returns concise rows — call kh_get_shot for a single full record. Prefer this over loading every shot.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        project: { type: 'string', description: 'Project ID (e.g. "main" for Killhouse Main). Omit to use the first project the token can access.' },
+        status: { type: 'string', enum: ['todo', 'progress', 'review', 'done', 'delivered', 'skip'], description: 'Only return shots with this status.' },
+        assignee: { type: 'string', description: 'Only return shots assigned to this user ID (e.g. "nikita").' },
+        category: { type: 'string', description: 'Only return shots in this category key.' },
+        search: { type: 'string', description: 'Substring match on shot ID or description.' },
+        limit: { type: 'integer', minimum: 1, maximum: 200, default: 50 },
+        offset: { type: 'integer', minimum: 0, default: 0 },
+      },
+      additionalProperties: false,
+    },
+    annotations: { title: 'List Shots', readOnlyHint: true, openWorldHint: false },
+  },
+  {
+    name: 'kh_get_shot',
+    description: 'Fetch the full record for one shot: description, timecodes, status, assignee, versions (with CDN URLs), files tree, last chat messages, approval state.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        project: { type: 'string' },
+        shot_id: { type: 'string', description: 'Shot identifier, e.g. "KH_01_198".' },
+      },
+      required: ['shot_id'], additionalProperties: false,
+    },
+    annotations: { title: 'Get Shot', readOnlyHint: true, openWorldHint: false },
+  },
+  {
+    name: 'kh_create_shot',
+    description: 'Register a new shot in a project. The shot ID must be unique within the project. Optionally seed category, timecodes, and initial status.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        project: { type: 'string' },
+        id: { type: 'string', description: 'Shot identifier, e.g. "KH_01_210". Kept uppercase in the UI.' },
+        desc: { type: 'string' },
+        cat: { type: 'string', description: 'Category key (matches state.__categories). Defaults to "other".' },
+        tcIn: { type: 'string' }, tcOut: { type: 'string' },
+        priority: { type: 'integer', minimum: 0, maximum: 5, description: 'Sort weight, lower = higher priority.' },
+        assignee: { type: 'string', description: 'User ID of the artist to assign.' },
+        status: { type: 'string', enum: ['todo', 'progress', 'review', 'done', 'delivered', 'skip'], default: 'todo' },
+      },
+      required: ['id'], additionalProperties: false,
+    },
+    annotations: { title: 'Create Shot', readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  },
+  {
+    name: 'kh_update_shot',
+    description: 'Partial update of an existing shot. Pass only the fields you want to change.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        project: { type: 'string' }, shot_id: { type: 'string' },
+        fields: {
+          type: 'object',
+          description: 'Any subset of: desc, cat, tcIn, tcOut, priority, hidden, adminNote.',
+          additionalProperties: true,
+        },
+      },
+      required: ['shot_id', 'fields'], additionalProperties: false,
+    },
+    annotations: { title: 'Update Shot', readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  },
+  {
+    name: 'kh_delete_shot',
+    description: 'Permanently remove a shot from a project. With delete_files=true, also removes its R2 preview + thumbnail.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        project: { type: 'string' }, shot_id: { type: 'string' },
+        delete_files: { type: 'boolean', default: false, description: 'If true, also delete R2 video/{id}_prev.mp4 and thumbs/{id}.jpg for this project.' },
+      },
+      required: ['shot_id'], additionalProperties: false,
+    },
+    annotations: { title: 'Delete Shot', readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+  },
+  {
+    name: 'kh_set_shot_status',
+    description: 'Change a shot\'s status: todo | progress | review | done | delivered | skip.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        project: { type: 'string' }, shot_id: { type: 'string' },
+        status: { type: 'string', enum: ['todo', 'progress', 'review', 'done', 'delivered', 'skip'] },
+      },
+      required: ['shot_id', 'status'], additionalProperties: false,
+    },
+    annotations: { title: 'Set Shot Status', readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  },
+  {
+    name: 'kh_set_shot_assignee',
+    description: 'Assign a shot to an artist (by user ID). Pass an empty string to unassign.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        project: { type: 'string' }, shot_id: { type: 'string' },
+        assignee_id: { type: 'string', description: 'User ID from registry.users, or empty string to clear.' },
+      },
+      required: ['shot_id', 'assignee_id'], additionalProperties: false,
+    },
+    annotations: { title: 'Assign Shot', readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  },
+  {
+    name: 'kh_set_shot_category',
+    description: 'Set the category key on a shot. The key must already exist in state.__categories (or be "other").',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        project: { type: 'string' }, shot_id: { type: 'string' }, category: { type: 'string' },
+      },
+      required: ['shot_id', 'category'], additionalProperties: false,
+    },
+    annotations: { title: 'Set Category', readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  },
+  {
+    name: 'kh_list_users',
+    description: 'List every user in the registry with role and project assignments. Useful to discover valid assignee IDs.',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    annotations: { title: 'List Users', readOnlyHint: true, openWorldHint: false },
+  },
+  {
+    name: 'kh_list_versions',
+    description: 'List uploaded versions for a shot, newest last. Each entry has name, CDN URL, thumbnail, upload timestamp, size.',
+    inputSchema: {
+      type: 'object',
+      properties: { project: { type: 'string' }, shot_id: { type: 'string' } },
+      required: ['shot_id'], additionalProperties: false,
+    },
+    annotations: { title: 'List Versions', readOnlyHint: true, openWorldHint: false },
+  },
+  {
+    name: 'kh_approve_version',
+    description: 'Mark a specific version index as the approved/final version for the shot. Only approved versions are included in share links.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        project: { type: 'string' }, shot_id: { type: 'string' },
+        version_idx: { type: 'integer', minimum: 0, description: 'Zero-based index into the versions array.' },
+      },
+      required: ['shot_id', 'version_idx'], additionalProperties: false,
+    },
+    annotations: { title: 'Approve Version', readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  },
+  {
+    name: 'kh_delete_version',
+    description: 'Remove a version from a shot: deletes the R2 video + thumbnail and removes the record.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        project: { type: 'string' }, shot_id: { type: 'string' },
+        version_idx: { type: 'integer', minimum: 0 },
+      },
+      required: ['shot_id', 'version_idx'], additionalProperties: false,
+    },
+    annotations: { title: 'Delete Version', readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+  },
+  {
+    name: 'kh_list_files',
+    description: 'List the file tree for a shot (or admin files if shot_id="__admin"): grouped by state_key like "source/original", "versions/final", etc.',
+    inputSchema: {
+      type: 'object',
+      properties: { project: { type: 'string' }, shot_id: { type: 'string' } },
+      required: ['shot_id'], additionalProperties: false,
+    },
+    annotations: { title: 'List Files', readOnlyHint: true, openWorldHint: false },
+  },
+  {
+    name: 'kh_upload_file_from_url',
+    description: 'Fetch a public URL and upload the bytes into a shot\'s R2 folder. Use this when you have a direct HTTPS link to the file. The resulting r2key and CDN URL are stored in state[shot_id].files[state_key].',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        project: { type: 'string' }, shot_id: { type: 'string' },
+        state_key: { type: 'string', description: 'Where to store it in state.files — e.g. "source/original", "source/preview", "source/assets", "versions/final". Use "_root" for no subfolder.' },
+        src_url: { type: 'string', format: 'uri', description: 'HTTPS URL the worker will fetch.' },
+        filename: { type: 'string', description: 'Filename to save as. Extension determines content-type if omitted.' },
+        author: { type: 'string', description: 'Display name to record as uploader. Defaults to "mcp".' },
+      },
+      required: ['shot_id', 'state_key', 'src_url', 'filename'], additionalProperties: false,
+    },
+    annotations: { title: 'Upload File From URL', readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+  },
+  {
+    name: 'kh_delete_file',
+    description: 'Delete a file from R2 and remove it from the shot\'s files dict. Matches by r2key.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        project: { type: 'string' }, shot_id: { type: 'string' },
+        r2key: { type: 'string', description: 'Full R2 key, e.g. "voronka/files/KH_01_198/source/preview/cam1.mp4".' },
+      },
+      required: ['shot_id', 'r2key'], additionalProperties: false,
+    },
+    annotations: { title: 'Delete File', readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+  },
+  {
+    name: 'kh_list_chat',
+    description: 'Return the last chat messages (artistNotes) on a shot. Default limit 20.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        project: { type: 'string' }, shot_id: { type: 'string' },
+        limit: { type: 'integer', minimum: 1, maximum: 200, default: 20 },
+      },
+      required: ['shot_id'], additionalProperties: false,
+    },
+    annotations: { title: 'List Chat', readOnlyHint: true, openWorldHint: false },
+  },
+  {
+    name: 'kh_add_chat_message',
+    description: 'Post a message into a shot\'s chat thread. Author is recorded as the MCP token\'s display name (or "MCP").',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        project: { type: 'string' }, shot_id: { type: 'string' },
+        text: { type: 'string', minLength: 1, maxLength: 4000 },
+        author: { type: 'string', description: 'Override the recorded author label.' },
+      },
+      required: ['shot_id', 'text'], additionalProperties: false,
+    },
+    annotations: { title: 'Post Chat', readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  },
+  {
+    name: 'kh_generate_share_link',
+    description: 'Create a public download token that bundles the approved versions of a list of shots and returns a shareable URL.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        project: { type: 'string' },
+        shot_ids: { type: 'array', items: { type: 'string' }, minItems: 1, description: 'Shots to include in the bundle.' },
+      },
+      required: ['shot_ids'], additionalProperties: false,
+    },
+    annotations: { title: 'Generate Share Link', readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  },
+  {
+    name: 'kh_generate_auth_link',
+    description: 'Generate a one-click login URL for an existing user. The link uses the user\'s current linkToken; anyone with the link can log in as that user.',
+    inputSchema: {
+      type: 'object',
+      properties: { user_id: { type: 'string' } },
+      required: ['user_id'], additionalProperties: false,
+    },
+    annotations: { title: 'Generate Auth Link', readOnlyHint: true, openWorldHint: false },
+  },
+];
+
+// ── Tool handlers ──────────────────────────────────────────────────────
+const MCP_TOOL_HANDLERS = {
+  async kh_list_projects(args, ctx) {
+    const reg = await _mcpFetchRow(MCP_REGISTRY_ROW_ID);
+    const projects = (reg?.data?.projects || []).filter(p => _mcpCanAccess(ctx.token, p.id));
+    const userProjects = reg?.data?.userProjects || {};
+    // Load shot counts per project in parallel
+    const counts = await Promise.all(projects.map(async p => {
+      const row = await _mcpFetchRow(p.id);
+      const tasks = row?.data?.__tasks || [];
+      return { id: p.id, count: tasks.length };
+    }));
+    const out = projects.map(p => ({
+      id: p.id, name: p.name || p.id, color: p.color, legacyR2: !!p.legacyR2,
+      createdAt: p.createdAt,
+      shotCount: counts.find(c => c.id === p.id)?.count ?? 0,
+      assignedUsers: Object.keys(userProjects).filter(uid => (userProjects[uid] || []).includes(p.id)),
+    }));
+    return _mcpToolJson({ projects: out });
+  },
+
+  async kh_list_shots(args, ctx) {
+    const { project } = await _mcpResolveProject(args.project, ctx.token);
+    const row = await _mcpFetchRow(project.id);
+    const data = row?.data || {};
+    const tasks = data.__tasks || [];
+    const limit = args.limit || 50;
+    const offset = args.offset || 0;
+    const matched = tasks.filter(t => {
+      const sd = data[t.id] || {};
+      const st = sd.status || 'todo';
+      if (args.status && st !== args.status) return false;
+      if (args.assignee !== undefined && (sd.assignee || '') !== args.assignee) return false;
+      if (args.category && (sd.cat || t.cat) !== args.category) return false;
+      if (args.search) {
+        const q = args.search.toLowerCase();
+        if (!(String(t.id).toLowerCase().includes(q) || String(t.desc || '').toLowerCase().includes(q))) return false;
+      }
+      return true;
+    });
+    const page = matched.slice(offset, offset + limit).map(t => {
+      const sd = data[t.id] || {};
+      return {
+        id: t.id, desc: t.desc || sd.desc, cat: sd.cat || t.cat,
+        tcIn: t.tcIn, tcOut: t.tcOut,
+        status: sd.status || 'todo', assignee: sd.assignee || null,
+        versions: Array.isArray(sd.versions) ? sd.versions.length : 0,
+      };
+    });
+    return _mcpToolJson({
+      project: project.id, total: matched.length, count: page.length,
+      offset, limit, has_more: offset + page.length < matched.length,
+      next_offset: offset + page.length < matched.length ? offset + page.length : null,
+      shots: page,
+    });
+  },
+
+  async kh_get_shot(args, ctx) {
+    const { project } = await _mcpResolveProject(args.project, ctx.token);
+    const row = await _mcpFetchRow(project.id);
+    const data = row?.data || {};
+    const task = (data.__tasks || []).find(t => t.id === args.shot_id);
+    if (!task) throw new Error('Shot not found: ' + args.shot_id);
+    const sd = data[args.shot_id] || {};
+    return _mcpToolJson({
+      project: project.id,
+      shot: {
+        id: task.id, desc: task.desc || sd.desc, cat: sd.cat || task.cat || 'other',
+        tcIn: task.tcIn, tcOut: task.tcOut, priority: task.priority ?? 0,
+        status: sd.status || 'todo', assignee: sd.assignee || null,
+        approvedVersion: sd.approvedVersion ?? null,
+        hidden: !!sd.hidden, adminNote: sd.adminNote || '',
+        versions: (sd.versions || []).map((v, i) => ({
+          idx: i, name: v.name, baseName: v.baseName, url: v.url, thumb: v.thumb,
+          ts: v.ts, size: v.size, approved: sd.approvedVersion === i,
+        })),
+        files: sd.files || {},
+        chat: (sd.artistNotes || []).slice(-20),
+      },
+    });
+  },
+
+  async kh_create_shot(args, ctx) {
+    const { project } = await _mcpResolveProject(args.project, ctx.token);
+    const res = await _mcpUpdateRow(project.id, async (data) => {
+      if (!data.__tasks) data.__tasks = [];
+      if (data.__tasks.some(t => t.id === args.id)) throw new Error('Shot already exists: ' + args.id);
+      const task = { id: args.id, desc: args.desc || '', cat: args.cat || 'other' };
+      if (args.tcIn) task.tcIn = args.tcIn;
+      if (args.tcOut) task.tcOut = args.tcOut;
+      if (typeof args.priority === 'number') task.priority = args.priority;
+      data.__tasks.push(task);
+      if (!data[args.id]) data[args.id] = {};
+      if (args.status) data[args.id].status = args.status;
+      if (args.assignee) data[args.id].assignee = args.assignee;
+      if (args.cat) data[args.id].cat = args.cat;
+      return task;
+    });
+    return _mcpToolJson({ ok: true, project: project.id, shot: res.result });
+  },
+
+  async kh_update_shot(args, ctx) {
+    const { project } = await _mcpResolveProject(args.project, ctx.token);
+    const allowedTaskFields = ['desc', 'cat', 'tcIn', 'tcOut', 'priority'];
+    const allowedStateFields = ['desc', 'cat', 'hidden', 'adminNote'];
+    await _mcpUpdateRow(project.id, async (data) => {
+      const task = (data.__tasks || []).find(t => t.id === args.shot_id);
+      if (!task) throw new Error('Shot not found: ' + args.shot_id);
+      if (!data[args.shot_id]) data[args.shot_id] = {};
+      for (const [k, v] of Object.entries(args.fields || {})) {
+        if (allowedTaskFields.includes(k)) task[k] = v;
+        if (allowedStateFields.includes(k)) data[args.shot_id][k] = v;
+      }
+    });
+    return _mcpToolJson({ ok: true, project: project.id, shot_id: args.shot_id, updated: Object.keys(args.fields || {}) });
+  },
+
+  async kh_delete_shot(args, ctx) {
+    const { project } = await _mcpResolveProject(args.project, ctx.token);
+    const deletedFiles = [];
+    await _mcpUpdateRow(project.id, async (data) => {
+      data.__tasks = (data.__tasks || []).filter(t => t.id !== args.shot_id);
+      delete data[args.shot_id];
+    });
+    if (args.delete_files) {
+      for (const path of ['video/' + args.shot_id + '_prev.mp4', 'thumbs/' + args.shot_id + '.jpg']) {
+        try { await _mcpR2Delete(_mcpProjectPath(project.id, path)); deletedFiles.push(path); } catch (e) {}
+      }
+    }
+    return _mcpToolJson({ ok: true, project: project.id, shot_id: args.shot_id, deletedFiles });
+  },
+
+  async kh_set_shot_status(args, ctx) {
+    const { project } = await _mcpResolveProject(args.project, ctx.token);
+    await _mcpUpdateRow(project.id, async (data) => {
+      const task = (data.__tasks || []).find(t => t.id === args.shot_id);
+      if (!task) throw new Error('Shot not found: ' + args.shot_id);
+      if (!data[args.shot_id]) data[args.shot_id] = {};
+      data[args.shot_id].status = args.status;
+    });
+    return _mcpToolJson({ ok: true, project: project.id, shot_id: args.shot_id, status: args.status });
+  },
+
+  async kh_set_shot_assignee(args, ctx) {
+    const { project } = await _mcpResolveProject(args.project, ctx.token);
+    await _mcpUpdateRow(project.id, async (data) => {
+      const task = (data.__tasks || []).find(t => t.id === args.shot_id);
+      if (!task) throw new Error('Shot not found: ' + args.shot_id);
+      if (!data[args.shot_id]) data[args.shot_id] = {};
+      if (args.assignee_id) data[args.shot_id].assignee = args.assignee_id;
+      else delete data[args.shot_id].assignee;
+    });
+    return _mcpToolJson({ ok: true, project: project.id, shot_id: args.shot_id, assignee: args.assignee_id || null });
+  },
+
+  async kh_set_shot_category(args, ctx) {
+    const { project } = await _mcpResolveProject(args.project, ctx.token);
+    await _mcpUpdateRow(project.id, async (data) => {
+      const task = (data.__tasks || []).find(t => t.id === args.shot_id);
+      if (!task) throw new Error('Shot not found: ' + args.shot_id);
+      if (!data[args.shot_id]) data[args.shot_id] = {};
+      data[args.shot_id].cat = args.category;
+      task.cat = args.category;
+    });
+    return _mcpToolJson({ ok: true, project: project.id, shot_id: args.shot_id, category: args.category });
+  },
+
+  async kh_list_users(args, ctx) {
+    const reg = await _mcpFetchRow(MCP_REGISTRY_ROW_ID);
+    const users = reg?.data?.users || {};
+    const userProjects = reg?.data?.userProjects || {};
+    const out = Object.entries(users).map(([id, u]) => ({
+      id, display: u.display || id, role: u.role || 'artist',
+      telegram: u.telegram || null,
+      projects: userProjects[id] || (u.role === 'admin' ? ['*'] : []),
+    }));
+    return _mcpToolJson({ users: out });
+  },
+
+  async kh_list_versions(args, ctx) {
+    const { project } = await _mcpResolveProject(args.project, ctx.token);
+    const row = await _mcpFetchRow(project.id);
+    const sd = row?.data?.[args.shot_id] || {};
+    if (!sd.versions) return _mcpToolJson({ project: project.id, shot_id: args.shot_id, versions: [] });
+    return _mcpToolJson({
+      project: project.id, shot_id: args.shot_id, approvedVersion: sd.approvedVersion ?? null,
+      versions: sd.versions.map((v, i) => ({
+        idx: i, name: v.name, url: v.url, thumb: v.thumb, ts: v.ts, size: v.size,
+        approved: sd.approvedVersion === i,
+      })),
+    });
+  },
+
+  async kh_approve_version(args, ctx) {
+    const { project } = await _mcpResolveProject(args.project, ctx.token);
+    await _mcpUpdateRow(project.id, async (data) => {
+      if (!data[args.shot_id]) throw new Error('Shot has no state: ' + args.shot_id);
+      const versions = data[args.shot_id].versions || [];
+      if (args.version_idx >= versions.length) throw new Error('version_idx out of range');
+      data[args.shot_id].approvedVersion = args.version_idx;
+    });
+    return _mcpToolJson({ ok: true, project: project.id, shot_id: args.shot_id, approvedVersion: args.version_idx });
+  },
+
+  async kh_delete_version(args, ctx) {
+    const { project } = await _mcpResolveProject(args.project, ctx.token);
+    let removed = null;
+    await _mcpUpdateRow(project.id, async (data) => {
+      const sd = data[args.shot_id];
+      if (!sd?.versions?.[args.version_idx]) throw new Error('version_idx out of range');
+      removed = sd.versions.splice(args.version_idx, 1)[0];
+      if (sd.approvedVersion === args.version_idx) sd.approvedVersion = null;
+      else if (typeof sd.approvedVersion === 'number' && sd.approvedVersion > args.version_idx) sd.approvedVersion--;
+    });
+    if (removed) {
+      try { if (removed.url) await _mcpR2Delete(removed.url.replace(MCP_CDN_BASE + '/', '')); } catch (e) {}
+      try { if (removed.thumb) await _mcpR2Delete(removed.thumb.replace(MCP_CDN_BASE + '/', '')); } catch (e) {}
+    }
+    return _mcpToolJson({ ok: true, project: project.id, shot_id: args.shot_id, deletedVersion: removed });
+  },
+
+  async kh_list_files(args, ctx) {
+    const { project } = await _mcpResolveProject(args.project, ctx.token);
+    const row = await _mcpFetchRow(project.id);
+    const data = row?.data || {};
+    let files;
+    if (args.shot_id === '__admin') files = data.__admin?.files || {};
+    else files = data[args.shot_id]?.files || {};
+    const out = {};
+    for (const [k, arr] of Object.entries(files)) {
+      out[k] = (arr || []).map(f => ({
+        name: f.name, size: f.size, r2key: f.r2key,
+        url: f.r2key ? MCP_CDN_BASE + '/' + f.r2key : null,
+        author: f.author, date: f.date,
+      }));
+    }
+    return _mcpToolJson({ project: project.id, shot_id: args.shot_id, files: out });
+  },
+
+  async kh_upload_file_from_url(args, ctx) {
+    const { project } = await _mcpResolveProject(args.project, ctx.token);
+    // Fetch the source URL
+    const src = await fetch(args.src_url);
+    if (!src.ok) throw new Error('Fetching src_url failed: ' + src.status);
+    const buf = await src.arrayBuffer();
+    const contentType = src.headers.get('content-type') || 'application/octet-stream';
+    // Build R2 key: for __admin shots use admin prefix, otherwise files/{id}/
+    let base;
+    if (args.shot_id === '__admin') base = 'admin' + (args.state_key && args.state_key !== '_root' ? '/' + args.state_key : '') + '/' + args.filename;
+    else base = 'files/' + args.shot_id + (args.state_key && args.state_key !== '_root' ? '/' + args.state_key : '') + '/' + args.filename;
+    const r2key = _mcpProjectPath(project.id, base);
+    await _mcpR2Put(r2key, new Uint8Array(buf), contentType);
+    const fileRec = {
+      name: args.filename,
+      size: buf.byteLength,
+      r2key,
+      author: args.author || ctx.token.name || 'mcp',
+      date: new Date().toISOString().slice(0, 10),
+    };
+    await _mcpUpdateRow(project.id, async (data) => {
+      if (args.shot_id === '__admin') {
+        if (!data.__admin) data.__admin = {};
+        if (!data.__admin.files) data.__admin.files = {};
+        const k = args.state_key || '_root';
+        if (!data.__admin.files[k]) data.__admin.files[k] = [];
+        data.__admin.files[k].push(fileRec);
+      } else {
+        if (!data[args.shot_id]) data[args.shot_id] = {};
+        if (!data[args.shot_id].files) data[args.shot_id].files = {};
+        const k = args.state_key || '_root';
+        if (!data[args.shot_id].files[k]) data[args.shot_id].files[k] = [];
+        data[args.shot_id].files[k].push(fileRec);
+      }
+    });
+    return _mcpToolJson({ ok: true, project: project.id, shot_id: args.shot_id, file: { ...fileRec, url: MCP_CDN_BASE + '/' + r2key } });
+  },
+
+  async kh_delete_file(args, ctx) {
+    const { project } = await _mcpResolveProject(args.project, ctx.token);
+    let removed = false;
+    await _mcpUpdateRow(project.id, async (data) => {
+      const container = args.shot_id === '__admin' ? (data.__admin?.files || {}) : (data[args.shot_id]?.files || {});
+      for (const key of Object.keys(container)) {
+        const before = container[key].length;
+        container[key] = container[key].filter(f => f.r2key !== args.r2key);
+        if (container[key].length !== before) removed = true;
+      }
+    });
+    try { await _mcpR2Delete(args.r2key); } catch (e) {}
+    return _mcpToolJson({ ok: true, project: project.id, shot_id: args.shot_id, r2key: args.r2key, removedFromState: removed });
+  },
+
+  async kh_list_chat(args, ctx) {
+    const { project } = await _mcpResolveProject(args.project, ctx.token);
+    const row = await _mcpFetchRow(project.id);
+    const notes = (row?.data?.[args.shot_id]?.artistNotes || []).slice(-(args.limit || 20));
+    return _mcpToolJson({ project: project.id, shot_id: args.shot_id, messages: notes });
+  },
+
+  async kh_add_chat_message(args, ctx) {
+    const { project } = await _mcpResolveProject(args.project, ctx.token);
+    const authorLabel = args.author || ctx.token.name || 'MCP';
+    await _mcpUpdateRow(project.id, async (data) => {
+      if (!data[args.shot_id]) data[args.shot_id] = {};
+      if (!data[args.shot_id].artistNotes) data[args.shot_id].artistNotes = [];
+      const nextId = (data[args.shot_id].artistNotes.reduce((m, n) => Math.max(m, n.id || 0), 0) || 0) + 1;
+      data[args.shot_id].artistNotes.push({
+        id: nextId,
+        author: 'mcp',
+        displayName: authorLabel,
+        text: args.text,
+        ts: Date.now(),
+      });
+    });
+    return _mcpToolJson({ ok: true, project: project.id, shot_id: args.shot_id });
+  },
+
+  async kh_generate_share_link(args, ctx) {
+    const { project } = await _mcpResolveProject(args.project, ctx.token);
+    const token = [...crypto.getRandomValues(new Uint8Array(12))].map(b => b.toString(16).padStart(2, '0')).join('');
+    await _mcpUpdateRow(project.id, async (data) => {
+      if (!data.__downloadShares) data.__downloadShares = {};
+      data.__downloadShares[token] = { ids: args.shot_ids, pushedTo: null, createdAt: Date.now() };
+    });
+    return _mcpToolJson({
+      ok: true, project: project.id, token,
+      url: SITE_URL + '?download=' + token,
+      shots: args.shot_ids,
+    });
+  },
+
+  async kh_generate_auth_link(args, ctx) {
+    const reg = await _mcpFetchRow(MCP_REGISTRY_ROW_ID);
+    const u = reg?.data?.users?.[args.user_id];
+    if (!u) throw new Error('User not found: ' + args.user_id);
+    if (!u.linkToken) throw new Error('User has no linkToken — regenerate from the tracker UI first.');
+    const payload = btoa(args.user_id + '::' + u.linkToken);
+    return _mcpToolJson({
+      ok: true, user_id: args.user_id,
+      url: 'https://killhouse-vfx.contora.workers.dev/?auth=' + encodeURIComponent(payload),
+    });
+  },
+};
+
+// ── JSON-RPC dispatcher ────────────────────────────────────────────────
+async function _mcpDispatch(msg, tokenEntry) {
+  const ctx = { token: tokenEntry };
+  if (msg.method === 'initialize') {
+    return _mcpJsonRpc(msg.id, {
+      protocolVersion: MCP_PROTOCOL_VERSION,
+      capabilities: { tools: { listChanged: false } },
+      serverInfo: { name: 'kh-tracker-mcp', version: MCP_SERVER_VERSION },
+    });
+  }
+  if (msg.method === 'notifications/initialized' || msg.method === 'initialized') {
+    // Notifications have no id and expect no response; return null so caller skips.
+    return null;
+  }
+  if (msg.method === 'tools/list') {
+    return _mcpJsonRpc(msg.id, { tools: MCP_TOOL_DEFS });
+  }
+  if (msg.method === 'tools/call') {
+    const name = msg.params?.name;
+    const args = msg.params?.arguments || {};
+    const handler = MCP_TOOL_HANDLERS[name];
+    if (!handler) return _mcpJsonRpc(msg.id, _mcpToolError('Unknown tool: ' + name));
+    try {
+      const out = await handler(args, ctx);
+      return _mcpJsonRpc(msg.id, out);
+    } catch (e) {
+      return _mcpJsonRpc(msg.id, _mcpToolError(e.message || String(e)));
+    }
+  }
+  return _mcpJsonRpcErr(msg.id || null, -32601, 'Method not found: ' + msg.method);
+}
+
+async function handleMcp(request) {
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: _mcpCorsHeaders() });
+  }
+  if (request.method !== 'POST') {
+    return new Response('Method not allowed', { status: 405, headers: _mcpCorsHeaders() });
+  }
+  // Extract Bearer token
+  const auth = request.headers.get('authorization') || '';
+  const m = auth.match(/^Bearer\s+(.+)$/i);
+  if (!m) {
+    return new Response(JSON.stringify(_mcpJsonRpcErr(null, -32001, 'Missing Authorization: Bearer header')), {
+      status: 401, headers: { 'Content-Type': 'application/json', ..._mcpCorsHeaders() },
+    });
+  }
+  const rawToken = m[1].trim();
+  // Validate against registry
+  const reg = await _mcpFetchRow(MCP_REGISTRY_ROW_ID);
+  const tokens = reg?.data?.mcpTokens || [];
+  const tokenEntry = tokens.find(t => t.token === rawToken);
+  if (!tokenEntry) {
+    return new Response(JSON.stringify(_mcpJsonRpcErr(null, -32002, 'Invalid token')), {
+      status: 401, headers: { 'Content-Type': 'application/json', ..._mcpCorsHeaders() },
+    });
+  }
+  // Stamp lastUsedAt (fire-and-forget — no await)
+  try {
+    _mcpUpdateRow(MCP_REGISTRY_ROW_ID, async (data) => {
+      const t = (data.mcpTokens || []).find(x => x.token === rawToken);
+      if (t) t.lastUsedAt = Date.now();
+    }).catch(() => {});
+  } catch (e) {}
+  // Parse body — may be a single JSON-RPC message or a batch
+  let body;
+  try { body = await request.json(); } catch (e) {
+    return new Response(JSON.stringify(_mcpJsonRpcErr(null, -32700, 'Parse error')), {
+      status: 400, headers: { 'Content-Type': 'application/json', ..._mcpCorsHeaders() },
+    });
+  }
+  const isBatch = Array.isArray(body);
+  const msgs = isBatch ? body : [body];
+  const responses = [];
+  for (const msg of msgs) {
+    const resp = await _mcpDispatch(msg, tokenEntry);
+    if (resp !== null) responses.push(resp);
+  }
+  // All were notifications — return 204
+  if (!responses.length) return new Response(null, { status: 204, headers: _mcpCorsHeaders() });
+  const out = isBatch ? responses : responses[0];
+  return new Response(JSON.stringify(out), {
+    status: 200, headers: { 'Content-Type': 'application/json', ..._mcpCorsHeaders() },
+  });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    // MCP endpoint
+    if (url.pathname === '/mcp') {
+      return handleMcp(request);
+    }
 
     // Telegram push endpoint
     if (url.pathname === '/tg/push') {

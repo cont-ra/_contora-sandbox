@@ -1105,7 +1105,7 @@
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
 <div id="updateBanner" class="update-banner hidden"><span id="updateBannerText"></span><button id="updateBannerNow">Reload now</button><button id="updateBannerCancel">Later</button></div>
-<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0123</div>
+<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0125</div>
 
 <script>
 const USERS = {
@@ -3636,42 +3636,28 @@ async function _pushRegistry(){
   try{
     const newVersion=(typeof _lastKnownRegistryVersion==='number'?_lastKnownRegistryVersion:0)+1;
     registry.__version=newVersion;
-    let url=SUPA_URL+"/rest/v1/tracker_state?id=eq."+encodeURIComponent(REGISTRY_ROW_ID);
-    if(typeof _lastKnownRegistryVersion==='number'){
-      url+="&data->__version=eq."+_lastKnownRegistryVersion;
-    }
-    // Use upsert semantics: first try PATCH, fall back to POST if row missing
-    let r=await fetch(url,{
-      method:"PATCH",
-      headers:{...SUPA_HEADERS,"Prefer":"return=representation"},
-      body:JSON.stringify({data:registry,updated_at:new Date().toISOString()})
+    // PostgREST returns 200 + empty array for both "row missing" AND
+    // "version-filter mismatch", so we can't distinguish them from a
+    // naked PATCH. Use Prefer: resolution=merge-duplicates upsert (POST)
+    // which inserts when absent and updates when present — in one call.
+    const r=await fetch(SUPA_URL+"/rest/v1/tracker_state",{
+      method:"POST",
+      headers:{
+        ...SUPA_HEADERS,
+        "Prefer":"return=representation,resolution=merge-duplicates",
+      },
+      body:JSON.stringify({id:REGISTRY_ROW_ID,data:registry,updated_at:new Date().toISOString()})
     });
-    if(r.ok){
-      const updatedRows=await r.json();
-      if(Array.isArray(updatedRows)&&updatedRows.length===0&&typeof _lastKnownRegistryVersion==='number'){
-        // Conflict: re-pull and retry once
-        await _pullRegistry();
-        if(typeof _showAlert==='function')_showAlert('Registry sync conflict','The project list was changed by someone else. Your change was dropped — refresh and try again.');
-        return;
-      }
-      if(Array.isArray(updatedRows)&&updatedRows[0]?.data){
-        if(typeof updatedRows[0].data.__version==='number')_lastKnownRegistryVersion=updatedRows[0].data.__version;
-        if(updatedRows[0].updated_at)_lastKnownRegistryUpdatedAt=updatedRows[0].updated_at;
-      }
-    } else if(r.status===404){
-      // Row doesn't exist — insert it
-      r=await fetch(SUPA_URL+"/rest/v1/tracker_state",{
-        method:"POST",
-        headers:{...SUPA_HEADERS,"Prefer":"return=representation"},
-        body:JSON.stringify({id:REGISTRY_ROW_ID,data:registry,updated_at:new Date().toISOString()})
-      });
-      if(!r.ok){const t=await r.text();console.error("Registry insert failed:",t);}
-      else{
-        const ins=await r.json();
-        if(Array.isArray(ins)&&ins[0]?.data?.__version===1)_lastKnownRegistryVersion=1;
-      }
-    } else {
-      const t=await r.text();console.error("Registry PATCH failed:",t);
+    if(!r.ok){
+      const t=await r.text();
+      console.error("Registry upsert failed:",r.status,t);
+      if(typeof _showAlert==='function')_showAlert('Registry save failed','Could not persist the project list ('+r.status+'). Check your connection and retry.');
+      return;
+    }
+    const rows=await r.json();
+    if(Array.isArray(rows)&&rows[0]?.data){
+      if(typeof rows[0].data.__version==='number')_lastKnownRegistryVersion=rows[0].data.__version;
+      if(rows[0].updated_at)_lastKnownRegistryUpdatedAt=rows[0].updated_at;
     }
   }catch(e){console.error("Registry push failed:",e);}
   finally{
@@ -4623,7 +4609,7 @@ function toggleAdminMenu(){
   dd.className="admin-menu";dd.id="adminMenu";
   const editLabel=_editMode?"✏️ Editing... (click to stop)":"✏️ Edit Shots";
   const addShotItem=_editMode?`<div class="admin-menu-item" onclick="closeAdminMenu();openAddShotDialog()">➕ Add Shot</div>`:'';
-  dd.innerHTML=`<div class="admin-menu-item" onclick="closeAdminMenu();toggleEditMode()">${editLabel}</div>${addShotItem}<div class="admin-menu-item" onclick="closeAdminMenu();openUserManager()">👥 Manage Users</div><div class="admin-menu-item" onclick="closeAdminMenu();openProjectManager()">🗂 Manage Projects</div><div class="admin-menu-item" onclick="closeAdminMenu();_openAdminFiles()">📁 Admin Files</div><div class="admin-menu-item" onclick="closeAdminMenu();openBotSettings()">🤖 Bot Settings</div>`;
+  dd.innerHTML=`<div class="admin-menu-item" onclick="closeAdminMenu();toggleEditMode()">${editLabel}</div>${addShotItem}<div class="admin-menu-item" onclick="closeAdminMenu();openUserManager()">👥 Manage Users</div><div class="admin-menu-item" onclick="closeAdminMenu();openProjectManager()">🗂 Manage Projects</div><div class="admin-menu-item" onclick="closeAdminMenu();openMcpTokenManager()">🔌 MCP Tokens</div><div class="admin-menu-item" onclick="closeAdminMenu();_openAdminFiles()">📁 Admin Files</div><div class="admin-menu-item" onclick="closeAdminMenu();openBotSettings()">🤖 Bot Settings</div>`;
   document.body.appendChild(dd);
   setTimeout(()=>document.addEventListener("click",closeAdminMenu,{once:true}),0);
 }
@@ -5639,6 +5625,122 @@ function _openProjectColorPicker(pid,anchor){
   });
   document.body.appendChild(dd);
   setTimeout(()=>document.addEventListener('click',function h(ev){if(!dd.contains(ev.target)&&ev.target!==anchor){dd.remove();document.removeEventListener('click',h,true);}},true),10);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// MCP TOKEN MANAGER (admin) — issue + revoke API tokens so Claude Code
+// (or any MCP client) can drive the tracker via the worker /mcp endpoint.
+// Tokens live in registry.mcpTokens[] and grant scoped project access.
+// ═══════════════════════════════════════════════════════════════════════
+const MCP_WORKER_URL='https://killhouse-vfx.contora.workers.dev/mcp';
+function _mcpGenerateToken(){
+  const bytes=new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  return 'khmcp_'+[...bytes].map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function openMcpTokenManager(){
+  if(!isAdmin())return;
+  const ov=document.createElement('div');
+  ov.className='admin-modal-overlay';ov.id='mcpTokenOverlay';
+  ov.onclick=(e)=>{if(e.target===ov)closeMcpTokenManager();};
+  ov.innerHTML=`<div class="admin-modal" style="max-width:760px;width:92vw">
+    <div class="admin-modal-header"><h3>🔌 MCP Tokens</h3><button class="admin-modal-close" onclick="closeMcpTokenManager()">&times;</button></div>
+    <div class="admin-modal-body" id="mcpTokenBody"></div>
+  </div>`;
+  document.body.appendChild(ov);
+  _renderMcpTokenManager();
+}
+function closeMcpTokenManager(){const d=document.getElementById('mcpTokenOverlay');if(d)d.remove();}
+function _renderMcpTokenManager(){
+  const body=document.getElementById('mcpTokenBody');if(!body)return;
+  const tokens=registry.mcpTokens||[];
+  const projects=registry.projects||[];
+  let html=`<div style="font-size:12px;color:#8b949e;margin-bottom:14px;line-height:1.5">
+    MCP (Model Context Protocol) lets an LLM like Claude Code drive the tracker through tools —
+    create/update/delete shots, upload files, post chat messages, generate share links. Issue a
+    token below, paste it into your MCP client, and the LLM gains the abilities you scope it to.
+    <br><br><b>Worker endpoint:</b> <code style="color:#58a6ff">${esc(MCP_WORKER_URL)}</code>
+  </div>`;
+  html+=`<div id="mcpTokenList" style="display:flex;flex-direction:column;gap:10px">`;
+  if(!tokens.length){
+    html+=`<div style="padding:20px;text-align:center;color:#484f58;background:#0d1117;border:1px dashed #30363d;border-radius:8px">No tokens yet. Generate one below.</div>`;
+  } else {
+    tokens.forEach((t,i)=>{
+      const scopeStr=Array.isArray(t.projects)?(t.projects.includes('*')?'All projects':t.projects.join(', ')):'Unknown';
+      const lastUsed=t.lastUsedAt?new Date(t.lastUsedAt).toLocaleString():'never';
+      const masked=t.token?t.token.slice(0,12)+'...'+t.token.slice(-4):'';
+      html+=`<div class="user-card" style="flex-direction:column;align-items:stretch;gap:8px;padding:14px 16px">`;
+      html+=`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">`;
+      html+=`<div style="font-size:13px;font-weight:600;color:#c9d1d9;flex:1">${esc(t.name||'Unnamed token')}</div>`;
+      html+=`<code style="color:#8b949e;font-size:11px">${esc(masked)}</code>`;
+      html+=`<button class="u-btn" onclick="_mcpCopyConfig(${i})" title="Copy claude mcp add command">📋 Copy CLI</button>`;
+      html+=`<button class="u-del" onclick="_mcpRevokeToken(${i})" title="Revoke">&times;</button>`;
+      html+=`</div>`;
+      html+=`<div style="display:flex;gap:16px;font-size:11px;color:#8b949e">`;
+      html+=`<div><b style="color:#c9d1d9">Scope:</b> ${esc(scopeStr)}</div>`;
+      html+=`<div><b style="color:#c9d1d9">Last used:</b> ${esc(lastUsed)}</div>`;
+      html+=`<div><b style="color:#c9d1d9">Created:</b> ${esc(t.createdAt?new Date(t.createdAt).toISOString().slice(0,10):'?')}</div>`;
+      html+=`</div>`;
+      html+=`</div>`;
+    });
+  }
+  html+=`</div>`;
+  // Create form
+  const scopeOpts=projects.map(p=>`<label style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#0d1117;border:1px solid #30363d;border-radius:6px;cursor:pointer;font-size:12px;color:#8b949e"><input type="checkbox" class="mcp-scope-cb" value="${esc(p.id)}">${esc(p.name||p.id)}</label>`).join('');
+  html+=`<div style="margin-top:18px;padding:16px;background:#0d1117;border:1px solid #30363d;border-radius:8px">
+    <div style="font-size:14px;font-weight:600;color:#c9d1d9;margin-bottom:10px">Issue a new token</div>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <input type="text" id="mcpNewTokenName" placeholder="Label (e.g. 'Claude CLI')" style="background:#161b22;border:1px solid #30363d;color:#c9d1d9;padding:8px 12px;border-radius:6px;font-size:13px;flex:1">
+    </div>
+    <div style="font-size:11px;color:#8b949e;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.4px">Scope — pick projects, or leave empty for all</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">${scopeOpts}</div>
+    <button onclick="_mcpCreateToken()" style="background:#1f6feb;border:1px solid #1f6feb;color:#fff;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">+ Generate token</button>
+    <div id="mcpNewTokenResult" style="margin-top:14px"></div>
+  </div>`;
+  body.innerHTML=html;
+}
+async function _mcpCreateToken(){
+  if(!isAdmin())return;
+  const nameEl=document.getElementById('mcpNewTokenName');
+  const name=nameEl?.value.trim()||'Token '+((registry.mcpTokens||[]).length+1);
+  const scopes=[...document.querySelectorAll('.mcp-scope-cb:checked')].map(cb=>cb.value);
+  const token=_mcpGenerateToken();
+  const entry={
+    token, name,
+    projects:scopes.length?scopes:['*'],
+    createdAt:Date.now(),
+    createdBy:currentUser?.id||'admin',
+    lastUsedAt:null,
+  };
+  if(!registry.mcpTokens)registry.mcpTokens=[];
+  registry.mcpTokens.push(entry);
+  await _pushRegistry();
+  nameEl.value='';
+  const res=document.getElementById('mcpNewTokenResult');
+  const cliCmd=`claude mcp add kh-tracker --transport http ${MCP_WORKER_URL} --header "Authorization: Bearer ${token}"`;
+  if(res){
+    res.innerHTML=`<div class="generated-key" style="flex-direction:column;align-items:stretch;gap:8px">
+      <div style="font-size:11px;color:#d29922;text-transform:uppercase;letter-spacing:0.4px;font-weight:600">⚠ Copy now — won't be shown again in full</div>
+      <div style="display:flex;align-items:center;gap:8px"><code style="flex:1;word-break:break-all">${esc(token)}</code><button onclick="navigator.clipboard.writeText('${esc(token)}');this.textContent='Copied!'">Copy</button></div>
+      <div style="font-size:11px;color:#8b949e;margin-top:4px">Install in Claude Code:</div>
+      <div style="display:flex;align-items:center;gap:8px;background:#161b22;padding:8px 10px;border-radius:4px"><code style="flex:1;font-size:11px;word-break:break-all">${esc(cliCmd)}</code><button onclick="navigator.clipboard.writeText(\`${esc(cliCmd)}\`);this.textContent='Copied!'">Copy</button></div>
+    </div>`;
+  }
+  _renderMcpTokenManager();
+}
+async function _mcpRevokeToken(idx){
+  if(!isAdmin())return;
+  const ok=await _showConfirm('Revoke token?','Any MCP client using this token will immediately lose access. This cannot be undone.');
+  if(!ok)return;
+  registry.mcpTokens=(registry.mcpTokens||[]).filter((_,i)=>i!==idx);
+  await _pushRegistry();
+  _renderMcpTokenManager();
+}
+function _mcpCopyConfig(idx){
+  const t=registry.mcpTokens?.[idx];if(!t)return;
+  const cmd=`claude mcp add kh-tracker --transport http ${MCP_WORKER_URL} --header "Authorization: Bearer ${t.token}"`;
+  navigator.clipboard.writeText(cmd);
+  const btn=event.target;const orig=btn.textContent;btn.textContent='✓ Copied';setTimeout(()=>btn.textContent=orig,1500);
 }
 function setUserTelegram(id,val,silent){
   if(!state.__users)state.__users={};
