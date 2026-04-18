@@ -1113,7 +1113,7 @@
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
 <div id="updateBanner" class="update-banner hidden"><span id="updateBannerText"></span><button id="updateBannerNow">Reload now</button><button id="updateBannerCancel">Later</button></div>
-<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0138</div>
+<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0139</div>
 
 <script>
 const USERS = {
@@ -11595,13 +11595,24 @@ async function uploadVersion(shotId,input){
   if(ok){
     if(!state[shotId])state[shotId]={};
     if(!state[shotId].versions)state[shotId].versions=[];
-    const thumbKey="versions/"+shotId+"/thumb_"+result.baseName+_formatVersion(result.vNum)+".jpg";
-    const thumbUrl=await _generateThumbnail(CDN_BASE+"/"+key,thumbKey);
-    state[shotId].versions.push({name:result.versionName,baseName:result.baseName,url:CDN_BASE+"/"+key,thumb:thumbUrl||null,ts});
+    // Commit the version immediately so saveState isn't awaiting the
+    // thumbnail (which can idle up to 15s if the video element can't
+    // decode or CORS is missing). Previously the await delay created a
+    // window where a concurrent realtime save would trigger an optimistic-
+    // locking conflict — the PATCH silently dropped, the file sat on R2
+    // with no state.versions entry, and the player showed nothing.
+    state[shotId].versions.push({name:result.versionName,baseName:result.baseName,url:CDN_BASE+"/"+key,thumb:null,ts});
     saveState(state);
     _uploads[shotId].done=true;
     const newIdx=state[shotId].versions.length-1;
     setTimeout(()=>_showVersionUploadedDialog(shotId,newIdx),300);
+    // Generate + attach the thumbnail in the background so the user isn't
+    // blocked on it. Writes a second saveState when it resolves.
+    const thumbKey=projectPath("versions/"+shotId+"/thumb_"+result.baseName+_formatVersion(result.vNum)+".jpg");
+    _generateThumbnail(CDN_BASE+"/"+key,thumbKey).then(thumbUrl=>{
+      const v=state[shotId]?.versions?.find(v=>v.name===result.versionName);
+      if(v&&thumbUrl){v.thumb=thumbUrl;saveState(state);}
+    }).catch(e=>console.warn('thumb gen failed:',e));
   } else {
     _uploads[shotId].error=true;
   }
