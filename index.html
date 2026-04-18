@@ -1113,7 +1113,7 @@
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
 <div id="updateBanner" class="update-banner hidden"><span id="updateBannerText"></span><button id="updateBannerNow">Reload now</button><button id="updateBannerCancel">Later</button></div>
-<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0137</div>
+<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0138</div>
 
 <script>
 const USERS = {
@@ -1653,7 +1653,20 @@ function setCat(id,val){
   render();
 }
 const _DEFAULT_ARTISTS=[{id:"nikita",display:"Nikita"},{id:"igor",display:"Igor"}];
-function _getArtists(){return state.__artists||_DEFAULT_ARTISTS;}
+function _getArtists(){
+  if(Array.isArray(state.__artists)&&state.__artists.length)return state.__artists;
+  // Fresh multi-project row: fall back to every artist in the shared
+  // registry so the assignment dropdown isn't stuck on the two legacy
+  // hard-coded names. Once someone saves an explicit artist list (add or
+  // remove) it overrides this derived list.
+  if(typeof registry!=='undefined'&&registry&&registry.users){
+    const arr=Object.entries(registry.users)
+      .filter(([,u])=>u&&u.role==='artist')
+      .map(([id,u])=>({id,display:u.display||id}));
+    if(arr.length)return arr;
+  }
+  return _DEFAULT_ARTISTS;
+}
 const ARTISTS=_DEFAULT_ARTISTS; // initial, patched after state load
 const SUPA_URL="https://cysomcrwjkszsizgkgaf.supabase.co";
 const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN5c29tY3J3amtzenNpemdrZ2FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMDI2MTMsImV4cCI6MjA5MDc3ODYxM30.Wmz0fog7GGkqcVX8kGXR54DxsiKekr4ksHha24Odohs";
@@ -5471,26 +5484,35 @@ async function _pubHandleEntries(folder,entries){
 }
 
 async function _hydrateLegacyBotConfig(){
-  // Copy the shared pieces of state.__bot from the legacy "main" row into
-  // every non-main project. Only fills in keys that are missing locally so
-  // we don't clobber project-specific tweaks (e.g. artistThreads). Writes
-  // the merged state back so subsequent opens don't refetch.
+  // Copy project-shared config (bot wiring + custom category labels) from
+  // the legacy "main" row into every non-main project. Only fills in keys
+  // that are missing locally so we don't clobber project-specific tweaks
+  // (e.g. __bot.artistThreads). Writes the merged state back so subsequent
+  // opens don't refetch.
   if(CURRENT_PROJECT_ID===LEGACY_PROJECT_ID)return;
-  const cur=state.__bot||{};
-  const need=!cur.clientChats||!cur.tgUsers||!cur.knownChats||!cur.topicNames||!cur.cooldowns;
-  if(!need)return;
+  const curBot=state.__bot||{};
+  const curCats=state.__categories||{};
+  const needBot=!curBot.clientChats||!curBot.tgUsers||!curBot.knownChats||!curBot.topicNames||!curBot.cooldowns;
+  const needCats=!Object.keys(curCats).length;
+  if(!needBot&&!needCats)return;
   try{
     const r=await fetch(SUPA_URL+"/rest/v1/tracker_state?id=eq."+encodeURIComponent(LEGACY_PROJECT_ID)+"&select=data",{headers:{apikey:SUPA_KEY,Authorization:"Bearer "+SUPA_KEY}});
     const rows=await r.json();
-    const mainBot=rows?.[0]?.data?.__bot;
-    if(!mainBot)return;
-    if(!state.__bot)state.__bot={};
+    const mainData=rows?.[0]?.data||{};
     let patched=false;
-    for(const k of ['tgUsers','knownChats','topicNames','clientChats','cooldowns']){
-      if(!state.__bot[k]&&mainBot[k]){state.__bot[k]=mainBot[k];patched=true;}
+    if(needBot&&mainData.__bot){
+      if(!state.__bot)state.__bot={};
+      for(const k of ['tgUsers','knownChats','topicNames','clientChats','cooldowns']){
+        if(!state.__bot[k]&&mainData.__bot[k]){state.__bot[k]=mainData.__bot[k];patched=true;}
+      }
+    }
+    if(needCats&&mainData.__categories&&Object.keys(mainData.__categories).length){
+      state.__categories={...mainData.__categories};
+      try{_loadCustomCats();}catch(e){}
+      patched=true;
     }
     if(patched){try{saveState(state);}catch(e){}}
-  }catch(e){console.warn('legacy bot hydrate failed:',e);}
+  }catch(e){console.warn('legacy project extras hydrate failed:',e);}
 }
 async function _hydrateLegacyPasswords(){
   // One-time pull of plainKey values from the legacy "main" row so admins
