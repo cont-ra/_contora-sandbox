@@ -1698,7 +1698,8 @@ const LAST_PROJECT_KEY="kh_last_project";
 const URL_PROJECT_OVERRIDE=(()=>{try{return new URLSearchParams(window.location.search).get('project')||null;}catch(e){return null;}})();
 const URL_FORCE_GUEST=(()=>{try{const v=new URLSearchParams(window.location.search).get('guest');return v==='1'||v==='true';}catch(e){return false;}})();
 // Starts from localStorage — may change after login + project pick
-let CURRENT_PROJECT_ID=(()=>{try{return localStorage.getItem(LAST_PROJECT_KEY)||LEGACY_PROJECT_ID;}catch(e){return LEGACY_PROJECT_ID;}})();
+let CURRENT_PROJECT_ID=(()=>{const m=location.pathname.match(/^\/vfx-tracker\/([^\/]+)(?:\/|$)/);if(m&&m[1]){const pid=decodeURIComponent(m[1]);try{localStorage.setItem(LAST_PROJECT_KEY,pid);}catch(e){}return pid;}try{return localStorage.getItem(LAST_PROJECT_KEY)||LEGACY_PROJECT_ID;}catch(e){return LEGACY_PROJECT_ID;}})();
+function _shareBase(){if(location.hostname.includes("localhost")||location.hostname==="127.0.0.1")return location.origin+location.pathname;const pid=(typeof CURRENT_PROJECT_ID!=="undefined"&&CURRENT_PROJECT_ID)||LEGACY_PROJECT_ID;return "https://contora.net/vfx-tracker/"+encodeURIComponent(pid)+"/";}
 // In-memory registry (pulled at boot / on changes)
 let registry={projects:[],users:{},userProjects:{},artists:[]};
 let _lastKnownRegistryVersion=null;
@@ -4292,7 +4293,7 @@ function _renderDoneShotsTracker(){
     // visitors should appear in the sidebar.
     const users=Object.entries(node.users||{}).filter(([k])=>k!=='_anon').map(([,v])=>v);
     const ids=share?.ids||[];
-    const url=`https://contora.net/vfx-tracker/?download=${tok}`;
+    const url=`${_shareBase()}?download=${tok}`;
     const created=share?.created?new Date(share.created).toLocaleDateString():'—';
     html+=`<div class="dst-share" style="margin-bottom:18px;background:#161b22;border:1px solid #30363d;border-radius:8px;padding:10px">`;
     html+=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">`;
@@ -4819,7 +4820,7 @@ function _adminShareFolder(name){
     saveState(state);
     _renderShotFiles('__admin');
   }
-  const prodBase='https://contora.net/vfx-tracker/';
+  const prodBase=_shareBase();
   const url=prodBase+'?upload='+shareInfo.token;
   // Show share link overlay
   const ov=document.createElement("div");
@@ -4871,7 +4872,7 @@ function _shareDownloadLink(ids,title){
   if(!isAdmin())return;
   if(!ids.length)return;
   const token=_createDownloadShare(ids);
-  const prodBase=location.hostname.includes('localhost')?location.origin+location.pathname:'https://contora.net/vfx-tracker/';
+  const prodBase=_shareBase();
   const _pid=CURRENT_PROJECT_ID||LEGACY_PROJECT_ID;
   const url=prodBase+'?download='+token+'&project='+encodeURIComponent(_pid);
   const ov=document.createElement("div");
@@ -6350,7 +6351,7 @@ function changeUserRole(id,role){
 function copyAuthLink(id){
   const lt=state.__users?.[id]?.linkToken||registry?.users?.[id]?.linkToken;
   if(!lt)return;
-  const base='https://contora.net/vfx-tracker/';
+  const base=_shareBase();
   const payload=btoa(id+'::'+lt);
   const url=base+'?auth='+encodeURIComponent(payload);
   navigator.clipboard.writeText(url);
@@ -7761,8 +7762,8 @@ async function pushChatNotification(){
   const desc=getDesc(noteTaskId,(TASKS.find(t=>t.id===noteTaskId)?.desc)||"");
   const fromUser=currentUser.display||currentUser.id;
   const link=playerNote
-    ? `https://contora.net/vfx-tracker/?player=${encodeURIComponent(noteTaskId)}&v=${playerNote._versionIdx}&f=${playerNote.frame||0}`
-    : `https://contora.net/vfx-tracker/?chat=${encodeURIComponent(noteTaskId)}`;
+    ? `${_shareBase()}?player=${encodeURIComponent(noteTaskId)}&v=${playerNote._versionIdx}&f=${playerNote.frame||0}`
+    : `${_shareBase()}?chat=${encodeURIComponent(noteTaskId)}`;
   const kindLabel=playerNote
     ? `player note (${playerNote._version||''})`
     : (isSelected?"selected message":"latest message");
@@ -7872,7 +7873,7 @@ async function pushPlayerNotification(){
   if(comment===null)return;
   const desc=getDesc(_gifCurrentId,(TASKS.find(t=>t.id===_gifCurrentId)?.desc)||"");
   const fromUser=currentUser.display||currentUser.id;
-  const link=`https://contora.net/vfx-tracker/?player=${encodeURIComponent(_gifCurrentId)}&v=${_gifVersionIdx}`;
+  const link=`${_shareBase()}?player=${encodeURIComponent(_gifCurrentId)}&v=${_gifVersionIdx}`;
   const btn=document.getElementById("playerPushBtn");
   const lbl=document.getElementById("playerPushLabel");
   if(btn)btn.disabled=true;if(lbl)lbl.textContent='Sending…';
@@ -7957,7 +7958,7 @@ async function pushPlayerToClient(){
   if(comment===null)return;
   const desc=getDesc(_gifCurrentId,(TASKS.find(t=>t.id===_gifCurrentId)?.desc)||"");
   const fromUser=currentUser.display||currentUser.id;
-  const link=`https://contora.net/vfx-tracker/?player=${encodeURIComponent(_gifCurrentId)}&v=${_gifVersionIdx}`;
+  const link=`${_shareBase()}?player=${encodeURIComponent(_gifCurrentId)}&v=${_gifVersionIdx}`;
   const cBtn=document.getElementById("playerPushClientBtn");
   const cLbl=document.getElementById("playerPushClientLabel");
   if(cBtn)cBtn.disabled=true;
