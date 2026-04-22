@@ -1114,7 +1114,7 @@
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
 <div id="updateBanner" class="update-banner hidden"><span id="updateBannerText"></span><button id="updateBannerNow">Reload now</button><button id="updateBannerCancel">Later</button></div>
-<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0156</div>
+<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0157</div>
 
 <script>
 const USERS = {
@@ -1845,7 +1845,6 @@ function _setCurrentProject(pid){
   CURRENT_PROJECT_ID=pid;
   try{localStorage.setItem(LAST_PROJECT_KEY,pid);}catch(e){}
   // Reset version trackers — next save bootstraps against the new row
-  _lastKnownUpdatedAt=null;
   // Swap cached state to the new project's bucket
   state=loadState();
   if(!state||typeof state!=='object')state={};
@@ -2240,7 +2239,6 @@ const SUPA_URL="https://brpqatwlrqertxtggbbn.supabase.co";
 const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJycHFhdHdscnFlcnR4dGdnYmJuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2NzQ2OTMsImV4cCI6MjA5MjI1MDY5M30.x63bOAmxeDpCIW4WXnAQAKe1ytYrJwTRSwwVO5SSdp4";
 const SUPA_HEADERS={"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,"Content-Type":"application/json","Prefer":"return=minimal"};
 let _saving=false,_pendingSave=false;
-let _lastKnownUpdatedAt=null;
 // ═══════════════════════════════════════════════════════════════════════
 // MULTI-PROJECT CONTEXT
 // Each project = a group of rows in project_entities (project_id=<projectId>).
@@ -2261,7 +2259,6 @@ let CURRENT_PROJECT_ID=(()=>{const m=location.pathname.match(/^\/vfx-tracker\/([
 function _shareBase(){if(location.hostname.includes("localhost")||location.hostname==="127.0.0.1")return location.origin+location.pathname;const pid=(typeof CURRENT_PROJECT_ID!=="undefined"&&CURRENT_PROJECT_ID)||LEGACY_PROJECT_ID;return "https://contora.net/vfx-tracker/"+encodeURIComponent(pid)+"/";}
 // In-memory registry (pulled at boot / on changes)
 let registry={projects:[],users:{},userProjects:{},artists:[]};
-let _lastKnownRegistryUpdatedAt=null;
 let _savingRegistry=false,_pendingRegistrySave=false;
 // Per-project localStorage key. Old one-project installs used just
 // "kh_vfx_tracker" — we migrate that value to "kh_vfx_tracker:main" the
@@ -9005,17 +9002,6 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(!document.getEle
 
 const CDN_BASE="https://pub-5562d3ff4b084ba7824a7ebe61f9466a.r2.dev";
 const GIFS=new Set();
-let _gifBackfillRenderTimer=null;
-function _scheduleGifBackfillRender(){
-  // Coalesce multiple thumb img.onload callbacks so we render once after
-  // the burst settles, not N times.  250ms is enough to collect all
-  // in-flight thumbs loading in parallel from the R2 CDN.
-  if(_gifBackfillRenderTimer) return;
-  _gifBackfillRenderTimer=setTimeout(()=>{
-    _gifBackfillRenderTimer=null;
-    try{render();}catch(e){}
-  },250);
-}
 // Per-project tracker for thumb probes so realtime-triggered pulls don't
 // keep firing new Image() requests for shots we already probed.  Reset
 // when the current project changes.
