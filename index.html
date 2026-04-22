@@ -1113,7 +1113,7 @@
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
 <div id="updateBanner" class="update-banner hidden"><span id="updateBannerText"></span><button id="updateBannerNow">Reload now</button><button id="updateBannerCancel">Later</button></div>
-<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0145</div>
+<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0146</div>
 
 <script>
 const USERS = {
@@ -1135,37 +1135,15 @@ var SESSION_ID=(function(){
   try{var s=sessionStorage.getItem('session_id');if(!s){s=Math.random().toString(36).slice(2,14);sessionStorage.setItem('session_id',s);}return s;}
   catch(e){return Math.random().toString(36).slice(2,14);}
 })();
-/* ── Feature flags (Phase 0-4 rollout gate) — polled every 30 s from CF KV ──
-   Worker endpoint GET /flags returns the full flag map.  Flags are strictly
-   additive: each phase has `default`, `allow_users`, `allow_devices`.
-   `isFlagOn(name)` is a pure function — safe to call before currentUser
-   exists (returns false in that case).  Used wiring lands in Phase 0. */
-var FLAGS={};
-async function _pollFlags(){
-  try{
-    var r=await fetch('https://contora.net/flags',{cache:'no-cache'});
-    if(r.ok) FLAGS=await r.json();
-  }catch(e){}
-}
-function _flagUserId(){try{return (currentUser&&currentUser.id)||null;}catch(e){return null;}}
-function isFlagOn(name){
-  var f=FLAGS[name]; if(!f) return false;
-  var uid=_flagUserId();
-  if(uid && f.allow_users && f.allow_users.indexOf(uid)!==-1) return true;
-  if(f.allow_devices && f.allow_devices.indexOf(DEVICE_ID)!==-1) return true;
-  return !!f.default;
-}
-setInterval(_pollFlags,30000);
-_pollFlags();
 /* ════════════ Phase 0 Step 3 — inline decomposer + composer ════════════
    Source of truth: contora-proxy/src/{decomposer,compose}.js.
    Keep the inline copy in lock-step with those files.
    Exposes on window: decomposeProjectState, composeProjectState,
-   md5, and helper _flagUserId is already defined above. */
+   and md5. */
 
 /* ─── from contora-proxy/src/decomposer.js ─── */
 //
-// Inverse of compose.js: take a tracker_state.data blob for one project
+// Inverse of compose.js: take a project's composed state blob and
 // and emit the per-entity rows that will populate public.project_entities.
 //
 // Pure function, no I/O.  Used by:
@@ -1529,7 +1507,7 @@ function md5(input) {
 /* ─── from contora-proxy/src/compose.js ─── */
 //
 // Inverse of decomposer.js — takes project_entities rows for one project
-// and reconstructs the equivalent `tracker_state.data` blob.  Used by:
+// and reconstructs the equivalent state blob from project_entities rows.  Used by:
 //   - src/parity.js scheduled cron
 //   - supa-migration/scripts/roundtrip_test.mjs
 //
@@ -1691,42 +1669,6 @@ function composeRegistry(rows) {
 
   return state;
 }
-
-
-/* ── Phase 0 Step 3.4 — client metrics for dual-write (Supabase) ──
-   Lives in sessionStorage.kh_metrics; batched POST to Worker /metrics/report
-   every 5 min (or on beforeunload).  Fire-and-forget, best-effort.
-   PARITY_KV stores under metric:<iso>:<device_id> TTL 30 d. */
-var _KH_METRICS_KEY='kh_metrics';
-function _readMetrics(){try{return JSON.parse(sessionStorage.getItem(_KH_METRICS_KEY)||'{}');}catch(e){return {};}}
-function _writeMetrics(m){try{sessionStorage.setItem(_KH_METRICS_KEY,JSON.stringify(m));}catch(e){}}
-function _bumpMetric(name,ctx){
-  var m=_readMetrics();
-  m[name]=(m[name]||0)+1;
-  if(!m.first_ts) m.first_ts=new Date().toISOString();
-  m.last_ts=new Date().toISOString();
-  if(ctx && (name==='dual_write_fail' || ctx.error)){
-    m.last_error=String(ctx.error||ctx.status||'?').slice(0,300);
-    m.last_error_ts=m.last_ts;
-  }
-  _writeMetrics(m);
-}
-async function _flushMetrics(){
-  var m=_readMetrics();
-  if(!m || !Object.keys(m).length) return;
-  try{
-    await fetch('https://contora.net/metrics/report',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      keepalive:true,
-      body:JSON.stringify({device_id:DEVICE_ID,session_id:SESSION_ID,ts:new Date().toISOString(),metrics:m}),
-    });
-    m.last_flush_ts=new Date().toISOString();
-    _writeMetrics(m);
-  }catch(e){/* best-effort */}
-}
-setInterval(_flushMetrics,5*60*1000);
-window.addEventListener('beforeunload',function(){try{_flushMetrics();}catch(e){}});
 
 async function sha256(s){const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(s));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,"0")).join("");}
 let currentUser=null;
@@ -1902,7 +1844,6 @@ function _setCurrentProject(pid){
   CURRENT_PROJECT_ID=pid;
   try{localStorage.setItem(LAST_PROJECT_KEY,pid);}catch(e){}
   // Reset version trackers — next save bootstraps against the new row
-  _lastKnownVersion=null;
   _lastKnownUpdatedAt=null;
   // Swap cached state to the new project's bucket
   state=loadState();
@@ -2284,13 +2225,9 @@ const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 const SUPA_HEADERS={"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,"Content-Type":"application/json","Prefer":"return=minimal"};
 let _saving=false,_pendingSave=false;
 let _lastKnownUpdatedAt=null;
-// Optimistic locking: integer version stored inside data jsonb as __version.
-// Server uses PostgREST conditional filter data->__version=eq.<lastKnown> to
-// reject stale writes from old tabs. Bootstrapped on first save (null → 1).
-let _lastKnownVersion=null;
 // ═══════════════════════════════════════════════════════════════════════
 // MULTI-PROJECT CONTEXT
-// Each project = its own row in tracker_state (id=<projectId>).
+// Each project = a group of rows in project_entities (project_id=<projectId>).
 // A dedicated row "__registry" holds the list of projects, users, and
 // per-user project assignments. CURRENT_PROJECT_ID decides which row the
 // pull/push/realtime functions talk to.
@@ -2308,7 +2245,6 @@ let CURRENT_PROJECT_ID=(()=>{const m=location.pathname.match(/^\/vfx-tracker\/([
 function _shareBase(){if(location.hostname.includes("localhost")||location.hostname==="127.0.0.1")return location.origin+location.pathname;const pid=(typeof CURRENT_PROJECT_ID!=="undefined"&&CURRENT_PROJECT_ID)||LEGACY_PROJECT_ID;return "https://contora.net/vfx-tracker/"+encodeURIComponent(pid)+"/";}
 // In-memory registry (pulled at boot / on changes)
 let registry={projects:[],users:{},userProjects:{},artists:[]};
-let _lastKnownRegistryVersion=null;
 let _lastKnownRegistryUpdatedAt=null;
 let _savingRegistry=false,_pendingRegistrySave=false;
 // Per-project localStorage key. Old one-project installs used just
@@ -4292,14 +4228,12 @@ async function _pushRemote(s){
     try{await new Promise(r=>setTimeout(r,500)); resp=await _attempt();}catch(e2){resp=null;}
   }
   if(!resp||!resp.ok){
-    _bumpMetric('dual_write_fail',{scope:'push',entities:rows.length,status:resp?resp.status:'network'});
     const n=document.getElementById("saveNotice");
     if(n){n.textContent="Save failed — check connection";n.style.background="#f85149";
       setTimeout(()=>{n.classList.remove("show");n.style.background="";},4000);}
     if(typeof _showAlert==='function')_showAlert('Save failed','Could not save your change.  Check your connection and retry; if the problem persists, open DevTools Network to see the error.');
     return;
   }
-  _bumpMetric('dual_write_ok',{scope:'push',entities:rows.length});
   // Parse response and look for conflicts.  With version_in=null these are rare.
   try{
     const body=await resp.json();
@@ -4396,7 +4330,6 @@ async function _pushRegistry(){
       if(typeof _showAlert==='function')_showAlert('Registry save failed','Could not persist the project list ('+r.status+'). Check your connection and retry.');
       return;
     }
-    try{_bumpMetric(r.ok?'dual_write_ok':'dual_write_fail',{scope:'registry',entities:rows.length,status:r.status});}catch(e){}
   }catch(e){console.error("Registry push failed:",e);}
   finally{
     _savingRegistry=false;
@@ -4458,7 +4391,7 @@ function _onRegistryChanged(){
 
 async function _pullRemote(){
   // Post-cutover: read project_entities for the current project and compose
-  // the equivalent tracker_state.data blob in memory.  Readers (render(),
+  // the equivalent state blob in memory.  Readers (render(),
   // renderChat() etc.) keep operating on the same `state` shape so the
   // change stays local to this function.
   try{
