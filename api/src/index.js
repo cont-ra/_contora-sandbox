@@ -1,7 +1,7 @@
 import apiWorker from "./api.js";
 
 const UPSTREAM_ORIGIN = "https://cont-ra.github.io";
-const UPSTREAM_PREFIX = "/_contora";
+const UPSTREAM_PREFIX = "/_contora-sandbox";
 const PUBLIC_PREFIX = "/vfx-tracker";
 
 const API_PATHS = new Set([
