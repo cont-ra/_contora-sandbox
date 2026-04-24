@@ -891,7 +891,7 @@
 <script src="https://cdn.jsdelivr.net/npm/streamsaver@2.0.6/StreamSaver.min.js"></script>
 <script src="ffmpeg/ffmpeg.js"></script>
 </head>
-<body>
+<body class="show-landing">
 <div id="sandboxBanner" style="position:fixed;top:0;left:0;right:0;background:repeating-linear-gradient(45deg,#f85149,#f85149 12px,#a4262c 12px,#a4262c 24px);color:#fff;text-align:center;font-family:-apple-system,sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;padding:3px 0;z-index:99999;pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,.4)">SANDBOX · sandbox.contora.net · NOT PRODUCTION</div>
 
 <div class="login-overlay hidden" id="loginOverlay">
@@ -1903,6 +1903,10 @@ async function showLoggedIn(){
   // shows a picker and returns false; picker calls showLoggedIn again
   // once the user selects.
   if(!_resolveProjectSelection())return;
+  // Project resolved — reveal the tracker UI (was hidden by default via
+  // body.show-landing in the HTML to avoid a flash of the empty table
+  // before JS decides what to show).
+  document.body.classList.remove('show-landing');
   document.getElementById("loginOverlay").classList.add("hidden");
   document.getElementById("userBadge").style.display="inline-flex";
   document.getElementById("userName").textContent=currentUser.display;
