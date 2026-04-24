@@ -151,8 +151,17 @@
   .login-divider { color: #484f58; font-size: 12px; margin: 6px 0 14px; }
   .login-error { color: #f85149; font-size: 13px; min-height: 20px; }
   /* ── PROJECT PICKER ───────────────────────────────────────────── */
-  .project-picker-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+  .project-picker-overlay { position: fixed; inset: 0; background: #0d1117; display: flex; align-items: center; justify-content: center; z-index: 1000; }
   .project-picker-overlay.hidden { display: none; }
+  /* When the project landing is on, hide the tracker UI completely so it
+     looks like a standalone page rather than a modal over the empty table. */
+  body.show-landing .header-row,
+  body.show-landing .search-row,
+  body.show-landing .stats,
+  body.show-landing > table,
+  body.show-landing #saveNotice,
+  body.show-landing #updateBanner,
+  body.show-landing #appVersion { display: none !important; }
   .project-picker-box { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 32px; width: 560px; max-width: 90vw; text-align: center; max-height: 85vh; overflow: auto; }
   .project-picker-box h2 { color: #f0f6fc; margin: 0 0 4px; font-size: 20px; }
   .project-picker-box p { color: #8b949e; font-size: 13px; margin: 0 0 20px; }
@@ -1874,13 +1883,17 @@ function _resolveProjectSelection(){
     _setCurrentProject(URL_PROJECT_OVERRIDE);
     return true;
   }
+  // Already inside a real project (deep-link / just-picked / refresh inside
+  // a project URL) — skip the picker and load it.
+  if(CURRENT_PROJECT_ID&&projects.some(p=>p.id===CURRENT_PROJECT_ID)){
+    return true;
+  }
   if(projects.length===0){
     _showNoProjectsScreen();
     return false;
   }
-  // Always show the picker as the landing page after login, even with one
-  // project — it's the user's "home" view, mirrors getAvailableProjects()
-  // and exposes the create button for admins.
+  // Entry from the bare site (URL has no real project) — show the
+  // picker as the landing page so the user explicitly chooses.
   _showProjectPicker(projects);
   return false;
 }
@@ -1963,6 +1976,7 @@ function _projectColor(p){return p?.color||'#58a6ff';}
 function _showProjectPicker(projects){
   const ov=document.getElementById('projectPickerOverlay');if(!ov)return;
   ov.classList.remove('hidden');
+  document.body.classList.add('show-landing');
   _renderProjectPicker(projects);
   const title=document.getElementById('projectPickerTitle');
   const subtitle=document.getElementById('projectPickerSubtitle');
@@ -1979,6 +1993,7 @@ function _showProjectPicker(projects){
 }
 function _closeProjectPicker(){
   const ov=document.getElementById('projectPickerOverlay');if(ov)ov.classList.add('hidden');
+  document.body.classList.remove('show-landing');
 }
 function _renderProjectPicker(projects){
   const list=document.getElementById('projectPickerList');if(!list)return;
@@ -2029,6 +2044,11 @@ function _pickProjectFromUi(pid){
   const postLogin=!ub||ub.style.display===''||ub.style.display==='none';
   if(postLogin){
     _setCurrentProject(pid);
+    // Sync URL so a reload lands directly on this project (skips picker).
+    try{
+      const newPath='/vfx-tracker/'+encodeURIComponent(pid)+'/';
+      if(location.pathname!==newPath)history.replaceState(null,'',newPath);
+    }catch(e){}
     _closeProjectPicker();
     showLoggedIn();
     return;
@@ -2038,6 +2058,7 @@ function _pickProjectFromUi(pid){
 function _showNoProjectsScreen(){
   const ov=document.getElementById('noProjectsOverlay');if(!ov)return;
   ov.classList.remove('hidden');
+  document.body.classList.add('show-landing');
   const login=document.getElementById('loginOverlay');if(login)login.classList.add('hidden');
   // Admin sees a create form; everyone else sees the "ask admin" copy.
   const admin=isAdmin();
@@ -2080,6 +2101,7 @@ async function _createFirstProjectFromLanding(){
 }
 function _hideNoProjectsScreen(){
   const ov=document.getElementById('noProjectsOverlay');if(ov)ov.classList.add('hidden');
+  document.body.classList.remove('show-landing');
 }
 function _renderProjectBadge(){
   let badge=document.getElementById('projectBadge');
