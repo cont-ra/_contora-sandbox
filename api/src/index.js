@@ -28,7 +28,7 @@ export default {
       return proxyToTracker(request, url);
     }
 
-    return Response.redirect("https://contora.net/vfx-tracker/main/", 302);
+    return Response.redirect("https://sandbox.contora.net/vfx-tracker/main/", 302);
   },
 };
 

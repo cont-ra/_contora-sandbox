@@ -1,13 +1,13 @@
-name = "contora-proxy"
+name = "contora-proxy-sandbox"
 main = "src/index.js"
 compatibility_date = "2026-04-01"
 account_id = "6b4341dd25b4f283d53ad86424e39e74"
 workers_dev = true
 
 [[routes]]
-pattern = "contora.net"
+pattern = "sandbox.contora.net"
 custom_domain = true
 
 [[routes]]
-pattern = "contora.net/vfx-tracker*"
+pattern = "sandbox.contora.net/vfx-tracker*"
 zone_name = "contora.net"

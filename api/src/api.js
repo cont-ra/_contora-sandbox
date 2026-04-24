@@ -5,13 +5,13 @@ var __defProp = Object.defineProperty;
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
 
 // worker-auth.js
-var SITE_URL = "https://contora.net/vfx-tracker/";
+var SITE_URL = "https://sandbox.contora.net/vfx-tracker/";
 function _siteUrl(pid) {
-  return "https://contora.net/vfx-tracker/" + encodeURIComponent(pid || "main") + "/";
+  return "https://sandbox.contora.net/vfx-tracker/" + encodeURIComponent(pid || "main") + "/";
 }
 __name(_siteUrl, "_siteUrl");
-var OG_IMAGE = "https://pub-5562d3ff4b084ba7824a7ebe61f9466a.r2.dev/thumbs/KH_01_198.jpg";
-var R2_CDN = "https://pub-5562d3ff4b084ba7824a7ebe61f9466a.r2.dev";
+var OG_IMAGE = "https://pub-eaaae306b81842a080df2d6cab4b7808.r2.dev/thumbs/KH_01_198.jpg";
+var R2_CDN = "https://pub-eaaae306b81842a080df2d6cab4b7808.r2.dev";
 var TG_CHAT_ID = "-1003893066561";
 var ARTIST_THREADS = {
   nikita: 195,
@@ -20,17 +20,17 @@ var ARTIST_THREADS = {
   moon_carrots: 203
 };
 var ALLOWED_ORIGINS = /* @__PURE__ */ new Set([
-  "https://contora.net",
+  "https://sandbox.contora.net",
   "http://localhost:8080",
   "http://127.0.0.1:8080"
 ]);
-var SUPA_URL = "https://brpqatwlrqertxtggbbn.supabase.co";
+var SUPA_URL = "https://hsvylpssqldbfxrddxwd.supabase.co";
 // Anon key is lazy-initialized from env.SUPA_ANON_KEY on the first request.
 // Keeps the literal out of git history; the browser still sees it because
 // Supabase anon keys are public-by-design (RLS does the real gating).
 var SUPA_ANON_KEY = null;
 function _corsHeaders(origin) {
-  const allowed = ALLOWED_ORIGINS.has(origin) ? origin : "https://contora.net";
+  const allowed = ALLOWED_ORIGINS.has(origin) ? origin : "https://sandbox.contora.net";
   return {
     "Access-Control-Allow-Origin": allowed,
     "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -533,7 +533,7 @@ async function _processTelegramUpdate(env, stateData, update, ctx) {
       username: u.username || null,
       first_name: u.first_name || null,
       last_name: u.last_name || null,
-      avatar_url: `https://contora.net/tg/avatar?u=${u.id}`
+      avatar_url: `https://sandbox.contora.net/tg/avatar?u=${u.id}`
     };
     dirty = true;
   }
@@ -684,7 +684,7 @@ async function handleTgSetupWebhook(request, env) {
   }
   if (!isAdmin) return new Response(JSON.stringify({ ok: false, error: "forbidden" }), { status: 403, headers: { "Content-Type": "application/json" } });
   if (!env.TELEGRAM_BOT_TOKEN) return new Response(JSON.stringify({ ok: false, error: "no_token" }), { status: 500, headers: { "Content-Type": "application/json" } });
-  const webhookUrl = `https://contora.net/tg/webhook`;
+  const webhookUrl = `https://sandbox.contora.net/tg/webhook`;
   const setUrl = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/setWebhook`;
   const body = {
     url: webhookUrl,
@@ -795,7 +795,7 @@ async function handleTgPing(request, env) {
       username: u.username || null,
       first_name: u.first_name || null,
       last_name: u.last_name || null,
-      avatar_url: `https://contora.net/tg/avatar?u=${u.id}`
+      avatar_url: `https://sandbox.contora.net/tg/avatar?u=${u.id}`
     };
   }
   __name(_captureUser, "_captureUser");
@@ -835,7 +835,7 @@ async function handleTgPing(request, env) {
         username: u.username || null,
         first_name: u.first_name || null,
         last_name: u.last_name || null,
-        avatar_url: u.avatar_url || `https://contora.net/tg/avatar?u=${u.id}`
+        avatar_url: u.avatar_url || `https://sandbox.contora.net/tg/avatar?u=${u.id}`
       };
     }
   }
@@ -994,7 +994,7 @@ var MCP_REGISTRY_ROW_ID = "__registry";
 var MCP_R2_ACCESS_KEY = "d9fd350d6e623ab85ccb0a58930a35d8";
 var MCP_R2_SECRET_KEY = "4498ba8839c82bd88fd4a9d3e4d9edb44268ff73a646d818314d6df8be6eb1f8";
 var MCP_R2_ENDPOINT = "https://6b4341dd25b4f283d53ad86424e39e74.r2.cloudflarestorage.com";
-var MCP_R2_BUCKET = "kh-vfx-video";
+var MCP_R2_BUCKET = "kh-vfx-video-sandbox";
 var MCP_CDN_BASE = R2_CDN;
 function _mcpCorsHeaders() {
   return {

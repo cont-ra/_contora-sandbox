@@ -883,6 +883,7 @@
 <script src="ffmpeg/ffmpeg.js"></script>
 </head>
 <body>
+<div id="sandboxBanner" style="position:fixed;top:0;left:0;right:0;background:repeating-linear-gradient(45deg,#f85149,#f85149 12px,#a4262c 12px,#a4262c 24px);color:#fff;text-align:center;font-family:-apple-system,sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;padding:3px 0;z-index:99999;pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,.4)">SANDBOX · sandbox.contora.net · NOT PRODUCTION</div>
 
 <div class="login-overlay hidden" id="loginOverlay">
   <div class="login-box" id="loginBox">
@@ -2038,7 +2039,7 @@ function _renderProjectBadge(){
 
 async function _prefetchTgBotInfo(){
   try{
-    const r=await fetch('https://contora.net/tg/ping',{method:'POST',headers:{'Content-Type':'application/json','Origin':location.origin}});
+    const r=await fetch('https://sandbox.contora.net/tg/ping',{method:'POST',headers:{'Content-Type':'application/json','Origin':location.origin}});
     const d=await r.json();
     if(!d||!d.ok)return;
     if(!state.__bot)state.__bot={};
@@ -2235,8 +2236,8 @@ function _getArtists(){
   return _DEFAULT_ARTISTS;
 }
 const ARTISTS=_DEFAULT_ARTISTS; // initial, patched after state load
-const SUPA_URL="https://brpqatwlrqertxtggbbn.supabase.co";
-const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJycHFhdHdscnFlcnR4dGdnYmJuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2NzQ2OTMsImV4cCI6MjA5MjI1MDY5M30.x63bOAmxeDpCIW4WXnAQAKe1ytYrJwTRSwwVO5SSdp4";
+const SUPA_URL="https://hsvylpssqldbfxrddxwd.supabase.co";
+const SUPA_KEY="sb_publishable_uUSCje9OUZXhOvj5unPcGQ_Pf9qBE9G";
 const SUPA_HEADERS={"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,"Content-Type":"application/json","Prefer":"return=minimal"};
 let _saving=false,_pendingSave=false;
 // ═══════════════════════════════════════════════════════════════════════
@@ -2256,7 +2257,7 @@ const URL_PROJECT_OVERRIDE=(()=>{try{return new URLSearchParams(window.location.
 const URL_FORCE_GUEST=(()=>{try{const v=new URLSearchParams(window.location.search).get('guest');return v==='1'||v==='true';}catch(e){return false;}})();
 // Starts from localStorage — may change after login + project pick
 let CURRENT_PROJECT_ID=(()=>{const m=location.pathname.match(/^\/vfx-tracker\/([^\/]+)(?:\/|$)/);if(m&&m[1]){const pid=decodeURIComponent(m[1]);try{localStorage.setItem(LAST_PROJECT_KEY,pid);}catch(e){}return pid;}try{return localStorage.getItem(LAST_PROJECT_KEY)||LEGACY_PROJECT_ID;}catch(e){return LEGACY_PROJECT_ID;}})();
-function _shareBase(){if(location.hostname.includes("localhost")||location.hostname==="127.0.0.1")return location.origin+location.pathname;const pid=(typeof CURRENT_PROJECT_ID!=="undefined"&&CURRENT_PROJECT_ID)||LEGACY_PROJECT_ID;return "https://contora.net/vfx-tracker/"+encodeURIComponent(pid)+"/";}
+function _shareBase(){if(location.hostname.includes("localhost")||location.hostname==="127.0.0.1")return location.origin+location.pathname;const pid=(typeof CURRENT_PROJECT_ID!=="undefined"&&CURRENT_PROJECT_ID)||LEGACY_PROJECT_ID;return "https://sandbox.contora.net/vfx-tracker/"+encodeURIComponent(pid)+"/";}
 // In-memory registry (pulled at boot / on changes)
 let registry={projects:[],users:{},userProjects:{},artists:[]};
 let _savingRegistry=false,_pendingRegistrySave=false;
@@ -4812,7 +4813,7 @@ function _checkMobilePlayerRedirect(){
   document.documentElement.style.background='#000';
   document.querySelectorAll('body > *:not(script):not(link)').forEach(el=>el.style.display='none');
   // CDN_BASE is declared later in this script (TDZ); inline the literal here.
-  const _R2_CDN="https://pub-5562d3ff4b084ba7824a7ebe61f9466a.r2.dev";
+  const _R2_CDN="https://pub-eaaae306b81842a080df2d6cab4b7808.r2.dev";
   (async()=>{
     let videoUrl=null;
     if(!isNaN(vIdx)&&vIdx>=0){
@@ -5963,7 +5964,7 @@ function _pubTrack(event,file){
   // a Telegram id there is nothing meaningful to record.
   if(!window.__pubDlToken||!window.__pubDlUid)return;
   try{
-    fetch('https://contora.net/tg/track',{
+    fetch('https://sandbox.contora.net/tg/track',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({token:window.__pubDlToken,uid:window.__pubDlUid,event,file:file||'',projectId:CURRENT_PROJECT_ID||LEGACY_PROJECT_ID})
@@ -6661,7 +6662,7 @@ function _openProjectColorPicker(pid,anchor){
 // (or any MCP client) can drive the tracker via the worker /mcp endpoint.
 // Tokens live in registry.mcpTokens[] and grant scoped project access.
 // ═══════════════════════════════════════════════════════════════════════
-const MCP_WORKER_URL='https://contora.net/mcp';
+const MCP_WORKER_URL='https://sandbox.contora.net/mcp';
 function _mcpGenerateToken(){
   const bytes=new Uint8Array(24);
   crypto.getRandomValues(bytes);
@@ -6930,7 +6931,7 @@ async function _refreshBotStatus(){
   _botPingData=null;
   _renderBotSettings();
   try{
-    const r=await fetch('https://contora.net/tg/ping',{method:'POST',headers:{'Content-Type':'application/json','Origin':location.origin}});
+    const r=await fetch('https://sandbox.contora.net/tg/ping',{method:'POST',headers:{'Content-Type':'application/json','Origin':location.origin}});
     const d=await r.json();
     if(!d.ok)throw new Error(d.error||'unknown');
     _botPingData=d;
@@ -6989,7 +6990,7 @@ async function _testBotPush(artistId){
     if(!isNaN(v)&&v>0){cfg.artistThreads[artistId]=v;await new Promise(res=>{saveState(state);setTimeout(res,500);});}
   }
   try{
-    const r=await fetch('https://contora.net/tg/push',{
+    const r=await fetch('https://sandbox.contora.net/tg/push',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
@@ -8441,7 +8442,7 @@ function chatToggleSelect(mid,el){
 }
 
 /* ── Telegram Push notification ── */
-const TG_PUSH_URL='https://contora.net/tg/push';
+const TG_PUSH_URL='https://sandbox.contora.net/tg/push';
 function _tgArtistCooldown(){return state.__bot?.cooldowns?.artistMs??60000;}
 function _tgAdminDebounce(){return state.__bot?.cooldowns?.adminMs??1000;}
 let _lastPushAt=0;                     // local timestamp of last successful push (admin debounce)
@@ -9000,7 +9001,7 @@ function saveNote(){
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!document.getElementById("noteOverlay").classList.contains("hidden"))closeNote();});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(!document.getElementById("doneShotsOverlay").classList.contains("hidden")){closeDoneShots();return;}if(!document.getElementById("myFilesOverlay").classList.contains("hidden")){closeMyFiles();return;}if(!document.getElementById("shotOverlay").classList.contains("hidden"))closeShot();}});
 
-const CDN_BASE="https://pub-5562d3ff4b084ba7824a7ebe61f9466a.r2.dev";
+const CDN_BASE="https://pub-eaaae306b81842a080df2d6cab4b7808.r2.dev";
 const GIFS=new Set();
 // Per-project tracker for thumb probes so realtime-triggered pulls don't
 // keep firing new Image() requests for shots we already probed.  Reset
@@ -11654,7 +11655,7 @@ async function _downloadAsZip(files,zipName){
   const {makeZip}=await import("https://cdn.jsdelivr.net/npm/client-zip/index.js");
   let done=0;
   const panel=_showOperationProgress('Downloading & zipping',files.length);
-  const WORKER='https://contora.net/r2/';
+  const WORKER='https://sandbox.contora.net/r2/';
   async function* generateFiles(){
     for(const f of files){
       const proxyUrl=f.url.startsWith(CDN_BASE)?WORKER+f.url.substring(CDN_BASE.length+1):f.url;
@@ -12286,7 +12287,7 @@ async function _r2WaitForKey(key,timeoutMs){
 const R2_ACCESS_KEY="d9fd350d6e623ab85ccb0a58930a35d8";
 const R2_SECRET_KEY="4498ba8839c82bd88fd4a9d3e4d9edb44268ff73a646d818314d6df8be6eb1f8";
 const R2_ENDPOINT="https://6b4341dd25b4f283d53ad86424e39e74.r2.cloudflarestorage.com";
-const R2_BUCKET="kh-vfx-video";
+const R2_BUCKET="kh-vfx-video-sandbox";
 // Multi-project R2 path helper. Legacy project (main) keeps unprefixed
 // paths so pre-migration files stay reachable; every other project gets
 // a "{projectId}/" prefix so R2 listing + downloads stay isolated.

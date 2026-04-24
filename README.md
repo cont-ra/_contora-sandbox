@@ -1,14 +1,28 @@
-# Contora — VFX Tracker
+# Contora — VFX Tracker · **SANDBOX**
 
-Monorepo for the Contora VFX tracker, deployed at [contora.net](https://contora.net).
+> ⚠️ This is the **sandbox** copy of [`cont-ra/_contora`](https://github.com/cont-ra/_contora) — deployed at [sandbox.contora.net](https://sandbox.contora.net) for risk-free experiments.
+> Not production. Test new features here first; cherry-pick into the main repo when stable.
 
 ## Architecture
 
-| Layer | Where it lives | Where it deploys |
+| Layer | Sandbox | Production (for reference) |
 |---|---|---|
-| Frontend (`index.html`) | repo root | **GitHub Pages** (auto-deploys on push to `main`), reverse-proxied via Cloudflare to `contora.net/vfx-tracker/` |
-| API Worker | `api/` | **Cloudflare Worker** `contora-proxy` → API endpoints on `contora.net` |
-| Local dev tools | `tools/` | not deployed |
+| Domain | `sandbox.contora.net` | `contora.net` |
+| Frontend | GitHub Pages of this repo | GitHub Pages of `cont-ra/_contora` |
+| API Worker | `contora-proxy-sandbox` | `contora-proxy` |
+| Database | Supabase `hsvylpssqldbfxrddxwd` | Supabase `brpqatwlrqertxtggbbn` |
+| R2 bucket | `kh-vfx-video-sandbox` | `kh-vfx-video` |
+| Telegram bot | shared with prod | — |
+
+## Workflow
+
+```
+feature → cont-ra/_contora-sandbox → sandbox.contora.net → test
+                                               ↓ stable
+                              cherry-pick / PR into cont-ra/_contora
+                                               ↓
+                                        contora.net
+```
 
 ## Deploy
 
@@ -26,12 +40,6 @@ cd api && wrangler deploy
 python3 tools/server.py        # Range-aware HTTP server on :8000
 ```
 
-## Version bump
-
-`tools/bump-version.sh` auto-increments the build number in `index.html`
-(format `vX.Y.ZZZZ`). Wired as `.git/hooks/pre-push` — runs on every
-`git push` and bumps the version inside the last commit.
-
 ## Layout
 
 ```
@@ -39,14 +47,14 @@ python3 tools/server.py        # Range-aware HTTP server on :8000
 ├── index.html              ← frontend, served by GitHub Pages
 ├── api/
 │   ├── src/
-│   │   ├── index.js        ← Worker entry
-│   │   ├── api.js          ← main API
+│   │   ├── index.js
+│   │   ├── api.js
 │   │   ├── compose.js
 │   │   └── decomposer.js
-│   └── wrangler.toml       ← Cloudflare Worker config
+│   └── wrangler.toml       ← Cloudflare Worker config (sandbox)
 ├── tools/
 │   ├── server.py
 │   └── bump-version.sh
 ├── wrangler.jsonc          ← legacy: unused Worker `traker` (no routes)
-└── .assetsignore           ← legacy: only relevant if frontend ever moves to a CF Worker
+└── .assetsignore           ← legacy
 ```
