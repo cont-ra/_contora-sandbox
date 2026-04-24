@@ -921,9 +921,14 @@
 
 <div class="project-picker-overlay hidden" id="noProjectsOverlay">
   <div class="project-picker-box no-projects-box">
-    <div class="big-icon">🔒</div>
-    <h2>No projects assigned</h2>
-    <p>Ask the admin to grant you access to a project.<br>Once assigned, log out and back in.</p>
+    <div class="big-icon" id="noProjectsIcon">🔒</div>
+    <h2 id="noProjectsTitle">No projects assigned</h2>
+    <p id="noProjectsMsg">Ask the admin to grant you access to a project.<br>Once assigned, log out and back in.</p>
+    <div id="noProjectsCreate" class="hidden" style="margin:18px 0 8px;display:flex;flex-direction:column;gap:10px">
+      <input id="noProjectsCreateName" type="text" placeholder="Project name (e.g. Voronka, Agent)"
+             style="background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:10px 12px;border-radius:6px;font-size:14px;text-align:center">
+      <button class="login-btn" onclick="_createFirstProjectFromLanding()">+ Create first project</button>
+    </div>
     <button class="project-picker-logout" onclick="logout()">Log out</button>
   </div>
 </div>
@@ -1864,20 +1869,18 @@ function _setCurrentProject(pid){
 // picker/blocker was shown and showLoggedIn should abort.
 function _resolveProjectSelection(){
   const projects=getAvailableProjects(currentUser.id);
+  // Guest share links pin to a specific project — go straight in.
+  if(URL_PROJECT_OVERRIDE&&projects.some(p=>p.id===URL_PROJECT_OVERRIDE)){
+    _setCurrentProject(URL_PROJECT_OVERRIDE);
+    return true;
+  }
   if(projects.length===0){
     _showNoProjectsScreen();
     return false;
   }
-  if(projects.length===1){
-    _setCurrentProject(projects[0].id);
-    return true;
-  }
-  // 2+ projects — prefer last used, else show picker
-  let lastPid=null;try{lastPid=localStorage.getItem(LAST_PROJECT_KEY);}catch(e){}
-  if(lastPid&&projects.some(p=>p.id===lastPid)){
-    _setCurrentProject(lastPid);
-    return true;
-  }
+  // Always show the picker as the landing page after login, even with one
+  // project — it's the user's "home" view, mirrors getAvailableProjects()
+  // and exposes the create button for admins.
   _showProjectPicker(projects);
   return false;
 }
@@ -1980,8 +1983,7 @@ function _closeProjectPicker(){
 function _renderProjectPicker(projects){
   const list=document.getElementById('projectPickerList');if(!list)return;
   const available=projects||getAvailableProjects(currentUser?.id||'');
-  if(!available.length){list.innerHTML='<div style="color:#8b949e;padding:16px">No projects available.</div>';return;}
-  list.innerHTML=available.map(p=>{
+  const tiles=available.map(p=>{
     const col=_projectColor(p);
     const active=p.id===CURRENT_PROJECT_ID?' active':'';
     const legacy=p.legacyR2?'<span title="Legacy paths">LEGACY</span>':'';
@@ -1990,7 +1992,34 @@ function _renderProjectPicker(projects){
       +`<div class="project-picker-name">${esc(p.name||p.id)}</div>`
       +`<div class="project-picker-meta">${active?'CURRENT':legacy||''}</div>`
       +`</div>`;
-  }).join('');
+  });
+  // Admin: append "+ New project" tile that opens the inline create prompt.
+  if(isAdmin()){
+    tiles.push(
+      `<div class="project-picker-card" style="--pc-color:#3fb950;border-style:dashed" onclick="_promptCreateProjectFromPicker()">`
+      +`<div class="project-picker-tile" style="background:#3fb95022;color:#3fb950">+</div>`
+      +`<div class="project-picker-name">New project</div>`
+      +`<div class="project-picker-meta">CREATE</div>`
+      +`</div>`
+    );
+  }
+  list.innerHTML=tiles.length
+    ?tiles.join('')
+    :'<div style="color:#8b949e;padding:16px">No projects available.</div>';
+}
+async function _promptCreateProjectFromPicker(){
+  if(!isAdmin())return;
+  const name=(window.prompt('New project name (e.g. Voronka, Agent):')||'').trim();
+  if(!name)return;
+  const proxy=document.getElementById('newProjectName');
+  const proxyColor=document.getElementById('newProjectColor');
+  const tmp=!proxy?document.createElement('input'):null;
+  if(tmp){tmp.id='newProjectName';tmp.type='hidden';tmp.value=name;document.body.appendChild(tmp);}
+  else{proxy.value=name;}
+  if(!proxyColor){const c=document.createElement('input');c.id='newProjectColor';c.type='hidden';c.value='#58a6ff';document.body.appendChild(c);}
+  try{await _createProject();}finally{if(tmp)tmp.remove();}
+  // Refresh picker so the new project appears immediately
+  _renderProjectPicker(getAvailableProjects(currentUser?.id||''));
 }
 function _pickProjectFromUi(pid){
   // Post-login flow: initial picker runs BEFORE showLoggedIn finished —
@@ -2007,8 +2036,47 @@ function _pickProjectFromUi(pid){
   switchProject(pid);
 }
 function _showNoProjectsScreen(){
-  const ov=document.getElementById('noProjectsOverlay');if(ov)ov.classList.remove('hidden');
+  const ov=document.getElementById('noProjectsOverlay');if(!ov)return;
+  ov.classList.remove('hidden');
   const login=document.getElementById('loginOverlay');if(login)login.classList.add('hidden');
+  // Admin sees a create form; everyone else sees the "ask admin" copy.
+  const admin=isAdmin();
+  const icon=document.getElementById('noProjectsIcon');
+  const title=document.getElementById('noProjectsTitle');
+  const msg=document.getElementById('noProjectsMsg');
+  const create=document.getElementById('noProjectsCreate');
+  if(admin){
+    if(icon)icon.textContent='🚀';
+    if(title)title.textContent='No projects yet';
+    if(msg)msg.innerHTML='Create the first project to get started.<br>You can add more from the project picker later.';
+    if(create)create.classList.remove('hidden');
+    setTimeout(()=>{const i=document.getElementById('noProjectsCreateName');if(i)i.focus();},50);
+  }else{
+    if(icon)icon.textContent='🔒';
+    if(title)title.textContent='No projects assigned';
+    if(msg)msg.innerHTML='Ask the admin to grant you access to a project.<br>Once assigned, log out and back in.';
+    if(create)create.classList.add('hidden');
+  }
+}
+async function _createFirstProjectFromLanding(){
+  if(!isAdmin())return;
+  const inp=document.getElementById('noProjectsCreateName');
+  const name=(inp?.value||'').trim();
+  if(!name){await _showAlert('Missing name','Give the project a name.');return;}
+  // Stage values into the existing _createProject form (it reads from #newProjectName / #newProjectColor).
+  const proxy=document.getElementById('newProjectName');
+  const proxyColor=document.getElementById('newProjectColor');
+  const tmp=!proxy?document.createElement('input'):null;
+  if(tmp){tmp.id='newProjectName';tmp.type='hidden';tmp.value=name;document.body.appendChild(tmp);}
+  else{proxy.value=name;}
+  if(!proxyColor){const c=document.createElement('input');c.id='newProjectColor';c.type='hidden';c.value='#58a6ff';document.body.appendChild(c);}
+  try{await _createProject();}finally{
+    if(tmp)tmp.remove();
+  }
+  // _createProject pushes registry + redirects via switchProject; if it
+  // didn't redirect (race / error path), retry the landing decision.
+  document.getElementById('noProjectsOverlay').classList.add('hidden');
+  if(currentUser)await showLoggedIn();
 }
 function _hideNoProjectsScreen(){
   const ov=document.getElementById('noProjectsOverlay');if(ov)ov.classList.add('hidden');
@@ -4532,20 +4600,22 @@ async function _pushRegistry(){
 // Seeds it from the hard-coded USERS const + the currently loaded state
 // (which may already have state.__users / state.__artists from prior saves).
 async function _bootstrapRegistry(){
+  // Empty bootstrap: no auto-seeded project, no auto-assignments. Admins
+  // create the first project from the no-projects landing screen; non-admins
+  // see "ask the admin" until granted access.
   const seed=_normalizeRegistry({
     __version:0,
-    projects:[{id:LEGACY_PROJECT_ID,name:"Killhouse Main",color:"#58a6ff",createdAt:Date.now(),legacyR2:true}],
+    projects:[],
     users:{},
     userProjects:{},
-    artists:(state&&state.__artists)?state.__artists:[{id:"nikita",display:"Nikita"},{id:"igor",display:"Igor"}]
+    artists:(state&&state.__artists)?state.__artists:[]
   });
-  // Prefer any users already synced into state (pulled from prior main row)
+  // Carry over any users already pulled from state.__users so they survive
+  // the very first registry creation; no project assignment though.
   const src=(state&&state.__users&&Object.keys(state.__users).length)?state.__users:USERS;
   for(const[uid,u]of Object.entries(src||{})){
     if(!u||!u.hash)continue;
     seed.users[uid]={hash:u.hash,display:u.display||uid,role:u.role||'artist',linkToken:u.linkToken||null,telegram:u.telegram||null};
-    // Every non-admin user gets the legacy project by default
-    if(seed.users[uid].role!=='admin'){seed.userProjects[uid]=[LEGACY_PROJECT_ID];}
   }
   registry=seed;
   await _pushRegistry();
