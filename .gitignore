@@ -1,15 +1,8 @@
-gif/
 .DS_Store
 __pycache__/
-thumbs/
-video/
-*.backup-*
-*.deploy_draft
-kh_tracker_backup_*.json
-
-# wrangler files
-.wrangler
+.wrangler/
+node_modules/
 .dev.vars*
-!.dev.vars.example
 .env*
 !.env.example
+.claude/
