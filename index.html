@@ -610,7 +610,6 @@
   .shot-info-cell { font-size: 13px; color: var(--text-secondary); cursor: pointer; min-width: 300px; vertical-align: top !important; padding-top: 32px !important; }
   .shot-info-cell:hover { color: var(--text-primary); }
   .si-tooltip { position: fixed; background: rgba(22,27,34,0.65); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(48,54,61,0.6); border-radius: 10px; padding: 16px 20px; z-index: 5000; pointer-events: none; min-width: 340px; max-width: 420px; transition: opacity 0.3s; }
-  .si-tooltip.pinned { background: var(--bg-panel); opacity: 1 !important; pointer-events: auto; box-shadow: 0 8px 24px rgba(0,0,0,0.6); }
   .si-tooltip .si-tt-title { font-size: 13px; color: var(--accent); font-weight: 600; margin-bottom: 10px; font-family: 'SF Mono', monospace; }
   .si-tooltip .si-tt-row { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--bg-raised); }
   .si-tooltip .si-tt-row:last-child { border-bottom: none; }
@@ -7102,10 +7101,10 @@ function _attachSiDropdown(input,options,dynamicFn){
   input.addEventListener("blur",()=>setTimeout(close,150));
 }
 // --- SHOT INFO TOOLTIP ---
-let _siTooltipPinned=false,_siTargetX=0,_siTargetY=0,_siCurX=0,_siCurY=0,_siRaf=null;
+let _siTargetX=0,_siTargetY=0,_siCurX=0,_siCurY=0,_siRaf=null;
 function _siLerp(){
   const tt=document.getElementById('siTooltip');
-  if(!tt||_siTooltipPinned){_siRaf=null;return;}
+  if(!tt){_siRaf=null;return;}
   _siCurX+=(_siTargetX-_siCurX)*0.03;
   _siCurY+=(_siTargetY-_siCurY)*0.03;
   tt.style.left=Math.round(_siCurX)+'px';
@@ -7144,7 +7143,6 @@ function _calcTooltipPos(tt,mx,my){
   return{left,top};
 }
 function showSiTooltip(id,e){
-  if(_siTooltipPinned)return;
   let tt=document.getElementById('siTooltip');
   if(!tt){tt=document.createElement('div');tt.className='si-tooltip';tt.id='siTooltip';document.body.appendChild(tt);}
   tt.innerHTML=_siTooltipHtml(id);
@@ -7155,7 +7153,6 @@ function showSiTooltip(id,e){
   tt.style.left=pos.left+'px';tt.style.top=pos.top+'px';
 }
 function moveSiTooltip(e){
-  if(_siTooltipPinned)return;
   const tt=document.getElementById('siTooltip');
   if(!tt)return;
   const pos=_calcTooltipPos(tt,e.clientX,e.clientY);
@@ -7163,25 +7160,14 @@ function moveSiTooltip(e){
   if(!_siRaf)_siRaf=requestAnimationFrame(_siLerp);
 }
 function hideSiTooltip(){
-  if(_siTooltipPinned)return;
   const tt=document.getElementById('siTooltip');
-  if(tt){tt.style.opacity='0';setTimeout(()=>{if(!_siTooltipPinned&&tt.style.opacity==='0')tt.remove();},200);}
+  if(tt){tt.style.opacity='0';setTimeout(()=>{if(tt.style.opacity==='0')tt.remove();},200);}
 }
-function pinSiTooltip(id){
-  const tt=document.getElementById('siTooltip');
-  if(_siTooltipPinned){_siTooltipPinned=false;if(tt)tt.remove();return;}
-  if(!tt){showSiTooltip(id,{clientX:0,clientY:0});}
-  const t=document.getElementById('siTooltip');
-  if(!t)return;
-  _siTooltipPinned=true;
-  t.classList.add('pinned');
-  t.innerHTML=_siTooltipHtml(id)+`<div style="text-align:right;margin-top:8px"><button onclick="_siTooltipPinned=false;document.getElementById('siTooltip')?.remove()" style="background:#21262d;border:1px solid #30363d;color:#8b949e;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:11px">Close</button>${isAdmin()&&isEditMode()?` <button onclick="_siTooltipPinned=false;document.getElementById('siTooltip')?.remove();openShotInfoModal('${id}')" style="background:#1f6feb;border:1px solid #1f6feb;color:#fff;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:11px">Edit</button>`:''}</div>`;
-  function onClickOutside(e){if(!t.contains(e.target)){_siTooltipPinned=false;t.remove();document.removeEventListener('click',onClickOutside);}}
-  setTimeout(()=>document.addEventListener('click',onClickOutside),0);
-}
-
 async function openShotInfoModal(id){
-  if(!isEditMode())return;
+  // Hover tooltip is purely visual — drop it immediately so it does not stack
+  // on top of the modal we are about to open.
+  const tt=document.getElementById('siTooltip');
+  if(tt)tt.remove();
   closeShotInfoModal();
   // Lazy-load camera/lens/codec lookup lists on first open. Subsequent calls
   // return immediately from the cached promise.
@@ -7237,7 +7223,7 @@ async function openShotInfoModal(id){
 }
 function closeShotInfoModal(){const d=document.getElementById("siModalOverlay");if(d)d.remove();}
 function saveShotInfoModal(id){
-  if(!isEditMode())return;
+  if(!isAdmin())return;
   const ov=document.getElementById("siModalOverlay");
   if(!ov)return;
   const inputs=ov.querySelectorAll('.si-input');
@@ -11222,7 +11208,7 @@ function _buildRow(r){
     <td><div class="${prioTagClass}" data-shot-id="${r.id}" ${prioClick} ${prioStyle} ${prioTitle}>${diff?diff:''}</div></td>
     <td style="color:#484f58">${r.idx}</td>
     <td class="id-preview-cell"><div class="id-label" onclick="openShot('${r.id}')">${r.id}</div>${hasGif(r.id)?`<div class="gif-thumb-wrap" onclick="openGif('${r.id}')" onmouseenter="thumbPreviewStart(this,'${r.id}')" onmouseleave="thumbPreviewStop(this,'${r.id}')"><video class="gif-thumb" data-src="${_pickCardPreviewUrl(r.id)}" muted playsinline preload="none" onloadedmetadata="this.currentTime=0.01"></video><div class="gif-play-icon"></div></div>`:'<div class="gif-none">—</div>'}</td>
-    <td class="shot-info-cell" onmouseenter="showSiTooltip('${r.id}',event)" onmousemove="moveSiTooltip(event)" onmouseleave="hideSiTooltip()" onclick="event.stopPropagation();pinSiTooltip('${r.id}')" data-tid="${r.id}">${_renderShotInfo(r.id)}</td>
+    <td class="shot-info-cell" onmouseenter="showSiTooltip('${r.id}',event)" onmousemove="moveSiTooltip(event)" onmouseleave="hideSiTooltip()" onclick="event.stopPropagation();openShotInfoModal('${r.id}')" data-tid="${r.id}">${_renderShotInfo(r.id)}</td>
     <td class="category-cell">${isAdmin()&&isEditMode()?_catTag(r.id,getCat(r.id)):_catTagHtml(getCat(r.id))}</td>
     <td class="tc-cell">${r.tcIn}</td>
     <td class="tc-cell">${r.tcOut}</td>
