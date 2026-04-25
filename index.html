@@ -939,7 +939,7 @@
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
 <div id="updateBanner" class="update-banner hidden"><span id="updateBannerText"></span><button id="updateBannerNow">Reload now</button><button id="updateBannerCancel">Later</button></div>
-<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0160</div>
+<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0161</div>
 
 <script>
 const USERS = {
@@ -2106,6 +2106,24 @@ const ARTISTS=_DEFAULT_ARTISTS; // initial, patched after state load
 const SUPA_URL="https://hsvylpssqldbfxrddxwd.supabase.co";
 const SUPA_KEY="sb_publishable_uUSCje9OUZXhOvj5unPcGQ_Pf9qBE9G";
 const SUPA_HEADERS={"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,"Content-Type":"application/json","Prefer":"return=minimal"};
+// Paginated select of every project_entities row for one project_id.
+// Returns an array on success, or null on HTTP error so callers can decide
+// whether to bail (`return false`) or fall back to empty (`?:[]`).
+async function _fetchAllProjectEntities(pePid){
+  let all=[]; let from=0; const page=1000;
+  while(true){
+    const to=from+page-1;
+    const r=await fetch(SUPA_URL+"/rest/v1/project_entities?project_id=eq."+encodeURIComponent(pePid)+"&select=*&order=entity_type.asc,entity_id.asc",{
+      headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,"Range-Unit":"items","Range":from+"-"+to}
+    });
+    if(!r.ok)return null;
+    const rows=await r.json();
+    all=all.concat(rows);
+    if(rows.length<page)break;
+    from=to+1;
+  }
+  return all;
+}
 let _saving=false,_pendingSave=false;
 // ═══════════════════════════════════════════════════════════════════════
 // MULTI-PROJECT CONTEXT
@@ -2247,11 +2265,22 @@ function _initAuth(){
 
 function loadState(){try{return JSON.parse(localStorage.getItem(_storageKey()))||{};}catch{return {};}}
 
+// Save-notice toaster. `kind` selects background colour; passing 'clear'
+// hides without animation. ttl=0 keeps it visible (used while saving).
+const _SAVE_NOTICE_BG={saving:"#1f6feb",ok:"#1f6feb",warn:"#d29922",err:"#f85149"};
+function _setSaveNotice(text,kind,ttl){
+  const n=document.getElementById("saveNotice");
+  if(!n)return;
+  if(kind==='clear'){n.classList.remove("show");n.textContent="";n.style.background="";return;}
+  n.textContent=text;
+  n.style.background=_SAVE_NOTICE_BG[kind]||"";
+  n.classList.add("show");
+  if(ttl>0)setTimeout(()=>{n.classList.remove("show");n.style.background="";},ttl);
+}
 
 function saveState(s){
   localStorage.setItem(_storageKey(),JSON.stringify(s));
-  const n=document.getElementById("saveNotice");
-  n.textContent="Saving...";n.classList.add("show");
+  _setSaveNotice("Saving...","saving",0);
   if(_saving){_pendingSave=true;return;}
   _saving=true;
   _pushRemote(s).finally(()=>{
@@ -2385,6 +2414,32 @@ async function _deleteEntityRows(pePid, deletes){
   ).catch(e=>({ok:false,error:String(e)}))));
   return results.every(r => r && r.ok);
 }
+// Wrap decomposed entities into the row shape expected by batch_dual_write.
+// Auto-stamps project_id, session_id, user_id; payload-only fields stay as-is.
+function _buildEntityRows(entities, pePid){
+  return entities.map(function(e){
+    return {
+      project_id:  pePid,
+      entity_type: e.entity_type,
+      entity_id:   e.entity_id,
+      parent_type: e.parent_type,
+      parent_id:   e.parent_id,
+      payload:     e.payload,
+      version_in:  null,
+      session_id:  SESSION_ID,
+      user_id:     (currentUser && currentUser.id) || 'anon',
+    };
+  });
+}
+// Single POST to the batch_dual_write RPC. Returns the fetch Response so
+// callers can inspect status / parse body / retry as they like.
+function _batchDualWrite(rows){
+  return fetch(SUPA_URL+"/rest/v1/rpc/batch_dual_write",{
+    method:"POST",
+    headers:{...SUPA_HEADERS,"Content-Type":"application/json","Prefer":"params=single-object"},
+    body:JSON.stringify({p_rows:rows})
+  });
+}
 
 async function _pushRemote(s){
   // Post-cutover v4.1: decompose + diff against last-sent baseline, then
@@ -2404,9 +2459,7 @@ async function _pushRemote(s){
     entities=decomposeProjectState(pePid,s);
   }catch(e){
     console.error("decompose failed:",e);
-    const n=document.getElementById("saveNotice");
-    if(n){n.textContent="Save error (decompose)";n.style.background="#f85149";
-      setTimeout(()=>{n.classList.remove("show");n.style.background="";},3000);}
+    _setSaveNotice("Save error (decompose)","err",3000);
     return;
   }
 
@@ -2417,32 +2470,13 @@ async function _pushRemote(s){
     // Nothing changed since the last successful send — exit silently.
     // Previously we still flashed "Saved" here, which looked like an
     // autosave even though no network write happened.
-    const n=document.getElementById("saveNotice");
-    if(n){n.classList.remove("show");n.textContent="";n.style.background="";}
+    _setSaveNotice("","clear");
     return;
   }
 
-  const rows=diff.upserts.map(function(e){
-    return {
-      project_id:  pePid,
-      entity_type: e.entity_type,
-      entity_id:   e.entity_id,
-      parent_type: e.parent_type,
-      parent_id:   e.parent_id,
-      payload:     e.payload,
-      version_in:  null,
-      session_id:  SESSION_ID,
-      user_id:     (currentUser && currentUser.id) || 'anon',
-    };
-  });
+  const rows=_buildEntityRows(diff.upserts, pePid);
 
-  async function _attempt(){
-    return await fetch(SUPA_URL+"/rest/v1/rpc/batch_dual_write",{
-      method:"POST",
-      headers:{...SUPA_HEADERS,"Content-Type":"application/json","Prefer":"params=single-object"},
-      body:JSON.stringify({p_rows:rows})
-    });
-  }
+  async function _attempt(){return await _batchDualWrite(rows);}
 
   let upsertResp=null;
   if(rows.length){
@@ -2456,9 +2490,7 @@ async function _pushRemote(s){
       try{ await new Promise(r=>setTimeout(r,500)); upsertResp=await _attempt(); }catch(e2){ upsertResp=null; }
     }
     if(!upsertResp||!upsertResp.ok){
-      const n=document.getElementById("saveNotice");
-      if(n){n.textContent="Save failed — check connection";n.style.background="#f85149";
-        setTimeout(()=>{n.classList.remove("show");n.style.background="";},4000);}
+      _setSaveNotice("Save failed — check connection","err",4000);
       if(typeof _showAlert==='function')_showAlert('Save failed','Could not save your change.  Check your connection and retry.');
       // Baseline stays on old state — next save re-attempts the delta.
       return;
@@ -2468,9 +2500,7 @@ async function _pushRemote(s){
       if(Array.isArray(body)){
         const conf=body.filter(x=>x && x.conflict===true);
         if(conf.length){
-          const n=document.getElementById("saveNotice");
-          if(n){n.textContent="⚠ Conflict — please reload";n.style.background="#d29922";
-            setTimeout(()=>{n.classList.remove("show");n.style.background="";},6000);}
+          _setSaveNotice("⚠ Conflict — please reload","warn",6000);
           if(typeof _showAlert==='function')_showAlert('Sync conflict','Another device saved changes while you were editing.<br><br>Please reload the page.');
           return;
         }
@@ -2483,18 +2513,14 @@ async function _pushRemote(s){
     if(!ok){
       // Partial success: upserts committed, deletes may have failed.
       // Do NOT advance the baseline — next save retries the pending deletes.
-      const n=document.getElementById("saveNotice");
-      if(n){n.textContent="Saved (cleanup retry pending)";n.style.background="#d29922";
-        setTimeout(()=>{n.classList.remove("show");n.style.background="";},3000);}
+      _setSaveNotice("Saved (cleanup retry pending)","warn",3000);
       return;
     }
   }
 
   // Full success — baseline advances to the current snapshot.
   _lastSentRows=newIdx;
-  const n=document.getElementById("saveNotice");
-  if(n){n.textContent="Saved ("+rows.length+"↑ "+diff.deletes.length+"✖)";n.style.background="#1f6feb";
-    setTimeout(()=>n.classList.remove("show"),1200);}
+  _setSaveNotice("Saved ("+rows.length+"↑ "+diff.deletes.length+"✖)","ok",1200);
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -2519,18 +2545,8 @@ function _normalizeRegistry(raw){
 async function _pullRegistry(){
   try{
     const pePid="_registry";
-    let all=[]; let from=0; const page=1000;
-    while(true){
-      const to=from+page-1;
-      const r=await fetch(SUPA_URL+"/rest/v1/project_entities?project_id=eq."+encodeURIComponent(pePid)+"&select=*&order=entity_type.asc,entity_id.asc",{
-        headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,"Range-Unit":"items","Range":from+"-"+to}
-      });
-      if(!r.ok)return false;
-      const rows=await r.json();
-      all=all.concat(rows);
-      if(rows.length<page)break;
-      from=to+1;
-    }
+    const all=await _fetchAllProjectEntities(pePid);
+    if(all===null)return false;
     if(!all.length)return null;  // not yet populated — bootstrap path
 
     // v4.1 baseline refresh for diff-based _pushRegistry.
@@ -2554,25 +2570,9 @@ async function _pushRegistry(){
     if(!diff.upserts.length && !diff.deletes.length){
       return;
     }
-    const rows=diff.upserts.map(function(e){
-      return {
-        project_id:  pePid,
-        entity_type: e.entity_type,
-        entity_id:   e.entity_id,
-        parent_type: e.parent_type,
-        parent_id:   e.parent_id,
-        payload:     e.payload,
-        version_in:  null,
-        session_id:  SESSION_ID,
-        user_id:     (currentUser && currentUser.id) || 'anon',
-      };
-    });
+    const rows=_buildEntityRows(diff.upserts, pePid);
     if(rows.length){
-      const r=await fetch(SUPA_URL+"/rest/v1/rpc/batch_dual_write",{
-        method:"POST",
-        headers:{...SUPA_HEADERS,"Content-Type":"application/json","Prefer":"params=single-object"},
-        body:JSON.stringify({p_rows:rows})
-      });
+      const r=await _batchDualWrite(rows);
       if(!r.ok){
         const t=await r.text();
         console.error("Registry dual-write failed:",r.status,t);
@@ -2656,18 +2656,8 @@ async function _pullRemote(){
   try{
     const _rowId=CURRENT_PROJECT_ID||LEGACY_PROJECT_ID;
     const pePid=_rowId==='__registry'?'_registry':_rowId;
-    let all=[]; let from=0; const page=1000;
-    while(true){
-      const to=from+page-1;
-      const r=await fetch(SUPA_URL+"/rest/v1/project_entities?project_id=eq."+encodeURIComponent(pePid)+"&select=*&order=entity_type.asc,entity_id.asc",{
-        headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,"Range-Unit":"items","Range":from+"-"+to}
-      });
-      if(!r.ok)return false;
-      const rows=await r.json();
-      all=all.concat(rows);
-      if(rows.length<page)break;
-      from=to+1;
-    }
+    const all=await _fetchAllProjectEntities(pePid);
+    if(all===null)return false;
     if(!all.length) return false;
 
     // Baseline refresh regardless of whether the composed blob differs
@@ -3279,7 +3269,7 @@ function closeDoneShots(){
 function openAddShotDialog(){
   if(!isEditMode()||!isAdmin())return;
   const catOpts=getAllCatKeys().map(k=>`<option value="${k}">${esc(getCatLabel(k))}</option>`).join('');
-  const html=`<div class="confirm-box"><div class="confirm-title">Add Shot</div><div class="confirm-msg"><div style="display:flex;flex-direction:column;gap:12px">
+  const formMsg=`<div style="display:flex;flex-direction:column;gap:12px">
     <label>ID <input id="_as_id" style="width:100%;padding:6px;background:#161b22;color:#e6edf3;border:1px solid #30363d;border-radius:4px" placeholder="KH_01_XXX"></label>
     <label>Description <input id="_as_desc" style="width:100%;padding:6px;background:#161b22;color:#e6edf3;border:1px solid #30363d;border-radius:4px" placeholder="Shot description"></label>
     <label>Category <select id="_as_cat" style="padding:6px;background:#161b22;color:#e6edf3;border:1px solid #30363d;border-radius:4px">${catOpts}</select></label>
@@ -3287,7 +3277,11 @@ function openAddShotDialog(){
       <label style="flex:1">TC In <input id="_as_tcin" style="width:100%;padding:6px;background:#161b22;color:#e6edf3;border:1px solid #30363d;border-radius:4px" placeholder="0:00:00:00"></label>
       <label style="flex:1">TC Out <input id="_as_tcout" style="width:100%;padding:6px;background:#161b22;color:#e6edf3;border:1px solid #30363d;border-radius:4px" placeholder="0:00:00:00"></label>
     </div>
-  </div></div><div class="confirm-btns"><button class="confirm-btn cancel" id="confirmNo">Cancel</button><button class="confirm-btn danger" style="background:#238636;border-color:#238636" id="confirmYes">Add</button></div></div>`;
+  </div>`;
+  const html=_confirmBox({title:'Add Shot',msg:formMsg,buttons:[
+    {id:'confirmNo',label:'Cancel',kind:'cancel'},
+    {id:'confirmYes',label:'Add',kind:'danger',style:'background:#238636;border-color:#238636'}
+  ]});
   const ov=_buildOverlay("confirm-overlay",html,()=>ov.remove());
   ov.querySelector("#confirmYes").onclick=()=>{
     const id=ov.querySelector('#_as_id').value.trim();
@@ -3460,11 +3454,16 @@ function getStatus(id){return state[id]?.status||"todo";}
 // === Delivered status auto-detection ===
 // A shot is "delivered" once at least one non-anonymous user has marked
 // every file in versions/final as 'completed' in __downloadTracking.
-// This mirrors the prod _isDelivered closure inside openDoneShots, hoisted
-// to a top-level helper so it can be reused for status auto-promotion.
-function _isClientDelivered(shotId){
+// `filterByApproved` (default false) restricts the check to finals whose
+// _v### matches state[shotId].approvedVersion — used by the Done Shots
+// UI so a starred preview only counts the matching final as delivery.
+function _isClientDelivered(shotId,opts){
   const sh=state[shotId]||{};
-  const finalArr=(sh.files&&sh.files['versions/final'])||[];
+  const allFinals=(sh.files&&sh.files['versions/final'])||[];
+  const apprV=sh.approvedVersion||0;
+  const finalArr=(opts&&opts.filterByApproved)
+    ? _filterByApprovedVersion(allFinals,apprV)
+    : allFinals;
   if(!finalArr.length)return false;
   const finalNames=finalArr.map(f=>shotId+"_FINAL/"+f.name);
   const shares=state.__downloadShares||{};
@@ -3683,10 +3682,7 @@ async function _pushDownloadShareInternal(){
   const ids=window.__lastShareIds||[];
   const url=window.__lastShareUrl||'';
   if(!ids.length||!url)return;
-  if(!currentUser||!_currentUserLinkToken()){
-    alert("Your account has no link token. Ask admin to regenerate.");return;
-  }
-  if(Date.now()-_lastPushAt<_tgAdminDebounce())return;
+  if(!_canTgPush())return;
   const fileNames=[];
   for(const id of ids){
     const arr=(state[id]?.files?.['versions/final'])||[];
@@ -3695,43 +3691,24 @@ async function _pushDownloadShareInternal(){
   const subject=`${ids.length} shot${ids.length!==1?'s':''} · ${fileNames.length} file${fileNames.length!==1?'s':''}\n\n→ TEST: pushing to KILLHOUSE _contora / General`;
   const comment=await _showPushPrompt("Push download link to internal",subject);
   if(comment===null)return;
-  const fromUser=currentUser.display||currentUser.id;
   const btn=document.getElementById("dlPushInternalBtn");
+  const restoreLabel='🧪 Push to internal (General)';
   if(btn){btn.disabled=true;btn.textContent='Sending…';}
-  try{
-    const r=await fetch(TG_PUSH_URL,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        kind:"download",
-        link:url,
-        files:fileNames,
-        comment,
-        fromUser,
-        targetChatId:'__internal__',
-        userId:currentUser.id,
-        linkToken:_currentUserLinkToken(),projectId:CURRENT_PROJECT_ID||LEGACY_PROJECT_ID
-      })
-    });
-    const data=await r.json().catch(()=>({}));
-    if(!r.ok||!data.ok)throw new Error(data.error||('HTTP '+r.status));
-    _lastPushAt=Date.now();
-    if(btn){btn.textContent='Sent ✓';setTimeout(()=>{btn.textContent='🧪 Push to internal (General)';btn.disabled=false;},2000);}
-  }catch(e){
-    console.error("Internal download push failed:",e);
-    alert("Push failed: "+(e.message||e));
-    if(btn){btn.textContent='🧪 Push to internal (General)';btn.disabled=false;}
+  const res=await _tgFetch({kind:"download",link:url,files:fileNames,comment,targetChatId:'__internal__'});
+  if(!res.ok){
+    console.error("Internal download push failed:",res.error);
+    alert("Push failed: "+res.error);
+    if(btn){btn.textContent=restoreLabel;btn.disabled=false;}
+    return;
   }
+  if(btn){btn.textContent='Sent ✓';setTimeout(()=>{btn.textContent=restoreLabel;btn.disabled=false;},2000);}
 }
 async function _pushDownloadShareToClient(){
   if(!isAdmin())return;
   const ids=window.__lastShareIds||[];
   const url=window.__lastShareUrl||'';
   if(!ids.length||!url)return;
-  if(!currentUser||!_currentUserLinkToken()){
-    alert("Your account has no link token. Ask admin to regenerate.");return;
-  }
-  if(Date.now()-_lastPushAt<_tgAdminDebounce())return;
+  if(!_canTgPush())return;
   // Pick which client chat
   const targetChatId=await _pickClientChat();
   if(!targetChatId)return;
@@ -3745,33 +3722,17 @@ async function _pushDownloadShareToClient(){
   const subject=`${ids.length} shot${ids.length!==1?'s':''} · ${fileNames.length} file${fileNames.length!==1?'s':''}\n\n→ Sending download link to CLIENT chat`;
   const comment=await _showPushPrompt("Push download link to client",subject);
   if(comment===null)return;
-  const fromUser=currentUser.display||currentUser.id;
   const btn=document.getElementById("dlPushClientBtn");
+  const restoreLabel='📤 Push to client chat';
   if(btn){btn.disabled=true;btn.textContent='Sending…';}
-  try{
-    const r=await fetch(TG_PUSH_URL,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        kind:"download",
-        link:url,
-        files:fileNames,
-        comment,
-        fromUser,
-        targetChatId,
-        userId:currentUser.id,
-        linkToken:_currentUserLinkToken(),projectId:CURRENT_PROJECT_ID||LEGACY_PROJECT_ID
-      })
-    });
-    const data=await r.json().catch(()=>({}));
-    if(!r.ok||!data.ok)throw new Error(data.error||('HTTP '+r.status));
-    _lastPushAt=Date.now();
-    if(btn){btn.textContent='Sent ✓';setTimeout(()=>{btn.textContent='📤 Push to client chat';btn.disabled=false;},2000);}
-  }catch(e){
-    console.error("Download share push failed:",e);
-    alert("Push failed: "+(e.message||e));
-    if(btn){btn.textContent='📤 Push to client chat';btn.disabled=false;}
+  const res=await _tgFetch({kind:"download",link:url,files:fileNames,comment,targetChatId});
+  if(!res.ok){
+    console.error("Download share push failed:",res.error);
+    alert("Push failed: "+res.error);
+    if(btn){btn.textContent=restoreLabel;btn.disabled=false;}
+    return;
   }
+  if(btn){btn.textContent='Sent ✓';setTimeout(()=>{btn.textContent=restoreLabel;btn.disabled=false;},2000);}
 }
 function _dlCopyShareLink(){
   const url=document.getElementById("dlShareUrl")?.textContent;
@@ -3817,47 +3778,24 @@ async function _pingArtistFinalRequest(shotId){
   if(!shotId)return;
   const assignee=getAssignee(shotId);
   if(!assignee){alert('No artist assigned to '+shotId);return;}
-  if(!currentUser||!_currentUserLinkToken()){
-    alert("Your account has no link token. Ask admin to regenerate.");return;
-  }
-  if(Date.now()-_lastPushAt<_tgAdminDebounce())return;
+  if(!_canTgPush())return;
   const subject=`${shotId} → ${assignee}\n\nNotify the artist that the shot was approved by the client and the final render can be uploaded.`;
   const comment=await _showPushPrompt("Request final upload",subject);
   if(comment===null)return;
   const desc=getDesc(shotId,(findById(TASKS,shotId)?.desc)||"");
-  const fromUser=currentUser.display||currentUser.id;
-  try{
-    const r=await fetch(TG_PUSH_URL,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        kind:"final_request",
-        shotId,
-        shotDesc:desc,
-        artistId:assignee,
-        comment,
-        fromUser,
-        userId:currentUser.id,
-        linkToken:_currentUserLinkToken(),projectId:CURRENT_PROJECT_ID||LEGACY_PROJECT_ID
-      })
-    });
-    const data=await r.json().catch(()=>({}));
-    if(!r.ok||!data.ok)throw new Error(data.error||('HTTP '+r.status));
-    _lastPushAt=Date.now();
-    // Brief in-app feedback
-    if(typeof _showAlert==='function'){_showAlert('Sent','Artist '+assignee+' notified about '+shotId);}
-  }catch(e){
-    console.error("Final request push failed:",e);
-    alert("Push failed: "+(e.message||e));
+  const res=await _tgFetch({kind:"final_request",shotId,shotDesc:desc,artistId:assignee,comment});
+  if(!res.ok){
+    console.error("Final request push failed:",res.error);
+    alert("Push failed: "+res.error);
+    return;
   }
+  if(typeof _showAlert==='function'){_showAlert('Sent','Artist '+assignee+' notified about '+shotId);}
 }
 // Batch ping: groups selected red shots by assigned artist and sends ONE
 // final-request to each artist with the full list of their shots.
 async function _pingArtistFinalRequestBatch(){
   if(!isAdmin())return;
-  if(!currentUser||!_currentUserLinkToken()){
-    alert("Your account has no link token. Ask admin to regenerate.");return;
-  }
+  if(!_canTgPush())return;
   // Filter selection to red shots (status=done AND no final file)
   const reds=[..._fileSelection].filter(sid=>{
     const arr=(state[sid]?.files?.['versions/final'])||[];
@@ -3878,35 +3816,12 @@ async function _pingArtistFinalRequestBatch(){
   const summary=Object.entries(byArtist).map(([a,ids])=>`${a}: ${ids.join(', ')}`).join('\n')+(orphans.length?'\n\nSkipped (no assignee): '+orphans.join(', '):'');
   const comment=await _showPushPrompt("Batch ping artists",summary);
   if(comment===null)return;
-  if(Date.now()-_lastPushAt<_tgAdminDebounce())return;
-  const fromUser=currentUser.display||currentUser.id;
   let sent=0,failed=0;
   for(const[artistId,ids] of Object.entries(byArtist)){
-    try{
-      const r=await fetch(TG_PUSH_URL,{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-          kind:"final_request",
-          shotId:ids[0],
-          shotIds:ids,
-          shotDesc:'',
-          artistId,
-          comment,
-          fromUser,
-          userId:currentUser.id,
-          linkToken:_currentUserLinkToken(),projectId:CURRENT_PROJECT_ID||LEGACY_PROJECT_ID
-        })
-      });
-      const data=await r.json().catch(()=>({}));
-      if(!r.ok||!data.ok)throw new Error(data.error||('HTTP '+r.status));
-      sent++;
-    }catch(e){
-      console.error('Batch ping failed for',artistId,e);
-      failed++;
-    }
+    const r=await _tgFetch({kind:"final_request",shotId:ids[0],shotIds:ids,shotDesc:'',artistId,comment});
+    if(r.ok)sent++;
+    else {console.error('Batch ping failed for',artistId,r.error);failed++;}
   }
-  _lastPushAt=Date.now();
   if(typeof _showAlert==='function'){
     _showAlert('Batch sent',`${sent} artist${sent!==1?'s':''} notified${failed?', '+failed+' failed':''}${orphans.length?', '+orphans.length+' skipped (no assignee)':''}`);
   }
@@ -3984,7 +3899,7 @@ function _renderPublicDownload(ids){
   const groups=ids.map(id=>{
     const finalArr=(state[id]?.files?.['versions/final'])||[];
     const apprV=state[id]?.approvedVersion||0;
-    const picked=apprV>0?finalArr.filter(f=>_parseVersionName(f.name).vNum===apprV):finalArr;
+    const picked=_filterByApprovedVersion(finalArr,apprV);
     const files=picked.map(f=>({
       name:f.name,
       size:f.size||0,
@@ -4142,16 +4057,7 @@ async function _hydrateLegacyBotConfig(){
   if(!needBot&&!needCats)return;
   try{
     // Post-cutover: compose main's data from project_entities.
-    let all=[]; let from=0; const page=1000;
-    while(true){
-      const to=from+page-1;
-      const r=await fetch(SUPA_URL+"/rest/v1/project_entities?project_id=eq."+encodeURIComponent(LEGACY_PROJECT_ID)+"&select=*&order=entity_type.asc,entity_id.asc",{headers:{apikey:SUPA_KEY,Authorization:"Bearer "+SUPA_KEY,"Range-Unit":"items","Range":from+"-"+to}});
-      if(!r.ok) break;
-      const rows=await r.json();
-      all=all.concat(rows);
-      if(rows.length<page) break;
-      from=to+1;
-    }
+    const all=(await _fetchAllProjectEntities(LEGACY_PROJECT_ID))||[];
     const mainData=all.length?composeProjectState(all,LEGACY_PROJECT_ID):{};
     let patched=false;
     if(needBot&&mainData.__bot){
@@ -4361,26 +4267,8 @@ async function _createProject(){
   try{
     const emptyState={__tasks:[],__categories:{},__artists:registry.artists||[]};
     const entities=decomposeProjectState(id,emptyState);
-    const rowsPayload=entities.map(function(e){
-      return {
-        project_id:  id,
-        entity_type: e.entity_type,
-        entity_id:   e.entity_id,
-        parent_type: e.parent_type,
-        parent_id:   e.parent_id,
-        payload:     e.payload,
-        version_in:  null,
-        session_id:  SESSION_ID,
-        user_id:     (currentUser && currentUser.id) || 'anon',
-      };
-    });
-    if(rowsPayload.length){
-      await fetch(SUPA_URL+"/rest/v1/rpc/batch_dual_write",{
-        method:"POST",
-        headers:{...SUPA_HEADERS,"Content-Type":"application/json","Prefer":"params=single-object"},
-        body:JSON.stringify({p_rows:rowsPayload})
-      });
-    }
+    const rowsPayload=_buildEntityRows(entities, id);
+    if(rowsPayload.length)await _batchDualWrite(rowsPayload);
   }catch(e){console.error("Seed project row failed:",e);}
   nameInput.value="";
   _renderProjectManager();
@@ -5258,6 +5146,42 @@ const TG_PUSH_URL='https://sandbox.contora.net/tg/push';
 function _tgAdminDebounce(){return state.__bot?.cooldowns?.adminMs??1000;}
 let _lastPushAt=0;                     // local timestamp of last successful push (admin debounce)
 
+// Auth + debounce gate for ANY TG push. Alerts on missing token (which is
+// the only condition the user can act on); silently no-ops on debounce.
+// Returns true if the caller may proceed with prompts/UI work.
+function _canTgPush(){
+  if(!currentUser||!_currentUserLinkToken()){
+    alert("Your account has no link token. Ask admin to regenerate.");
+    return false;
+  }
+  if(Date.now()-_lastPushAt<_tgAdminDebounce())return false;
+  return true;
+}
+// POSTs to /tg/push, auto-merging userId/linkToken/projectId/fromUser. On
+// HTTP/business success advances _lastPushAt and returns {ok:true,data}; on
+// failure returns {ok:false,error} (no alert — caller decides UX).
+async function _tgFetch(payload){
+  try{
+    const r=await fetch(TG_PUSH_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        ...payload,
+        fromUser: payload.fromUser ?? (currentUser?.display||currentUser?.id),
+        userId: currentUser?.id,
+        linkToken: _currentUserLinkToken(),
+        projectId: CURRENT_PROJECT_ID||LEGACY_PROJECT_ID,
+      })
+    });
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok||!data.ok)throw new Error(data.error||('HTTP '+r.status));
+    _lastPushAt=Date.now();
+    return {ok:true,data};
+  }catch(e){
+    return {ok:false,error:e.message||String(e)};
+  }
+}
+
 // Misleading legacy name — used by player push and version-uploaded dialog
 // to gate "can this user push for this shot?". Not chat-specific.
 function _canPushChat(shotId){
@@ -5311,10 +5235,7 @@ async function pushPlayerNotification(){
   if(!_canPushChat(_gifCurrentId)){alert("No permission");return;}
   const assignee=getAssignee(_gifCurrentId);
   if(!assignee){alert("No artist assigned");return;}
-  if(!currentUser||!_currentUserLinkToken()){
-    alert("Your account has no link token. Ask admin to regenerate.");return;
-  }
-  if(Date.now()-_lastPushAt<_tgAdminDebounce())return;
+  if(!_canTgPush())return;
   const key=_versionKey(_gifVersionIdx);
   const versionLabel=_versionLabel(_gifCurrentId,_gifVersionIdx);
   const versionNumber=_gifVersionIdx<0?'Source':(_extractVersionNumber(versionLabel)||('v'+(_gifVersionIdx+1)));
@@ -5330,37 +5251,24 @@ async function pushPlayerNotification(){
   const comment=await _showPushPrompt("Push video to Telegram",subject);
   if(comment===null)return;
   const desc=getDesc(_gifCurrentId,(findById(TASKS,_gifCurrentId)?.desc)||"");
-  const fromUser=currentUser.display||currentUser.id;
   const link=`${_shareBase()}?player=${encodeURIComponent(_gifCurrentId)}&v=${_gifVersionIdx}`;
   const btn=document.getElementById("playerPushBtn");
   const lbl=document.getElementById("playerPushLabel");
   if(btn)btn.disabled=true;if(lbl)lbl.textContent='Sending…';
-  try{
-    const r=await fetch(TG_PUSH_URL,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        shotId:_gifCurrentId,shotDesc:desc,artistId:assignee,
-        kind:"video",versionNumber,thumbUrl,
-        comment,fromUser,link,
-        userId:currentUser.id,linkToken:_currentUserLinkToken(),projectId:CURRENT_PROJECT_ID||LEGACY_PROJECT_ID
-      })
-    });
-    const data=await r.json().catch(()=>({}));
-    if(!r.ok||!data.ok)throw new Error(data.error||('HTTP '+r.status));
-    if(!state[_gifCurrentId])state[_gifCurrentId]={};
-    if(!state[_gifCurrentId].playerPushed)state[_gifCurrentId].playerPushed={};
-    state[_gifCurrentId].playerPushed[key]={by:currentUser.id,at:Date.now()};
-    _lastPushAt=Date.now();
-    saveState(state);
-    renderVersionsPanel();
-    if(lbl)lbl.textContent='Sent ✓';
-    setTimeout(()=>{_updatePlayerPushBtn();},1500);
-  }catch(e){
-    console.error("Player push failed:",e);
-    alert("Push failed: "+(e.message||e));
+  const res=await _tgFetch({shotId:_gifCurrentId,shotDesc:desc,artistId:assignee,kind:"video",versionNumber,thumbUrl,comment,link});
+  if(!res.ok){
+    console.error("Player push failed:",res.error);
+    alert("Push failed: "+res.error);
     _updatePlayerPushBtn();
+    return;
   }
+  if(!state[_gifCurrentId])state[_gifCurrentId]={};
+  if(!state[_gifCurrentId].playerPushed)state[_gifCurrentId].playerPushed={};
+  state[_gifCurrentId].playerPushed[key]={by:currentUser.id,at:Date.now()};
+  saveState(state);
+  renderVersionsPanel();
+  if(lbl)lbl.textContent='Sent ✓';
+  setTimeout(()=>{_updatePlayerPushBtn();},1500);
 }
 
 // Picker that lists all chats marked as "client" in Bot Settings.
@@ -5377,7 +5285,9 @@ function _pickClientChat(){
     if(choices.length===0){resolve(null);return;}
     if(choices.length===1){resolve(choices[0].id);return;}
     const opts=choices.map(c=>`<button class="bot-cancel-btn" data-id="${esc(c.id)}" style="width:100%;margin-bottom:6px;text-align:left">${esc(c.title)} <span style="color:#484f58;font-size:10px;font-family:'SF Mono',monospace">${esc(c.id)}</span></button>`).join('');
-    const html=`<div class="confirm-box" style="min-width:380px"><div class="confirm-title">Push to which client chat?</div><div class="confirm-msg">${opts}</div><div class="confirm-btns"><button class="confirm-btn cancel" id="pccCancel">Cancel</button></div></div>`;
+    const html=_confirmBox({title:'Push to which client chat?',msg:opts,boxStyle:'min-width:380px',buttons:[
+      {id:'pccCancel',label:'Cancel',kind:'cancel'}
+    ]});
     const ov=_buildOverlay("confirm-overlay",html,()=>{ov.remove();resolve(null);});
     ov.querySelectorAll('button[data-id]').forEach(b=>{
       b.onclick=()=>{const id=b.dataset.id;ov.remove();resolve(id);};
@@ -5389,10 +5299,7 @@ function _pickClientChat(){
 async function pushPlayerToClient(){
   if(!_gifCurrentId)return;
   if(!isAdmin()){alert("Admin only");return;}
-  if(!currentUser||!_currentUserLinkToken()){
-    alert("Your account has no link token. Ask admin to regenerate.");return;
-  }
-  if(Date.now()-_lastPushAt<_tgAdminDebounce())return;
+  if(!_canTgPush())return;
   const targetChatId=await _pickClientChat();
   if(!targetChatId)return;
   const versionLabel=_versionLabel(_gifCurrentId,_gifVersionIdx);
@@ -5408,39 +5315,27 @@ async function pushPlayerToClient(){
   const comment=await _showPushPrompt("Push to client",subject);
   if(comment===null)return;
   const desc=getDesc(_gifCurrentId,(findById(TASKS,_gifCurrentId)?.desc)||"");
-  const fromUser=currentUser.display||currentUser.id;
   const link=`${_shareBase()}?player=${encodeURIComponent(_gifCurrentId)}&v=${_gifVersionIdx}`;
   const cBtn=document.getElementById("playerPushClientBtn");
   const cLbl=document.getElementById("playerPushClientLabel");
+  const restoreLabel='Push to client';
   if(cBtn)cBtn.disabled=true;
   if(cLbl)cLbl.textContent='Sending…';
-  try{
-    const r=await fetch(TG_PUSH_URL,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        shotId:_gifCurrentId,shotDesc:desc,artistId:'',
-        kind:"video",versionNumber,thumbUrl,
-        comment,fromUser,link,targetChatId,
-        userId:currentUser.id,linkToken:_currentUserLinkToken(),projectId:CURRENT_PROJECT_ID||LEGACY_PROJECT_ID
-      })
-    });
-    const data=await r.json().catch(()=>({}));
-    if(!r.ok||!data.ok)throw new Error(data.error||('HTTP '+r.status));
-    _lastPushAt=Date.now();
-    // Mark in state under separate key
-    if(!state[_gifCurrentId])state[_gifCurrentId]={};
-    if(!state[_gifCurrentId].clientPushed)state[_gifCurrentId].clientPushed={};
-    state[_gifCurrentId].clientPushed[_versionKey(_gifVersionIdx)]={by:currentUser.id,at:Date.now(),chat:targetChatId};
-    saveState(state);
-    if(cLbl)cLbl.textContent='Sent ✓';
-    setTimeout(()=>{if(cLbl)cLbl.textContent='Push to client';if(cBtn)cBtn.disabled=false;},1500);
-  }catch(e){
-    console.error("Client push failed:",e);
-    alert("Client push failed: "+(e.message||e));
-    if(cLbl)cLbl.textContent='Push to client';
+  const res=await _tgFetch({shotId:_gifCurrentId,shotDesc:desc,artistId:'',kind:"video",versionNumber,thumbUrl,comment,link,targetChatId});
+  if(!res.ok){
+    console.error("Client push failed:",res.error);
+    alert("Client push failed: "+res.error);
+    if(cLbl)cLbl.textContent=restoreLabel;
     if(cBtn)cBtn.disabled=false;
+    return;
   }
+  // Mark in state under separate key
+  if(!state[_gifCurrentId])state[_gifCurrentId]={};
+  if(!state[_gifCurrentId].clientPushed)state[_gifCurrentId].clientPushed={};
+  state[_gifCurrentId].clientPushed[_versionKey(_gifVersionIdx)]={by:currentUser.id,at:Date.now(),chat:targetChatId};
+  saveState(state);
+  if(cLbl)cLbl.textContent='Sent ✓';
+  setTimeout(()=>{if(cLbl)cLbl.textContent=restoreLabel;if(cBtn)cBtn.disabled=false;},1500);
 }
 
 // Modal shown right after a version finishes uploading. Asks the artist
@@ -5456,7 +5351,11 @@ function _showVersionUploadedDialog(shotId,versionIdx){
   const statusBtnHtml=currentStatus==='review'
     ? `<button id="vudStatusBtn" class="vud-status-btn vud-status-done" disabled>✓ Already in Review</button>`
     : `<button id="vudStatusBtn" class="vud-status-btn">→ Change status to <b>Review</b></button>`;
-  const html=`<div class="confirm-box" style="min-width:440px"><div class="confirm-title">Version uploaded</div><div class="confirm-msg" style="text-align:left"><div style="font-size:13px;color:#c9d1d9;margin-bottom:6px"><b>${esc(shotId)}</b> · <span style="color:#58a6ff">${esc(versionName)}</span></div><div style="font-size:12px;color:#8b949e;margin-bottom:8px">Quick actions:</div><div style="display:flex;gap:8px;flex-direction:column">${statusBtnHtml}</div></div><div class="confirm-btns"><button class="confirm-btn cancel" id="vudClose">Close</button><button class="confirm-btn danger" id="vudPush" style="background:#d29922;border-color:#d29922">&#128276; Push to Telegram</button></div></div>`;
+  const msgHtml=`<div style="font-size:13px;color:#c9d1d9;margin-bottom:6px"><b>${esc(shotId)}</b> · <span style="color:#58a6ff">${esc(versionName)}</span></div><div style="font-size:12px;color:#8b949e;margin-bottom:8px">Quick actions:</div><div style="display:flex;gap:8px;flex-direction:column">${statusBtnHtml}</div>`;
+  const html=_confirmBox({title:'Version uploaded',msg:msgHtml,boxStyle:'min-width:440px',msgStyle:'text-align:left',buttons:[
+    {id:'vudClose',label:'Close',kind:'cancel'},
+    {id:'vudPush',label:'&#128276; Push to Telegram',kind:'danger',style:'background:#d29922;border-color:#d29922'}
+  ]});
   const ov=_buildOverlay("confirm-overlay",html,()=>ov.remove());
   const cleanup=()=>ov.remove();
   ov.querySelector("#vudClose").onclick=cleanup;
@@ -6502,38 +6401,13 @@ function _getFilesRoot(id){
   // Done Shots: admin-only — shots that are done OR have a final file
   if(id==='__doneshots'){
     const result=[];
-    // Helper: a shot is "delivered" once at least one Telegram visitor has
-    // marked every versions/final file as 'completed' in /tg/track. We do
-    // NOT require share.pushedTo (older shares predate that field, and an
-    // internal test target still goes through the same bot deep-link flow).
-    // The admin can verify the actual recipient in the sidebar visitor list.
-    const _isDelivered=(shotId)=>{
-      const tracking=state.__downloadTracking||{};
-      const shares=state.__downloadShares||{};
-      const apprV=state[shotId]?.approvedVersion||0;
-      const allFinals=(state[shotId]?.files?.['versions/final'])||[];
-      const relevant=apprV>0?allFinals.filter(f=>{const p=_parseVersionName(f.name);return p.vNum===apprV;}):allFinals;
-      const finalNames=relevant.map(f=>shotId+'_FINAL/'+f.name);
-      if(!finalNames.length)return false;
-      for(const[token,share] of Object.entries(shares)){
-        if(!share||!Array.isArray(share.ids)||!share.ids.includes(shotId))continue;
-        const node=tracking[token];
-        if(!node||!node.users)continue;
-        for(const[uid,u] of Object.entries(node.users)){
-          if(uid==='_anon')continue;
-          const uf=u.files||{};
-          const allDone=finalNames.every(fn=>uf[fn]&&uf[fn].state==='completed');
-          if(allDone)return true;
-        }
-      }
-      return false;
-    };
+    // "Delivered" check: shared helper restricted to the approved version
+    // when one is starred (only the matching final counts as delivery
+    // material — old/unrelated finals must not leak to the client).
     for(const t of TASKS){
       const finalArr=(state[t.id]?.files?.['versions/final'])||[];
       const approvedV=state[t.id]?.approvedVersion||0;
-      // If a preview version is starred, only the matching final counts as
-      // "delivery material". Old/unrelated finals must not leak to the client.
-      const filteredFinals=approvedV>0?finalArr.filter(f=>{const p=_parseVersionName(f.name);return p.vNum===approvedV;}):finalArr;
+      const filteredFinals=_filterByApprovedVersion(finalArr,approvedV);
       const hasMatchingFinal=filteredFinals.length>0;
       const isDone=getStatus(t.id)==='done';
       // Show the shot if either:
@@ -6541,7 +6415,7 @@ function _getFilesRoot(id){
       //   - it's marked done (legacy "done, no file" case)
       if(!finalArr.length&&!isDone)continue;
       let colorTag,priority;
-      const delivered=hasMatchingFinal&&_isDelivered(t.id);
+      const delivered=hasMatchingFinal&&_isClientDelivered(t.id,{filterByApproved:true});
       if(delivered){colorTag='#6e7681';priority=4;}                              // grey
       else if(hasMatchingFinal&&!isDone){colorTag='#d29922';priority=2;}          // yellow
       else if(hasMatchingFinal&&isDone){colorTag='#3fb950';priority=3;}           // green
@@ -8256,6 +8130,21 @@ function _buildOverlay(overlayClass,innerHtml,onBackdrop){
   if(onBackdrop)ov.addEventListener("click",e=>{if(e.target===ov)onBackdrop();});
   return ov;
 }
+// Standard confirm-box markup. `buttons` is an array of {id,label,kind,style?,attrs?}
+// where kind ∈ {'cancel','danger'} drives the base class. opts.boxStyle/msgStyle
+// add inline overrides for the few callsites that need them (sized prompts).
+function _confirmBox(opts){
+  const bs=opts.boxStyle?` style="${opts.boxStyle}"`:'';
+  const ts=opts.titleStyle?` style="${opts.titleStyle}"`:'';
+  const ms=opts.msgStyle?` style="${opts.msgStyle}"`:'';
+  const btns=(opts.buttons||[]).map(b=>{
+    const cls=b.cls||(b.kind==='danger'?'confirm-btn danger':'confirm-btn cancel');
+    const st=b.style?` style="${b.style}"`:'';
+    const at=b.attrs?' '+b.attrs:'';
+    return `<button class="${cls}" id="${b.id}"${st}${at}>${b.label}</button>`;
+  }).join('');
+  return `<div class="confirm-box"${bs}><div class="confirm-title"${ts}>${opts.title}</div><div class="confirm-msg"${ms}>${opts.msg}</div><div class="confirm-btns">${btns}</div></div>`;
+}
 // Same idea as _buildOverlay, but specialised for the four admin-only
 // dialogs (Users / Projects / MCP Tokens / Bot Settings). Stamps the shared
 // header + close-button chrome and lets the caller focus on body content.
@@ -8277,7 +8166,11 @@ function openAdminModal(id,title,bodyHtml,onClose,opts){
 }
 function _showPromptInput(title,label,currentValue){
   return new Promise((resolve)=>{
-    const html=`<div class="confirm-box"><div class="confirm-title">${title}</div><div class="confirm-msg">${label}<br><input id="promptInputField" value="${esc(currentValue||'')}" style="margin-top:10px;width:100%;padding:8px 10px;background:var(--bg-dark);border:1px solid var(--border-soft);border-radius:6px;color:var(--text-primary);font-size:14px;box-sizing:border-box" autofocus></div><div class="confirm-btns"><button class="confirm-btn cancel" id="promptNo">Cancel</button><button class="confirm-btn danger" id="promptYes" style="background:#1f6feb;border-color:#1f6feb">Rename</button></div></div>`;
+    const inputHtml=`<input id="promptInputField" value="${esc(currentValue||'')}" style="margin-top:10px;width:100%;padding:8px 10px;background:var(--bg-dark);border:1px solid var(--border-soft);border-radius:6px;color:var(--text-primary);font-size:14px;box-sizing:border-box" autofocus>`;
+    const html=_confirmBox({title,msg:label+'<br>'+inputHtml,buttons:[
+      {id:'promptNo',label:'Cancel',kind:'cancel'},
+      {id:'promptYes',label:'Rename',kind:'danger',style:'background:#1f6feb;border-color:#1f6feb'}
+    ]});
     const ov=_buildOverlay("confirm-overlay",html,()=>done(null));
     const inp=ov.querySelector("#promptInputField");
     setTimeout(()=>{inp.focus();inp.select();},0);
@@ -8292,9 +8185,15 @@ function _showPromptInput(title,label,currentValue){
 }
 function _showConfirm(title,msg,yesLabel){
   return new Promise((resolve)=>{
-    const btn=yesLabel||'Delete';
-    const btnClass=btn==='Delete'?'confirm-btn danger':btn==='Add'?'confirm-btn danger" style="background:#238636;border-color:#238636':'confirm-btn cancel';
-    const html=`<div class="confirm-box"><div class="confirm-title">${title}</div><div class="confirm-msg">${msg}</div><div class="confirm-btns"><button class="confirm-btn cancel" id="confirmNo">Cancel</button><button class="${btnClass}" id="confirmYes">${btn}</button></div></div>`;
+    const lbl=yesLabel||'Delete';
+    // 'Delete' → red danger; 'Add' → green danger; everything else → grey cancel
+    const yes=lbl==='Delete'?{kind:'danger'}
+            :lbl==='Add'?{kind:'danger',style:'background:#238636;border-color:#238636'}
+            :{kind:'cancel'};
+    const html=_confirmBox({title,msg,buttons:[
+      {id:'confirmNo',label:'Cancel',kind:'cancel'},
+      {id:'confirmYes',label:lbl,...yes}
+    ]});
     const ov=_buildOverlay("confirm-overlay",html,()=>{ov.remove();resolve(false);});
     ov.querySelector("#confirmYes").onclick=()=>{ov.remove();resolve(true);};
     ov.querySelector("#confirmNo").onclick=()=>{ov.remove();resolve(false);};
@@ -8306,7 +8205,10 @@ function _showConfirmCountdown(title,msg,seconds,yesLabel){
   const total=seconds||4;
   return new Promise((resolve)=>{
     const label=yesLabel||'Delete';
-    const html=`<div class="confirm-box"><div class="confirm-title">${title}</div><div class="confirm-msg">${msg}</div><div class="confirm-btns"><button class="confirm-btn cancel" id="cdNo">Cancel</button><button class="confirm-btn danger" id="cdYes" disabled style="opacity:0.55;cursor:not-allowed">${label} (${total})</button></div></div>`;
+    const html=_confirmBox({title,msg,buttons:[
+      {id:'cdNo',label:'Cancel',kind:'cancel'},
+      {id:'cdYes',label:`${label} (${total})`,kind:'danger',style:'opacity:0.55;cursor:not-allowed',attrs:'disabled'}
+    ]});
     const ov=_buildOverlay("confirm-overlay",html,()=>close(false));
     const yes=ov.querySelector('#cdYes');
     let left=total;
@@ -8330,7 +8232,11 @@ function _showConfirmCountdown(title,msg,seconds,yesLabel){
 // 3-button choice dialog. Returns 'a','b', or null (cancel/backdrop)
 function _showChoice(title,msg,btnA,btnB){
   return new Promise((resolve)=>{
-    const html=`<div class="confirm-box"><div class="confirm-title">${title}</div><div class="confirm-msg">${msg}</div><div class="confirm-btns"><button class="confirm-btn cancel" id="choiceCancel">Cancel</button><button class="confirm-btn cancel" id="choiceB">${btnB}</button><button class="confirm-btn danger" id="choiceA" style="background:#1f6feb;border-color:#1f6feb">${btnA}</button></div></div>`;
+    const html=_confirmBox({title,msg,buttons:[
+      {id:'choiceCancel',label:'Cancel',kind:'cancel'},
+      {id:'choiceB',label:btnB,kind:'cancel'},
+      {id:'choiceA',label:btnA,kind:'danger',style:'background:#1f6feb;border-color:#1f6feb'}
+    ]});
     const ov=_buildOverlay("confirm-overlay",html,()=>{ov.remove();resolve(null);});
     ov.querySelector("#choiceA").onclick=()=>{ov.remove();resolve('a');};
     ov.querySelector("#choiceB").onclick=()=>{ov.remove();resolve('b');};
@@ -8407,13 +8313,19 @@ function _openReadme(url){
 <span style="${dim}">Download: everyone</span>
 </div>
 </div>`;
-  const readmeHtml=`<div class="confirm-box" style="max-width:640px;max-height:85vh;overflow:auto"><div class="confirm-title" style="font-size:16px">README — ${esc(id)}</div><div class="confirm-msg">${html}</div><div class="confirm-btns"><button class="confirm-btn cancel" id="confirmOk">Close</button></div></div>`;
+  const readmeHtml=_confirmBox({
+    title:`README — ${esc(id)}`,
+    titleStyle:'font-size:16px',
+    msg:html,
+    boxStyle:'max-width:640px;max-height:85vh;overflow:auto',
+    buttons:[{id:'confirmOk',label:'Close',kind:'cancel'}]
+  });
   const ov=_buildOverlay("confirm-overlay",readmeHtml,()=>ov.remove());
   ov.querySelector("#confirmOk").onclick=()=>ov.remove();
 }
 function _showAlert(title,msg){
   return new Promise((resolve)=>{
-    const html=`<div class="confirm-box"><div class="confirm-title">${title}</div><div class="confirm-msg">${msg}</div><div class="confirm-btns"><button class="confirm-btn cancel" id="confirmOk">OK</button></div></div>`;
+    const html=_confirmBox({title,msg,buttons:[{id:'confirmOk',label:'OK',kind:'cancel'}]});
     const ov=_buildOverlay("confirm-overlay",html,()=>{ov.remove();resolve();});
     ov.querySelector("#confirmOk").onclick=()=>{ov.remove();resolve();};
   });
@@ -8794,6 +8706,11 @@ function _parseVersionName(filename){
   const noExt=filename.replace(/\.[^.]+$/,'');
   const match=noExt.match(/^(.+?)_prev_v(\d{3,4})$/i)||noExt.match(/^(.+?)_v(\d{3,4})$/i);
   return {baseName:match?match[1]:noExt, vNum:match?parseInt(match[2],10):0, ext};
+}
+// Keep only files whose _v### matches `approvedV`. Falsy/0 ⇒ array unchanged.
+function _filterByApprovedVersion(files, approvedV){
+  if(!approvedV||approvedV<=0)return files;
+  return files.filter(f=>_parseVersionName(f.name).vNum===approvedV);
 }
 function _getMaxVersion(shotId,baseName){
   const versions=state[shotId]?.versions||[];
