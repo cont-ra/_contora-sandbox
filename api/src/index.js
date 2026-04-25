@@ -32,7 +32,7 @@ export default {
   },
 };
 
-const KNOWN_ASSET_ROOTS = new Set(["thumbs", "ffmpeg", "gif", "video", "assets", "static"]);
+const KNOWN_ASSET_ROOTS = new Set(["thumbs", "ffmpeg", "gif", "video", "assets", "static", "data"]);
 
 function resolveUpstreamPath(rest) {
   if (rest === "/" || rest === "") return "/";
