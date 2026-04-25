@@ -2091,6 +2091,24 @@ function setCat(id,val){
   render();
 }
 const _DEFAULT_ARTISTS=[{id:"nikita",display:"Nikita"},{id:"igor",display:"Igor"}];
+// Artists attached to the CURRENT project via registry.userProjects.
+// Restored after accidental removal alongside the analytics dashboard:
+// _getArtists() below still depends on it to scope the artist list per
+// project, otherwise renders that hit registry-aware code throw a
+// ReferenceError and silently break filter buttons / re-renders.
+function _projectArtistIds(){
+  const pid=(typeof CURRENT_PROJECT_ID!=='undefined'&&CURRENT_PROJECT_ID)||LEGACY_PROJECT_ID;
+  const users=(typeof registry!=='undefined'&&registry&&registry.users)||(typeof USERS!=='undefined'?USERS:{});
+  const assign=(typeof registry!=='undefined'&&registry&&registry.userProjects)||{};
+  const out=[];
+  for(const[id,u] of Object.entries(users||{})){
+    if(!u||u.role!=='artist')continue;
+    const a=assign[id];
+    if(Array.isArray(a)&&a.length){if(a.includes(pid))out.push(id);}
+    else if(pid===LEGACY_PROJECT_ID){out.push(id);}
+  }
+  return out;
+}
 function _getArtists(){
   if(Array.isArray(state.__artists)&&state.__artists.length)return state.__artists;
   // Fresh multi-project row: fall back to every artist in the shared
