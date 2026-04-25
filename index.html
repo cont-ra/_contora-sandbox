@@ -9689,7 +9689,7 @@ function renderPlayerNotes(){
     const editAttr=_canNote()?`onclick="editPlayerNote(${n.id},this)"`:'';
     return`<div class="pn-item" data-nid="${n.id}"><div class="pn-item-meta">${tcHtml}${drawHtml}<span class="pn-author">${n.author||''}</span>${delBtn}</div><div class="${textClass}" ${editAttr}>${esc(textContent)}</div></div>`;
   }).join('');
-  list.scrollTop=list.scrollHeight;
+  scrollToBottom(list);
   const inp=document.getElementById("pnInputWrap");
   if(inp)inp.style.display=_canNote()?'':'none';
   _updateVersionBadges();
