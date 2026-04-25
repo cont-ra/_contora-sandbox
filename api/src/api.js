@@ -25,6 +25,11 @@ var ALLOWED_ORIGINS = /* @__PURE__ */ new Set([
   "http://127.0.0.1:8080"
 ]);
 var SUPA_URL = "https://hsvylpssqldbfxrddxwd.supabase.co";
+// Single source of truth for crawler/bot detection. Two divergent regexes used
+// to live at handlePreview and the auth-redirect path; the auth path was
+// missing vkShare/Bingbot, so those crawlers got the redirect instead of OG
+// previews. Keep this list in sync with whoever consumes link-unfurl.
+var BOT_UA_RE = /TelegramBot|WhatsApp|Slack|Discord|facebook|Twitter|LinkedInBot|Googlebot|vkShare|Bingbot/i;
 // Anon key is lazy-initialized from env.SUPA_ANON_KEY on the first request.
 // Keeps the literal out of git history; the browser still sees it because
 // Supabase anon keys are public-by-design (RLS does the real gating).
@@ -47,10 +52,96 @@ function _jsonResp(obj, status, origin) {
   });
 }
 __name(_jsonResp, "_jsonResp");
+// Top-of-handler boilerplate that used to repeat in every TG entry point.
+// Returns the early-return Response on failure, or null when the request
+// passes the gate. Caller does `const r = _validateMethod(...); if (r) return r;`
+function _validateMethod(request, origin, allowed) {
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: _corsHeaders(origin) });
+  }
+  if (!(allowed || ["POST"]).includes(request.method)) {
+    return _jsonResp({ ok: false, error: "method_not_allowed" }, 405, origin);
+  }
+  return null;
+}
+__name(_validateMethod, "_validateMethod");
+async function _parseJsonBody(request, origin) {
+  try {
+    return { body: await request.json(), error: null };
+  } catch (e) {
+    return { body: null, error: _jsonResp({ ok: false, error: "bad_json" }, 400, origin) };
+  }
+}
+__name(_parseJsonBody, "_parseJsonBody");
+// Single source of truth for "send a Telegram message". Seven call sites
+// inside handleTgPush + handleTgPing repeated the exact same fetch/parse/error
+// shape with parse_mode and disable_web_page_preview always set the same way.
+// `withChat` is the per-handler closure that injects chat_id/thread_id;
+// payload extends/overrides the HTML defaults.
+async function _tgSendMessage(env, withChat, payload, origin) {
+  const url = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`;
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(withChat({ parse_mode: "HTML", disable_web_page_preview: true, ...payload }))
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok || !data.ok) {
+    return { ok: false, errorResp: _jsonResp({ ok: false, error: "telegram_failed", detail: data.description || resp.status }, 502, origin) };
+  }
+  return { ok: true, result: data.result, messageId: data.result?.message_id };
+}
+__name(_tgSendMessage, "_tgSendMessage");
+async function _tgSendPhoto(env, withChat, payload, origin) {
+  const url = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendPhoto`;
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(withChat({ parse_mode: "HTML", ...payload }))
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok || !data.ok) {
+    return { ok: false, errorResp: _jsonResp({ ok: false, error: "telegram_failed", detail: data.description || resp.status }, 502, origin) };
+  }
+  return { ok: true, result: data.result, messageId: data.result?.message_id };
+}
+__name(_tgSendPhoto, "_tgSendPhoto");
 function _escapeHtml(s) {
-  return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  // Must mirror client-side esc() in index.html — both feed the same OG/HTML
+  // surfaces. Missing " and ' lets user-supplied values break out of attribute
+  // contexts (e.g. <meta content="...">), enabling XSS via Telegram previews.
+  return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 __name(_escapeHtml, "_escapeHtml");
+// Single source of truth for the shape of TG user/chat records we persist.
+// Two near-identical closures used to live in _processTelegramUpdate (with a
+// dirty flag) and handleTgPing (without). They drifted in trivial ways
+// (String() coercion of id, where the is_bot check happens). The pure shape
+// functions below are reused by both call sites; the closures only handle map
+// mutation + the dirty flag where applicable.
+function _tgUserShape(u) {
+  if (!u || !u.id || u.is_bot) return null;
+  return {
+    id: u.id,
+    username: u.username || null,
+    first_name: u.first_name || null,
+    last_name: u.last_name || null,
+    avatar_url: `https://sandbox.contora.net/tg/avatar?u=${u.id}`
+  };
+}
+__name(_tgUserShape, "_tgUserShape");
+function _tgChatShape(c) {
+  if (!c || !c.id) return null;
+  return {
+    id: c.id,
+    type: c.type || null,
+    title: c.title || null,
+    is_forum: !!c.is_forum,
+    username: c.username || null,
+    first_name: c.first_name || null
+  };
+}
+__name(_tgChatShape, "_tgChatShape");
 function _formatBytes(b) {
   if (!b) return "";
   if (b < 1024 * 1024) return Math.round(b / 1024) + " KB";
@@ -215,24 +306,17 @@ function _resolveThread(data, artistId) {
 __name(_resolveThread, "_resolveThread");
 async function handleTgPush(request, env) {
   const origin = request.headers.get("Origin") || "";
-  if (request.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: _corsHeaders(origin) });
-  }
-  if (request.method !== "POST") {
-    return _jsonResp({ ok: false, error: "method_not_allowed" }, 405, origin);
-  }
+  const methodErr = _validateMethod(request, origin);
+  if (methodErr) return methodErr;
   if (!env.TELEGRAM_BOT_TOKEN) {
     return _jsonResp({ ok: false, error: "bot_not_configured" }, 500, origin);
   }
   if (!ALLOWED_ORIGINS.has(origin)) {
     return _jsonResp({ ok: false, error: "forbidden_origin" }, 403, origin);
   }
-  let body;
-  try {
-    body = await request.json();
-  } catch (e) {
-    return _jsonResp({ ok: false, error: "bad_json" }, 400, origin);
-  }
+  const parsed = await _parseJsonBody(request, origin);
+  if (parsed.error) return parsed.error;
+  const body = parsed.body;
   const { shotId, shotDesc, artistId, text, fromUser, link, userId, linkToken, kind, kindLabel, comment, thumbUrl, versionNumber, targetChatId, frame, versionIdx, tc, files, projectId } = body || {};
   if (kind !== "download" && !shotId) {
     return _jsonResp({ ok: false, error: "missing_fields" }, 400, origin);
@@ -292,22 +376,12 @@ async function handleTgPush(request, env) {
   __name(_withChat, "_withChat");
   if (kind === "test") {
     if (!callerIsAdmin) return _jsonResp({ ok: false, error: "permission_denied" }, 403, origin);
-    const tgUrl2 = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`;
-    const tgResp2 = await fetch(tgUrl2, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(_withChat({
-        text: `\u{1F9EA} Test message from <b>${_escapeHtml(fromUser || "admin")}</b>
-<i>Bot Settings \u2192 Test Push</i>`,
-        parse_mode: "HTML",
-        disable_web_page_preview: true
-      }))
-    });
-    const tgData2 = await tgResp2.json().catch(() => ({}));
-    if (!tgResp2.ok || !tgData2.ok) {
-      return _jsonResp({ ok: false, error: "telegram_failed", detail: tgData2.description || tgResp2.status }, 502, origin);
-    }
-    return _jsonResp({ ok: true, mode: "test", threadId, message_id: tgData2.result?.message_id }, 200, origin);
+    const sent = await _tgSendMessage(env, _withChat, {
+      text: `\u{1F9EA} Test message from <b>${_escapeHtml(fromUser || "admin")}</b>
+<i>Bot Settings \u2192 Test Push</i>`
+    }, origin);
+    if (!sent.ok) return sent.errorResp;
+    return _jsonResp({ ok: true, mode: "test", threadId, message_id: sent.messageId }, 200, origin);
   }
   if (kind === "download") {
     const safeLink2 = String(link || "").replace(/[^a-zA-Z0-9:/?=&._\-#%]/g, "");
@@ -338,22 +412,9 @@ async function handleTgPush(request, env) {
     const downloadHeader = "\u2705 <b>FINAL MATERIALS \u2014 approved</b>";
     const text2 = downloadHeader + "\n\n" + (summaryLines.length ? summaryLines.join("\n") : "<i>(no shots)</i>") + (safeComment2 ? "\n\n\u{1F4DD} " + safeComment2 : "");
     const reply_markup2 = { inline_keyboard: [[{ text: "\u2B07 Download", url: buttonUrl2 }]] };
-    const tgUrl2 = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`;
-    const tgResp2 = await fetch(tgUrl2, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(_withChat({
-        text: text2,
-        parse_mode: "HTML",
-        disable_web_page_preview: true,
-        reply_markup: reply_markup2
-      }))
-    });
-    const tgData2 = await tgResp2.json().catch(() => ({}));
-    if (!tgResp2.ok || !tgData2.ok) {
-      return _jsonResp({ ok: false, error: "telegram_failed", detail: tgData2.description || tgResp2.status }, 502, origin);
-    }
-    return _jsonResp({ ok: true, mode: "download+button", message_id: tgData2.result?.message_id }, 200, origin);
+    const sent = await _tgSendMessage(env, _withChat, { text: text2, reply_markup: reply_markup2 }, origin);
+    if (!sent.ok) return sent.errorResp;
+    return _jsonResp({ ok: true, mode: "download+button", message_id: sent.messageId }, 200, origin);
   }
   if (kind === "final_request") {
     if (!callerIsAdmin) {
@@ -392,22 +453,9 @@ async function handleTgPush(request, env) {
 <i>by ${safeFromFr}</i>`;
       reply_markup2 = { inline_keyboard: [[{ text: "\u{1F5C2} Open shot", url: trackerLink }]] };
     }
-    const tgUrl2 = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`;
-    const tgResp2 = await fetch(tgUrl2, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(_withChat({
-        text: text2,
-        parse_mode: "HTML",
-        disable_web_page_preview: true,
-        reply_markup: reply_markup2
-      }))
-    });
-    const tgData2 = await tgResp2.json().catch(() => ({}));
-    if (!tgResp2.ok || !tgData2.ok) {
-      return _jsonResp({ ok: false, error: "telegram_failed", detail: tgData2.description || tgResp2.status }, 502, origin);
-    }
-    return _jsonResp({ ok: true, mode: "final_request", message_id: tgData2.result?.message_id }, 200, origin);
+    const sent = await _tgSendMessage(env, _withChat, { text: text2, reply_markup: reply_markup2 }, origin);
+    if (!sent.ok) return sent.errorResp;
+    return _jsonResp({ ok: true, mode: "final_request", message_id: sent.messageId }, 200, origin);
   }
   const safeShot = _escapeHtml(shotId);
   const safeDesc = _escapeHtml(shotDesc || "").slice(0, 120);
@@ -428,36 +476,13 @@ async function handleTgPush(request, env) {
 \u{1F4DD} ${safeComment}` : ""}`;
     const directLink = safeLink || `${_siteUrl(_projectRowId)}?player=${encodeURIComponent(shotId)}`;
     const reply_markup2 = { inline_keyboard: [[{ text: "\u25B6 Open in player", url: directLink }]] };
-    const tgUrl2 = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendPhoto`;
-    const tgResp2 = await fetch(tgUrl2, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(_withChat({
-        photo: thumbUrl,
-        caption,
-        parse_mode: "HTML",
-        reply_markup: reply_markup2
-      }))
-    });
-    const tgData2 = await tgResp2.json().catch(() => ({}));
-    if (tgResp2.ok && tgData2.ok) {
-      return _jsonResp({ ok: true, mode: "photo+button", message_id: tgData2.result?.message_id }, 200, origin);
-    }
-    const fbResp = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(_withChat({
-        text: caption,
-        parse_mode: "HTML",
-        disable_web_page_preview: true,
-        reply_markup: reply_markup2
-      }))
-    });
-    const fbData = await fbResp.json().catch(() => ({}));
-    if (!fbResp.ok || !fbData.ok) {
-      return _jsonResp({ ok: false, error: "telegram_failed", detail: tgData2.description || fbData.description || tgResp2.status }, 502, origin);
-    }
-    return _jsonResp({ ok: true, mode: "text+button", message_id: fbData.result?.message_id }, 200, origin);
+    const photoSent = await _tgSendPhoto(env, _withChat, { photo: thumbUrl, caption, reply_markup: reply_markup2 }, origin);
+    if (photoSent.ok) return _jsonResp({ ok: true, mode: "photo+button", message_id: photoSent.messageId }, 200, origin);
+    // Photo failed (oversize URL, blocked content, etc.) — fall back to plain
+    // text with the same caption + button so the recipient still gets the link.
+    const textSent = await _tgSendMessage(env, _withChat, { text: caption, reply_markup: reply_markup2 }, origin);
+    if (!textSent.ok) return textSent.errorResp;
+    return _jsonResp({ ok: true, mode: "text+button", message_id: textSent.messageId }, 200, origin);
   }
   const headerLine = safeDesc ? `<b>${safeShot}</b> \u2014 ${safeDesc}` : `<b>${safeShot}</b>`;
   const fromLine = `
@@ -485,22 +510,9 @@ async function handleTgPush(request, env) {
     buttonUrl = safeLink || `${_siteUrl(_projectRowId)}?chat=${encodeURIComponent(shotId)}`;
   }
   const reply_markup = { inline_keyboard: [[{ text: buttonText, url: buttonUrl }]] };
-  const tgUrl = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`;
-  const tgResp = await fetch(tgUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(_withChat({
-      text: msg,
-      parse_mode: "HTML",
-      disable_web_page_preview: true,
-      reply_markup
-    }))
-  });
-  const tgData = await tgResp.json().catch(() => ({}));
-  if (!tgResp.ok || !tgData.ok) {
-    return _jsonResp({ ok: false, error: "telegram_failed", detail: tgData.description || tgResp.status }, 502, origin);
-  }
-  return _jsonResp({ ok: true, message_id: tgData.result?.message_id }, 200, origin);
+  const sent = await _tgSendMessage(env, _withChat, { text: msg, reply_markup }, origin);
+  if (!sent.ok) return sent.errorResp;
+  return _jsonResp({ ok: true, message_id: sent.messageId }, 200, origin);
 }
 __name(handleTgPush, "handleTgPush");
 async function _processTelegramUpdate(env, stateData, update, ctx) {
@@ -510,31 +522,20 @@ async function _processTelegramUpdate(env, stateData, update, ctx) {
   const tgChatsMap = ctx.tgChatsMap || {};
   let dirty = false;
   function _captureChat(c) {
-    if (!c || !c.id) return;
-    const id = String(c.id);
+    const shape = _tgChatShape(c);
+    if (!shape) return;
+    const id = String(shape.id);
     if (tgChatsMap[id]) return;
-    tgChatsMap[id] = {
-      id: c.id,
-      type: c.type || null,
-      title: c.title || null,
-      is_forum: !!c.is_forum,
-      username: c.username || null,
-      first_name: c.first_name || null
-    };
+    tgChatsMap[id] = shape;
     dirty = true;
   }
   __name(_captureChat, "_captureChat");
   function _captureUser(u) {
-    if (!u || !u.id || u.is_bot) return;
-    const id = String(u.id);
+    const shape = _tgUserShape(u);
+    if (!shape) return;
+    const id = String(shape.id);
     if (tgUsersMap[id]) return;
-    tgUsersMap[id] = {
-      id: u.id,
-      username: u.username || null,
-      first_name: u.first_name || null,
-      last_name: u.last_name || null,
-      avatar_url: `https://sandbox.contora.net/tg/avatar?u=${u.id}`
-    };
+    tgUsersMap[id] = shape;
     dirty = true;
   }
   __name(_captureUser, "_captureUser");
@@ -774,29 +775,19 @@ async function handleTgPing(request, env) {
   const tgUsersMap = {};
   const tgChatsMap = {};
   function _captureChat(c) {
-    if (!c || !c.id) return;
-    if (tgChatsMap[c.id]) return;
-    tgChatsMap[c.id] = {
-      id: c.id,
-      type: c.type || null,
-      title: c.title || null,
-      is_forum: !!c.is_forum,
-      username: c.username || null,
-      first_name: c.first_name || null
-    };
+    const shape = _tgChatShape(c);
+    if (!shape) return;
+    const id = String(shape.id);
+    if (tgChatsMap[id]) return;
+    tgChatsMap[id] = shape;
   }
   __name(_captureChat, "_captureChat");
   function _captureUser(u) {
-    if (!u || !u.id) return;
-    if (u.is_bot) return;
-    if (tgUsersMap[u.id]) return;
-    tgUsersMap[u.id] = {
-      id: u.id,
-      username: u.username || null,
-      first_name: u.first_name || null,
-      last_name: u.last_name || null,
-      avatar_url: `https://sandbox.contora.net/tg/avatar?u=${u.id}`
-    };
+    const shape = _tgUserShape(u);
+    if (!shape) return;
+    const id = String(shape.id);
+    if (tgUsersMap[id]) return;
+    tgUsersMap[id] = shape;
   }
   __name(_captureUser, "_captureUser");
   if (hasToken) {
@@ -829,15 +820,16 @@ async function handleTgPing(request, env) {
   }
   const cachedUsers = stateData && stateData.__bot && stateData.__bot.tgUsers || [];
   for (const u of cachedUsers) {
-    if (u && u.id && !tgUsersMap[u.id]) {
-      tgUsersMap[u.id] = {
-        id: u.id,
-        username: u.username || null,
-        first_name: u.first_name || null,
-        last_name: u.last_name || null,
-        avatar_url: u.avatar_url || `https://sandbox.contora.net/tg/avatar?u=${u.id}`
-      };
-    }
+    if (!u || !u.id) continue;
+    const id = String(u.id);
+    if (tgUsersMap[id]) continue;
+    tgUsersMap[id] = {
+      id: u.id,
+      username: u.username || null,
+      first_name: u.first_name || null,
+      last_name: u.last_name || null,
+      avatar_url: u.avatar_url || `https://sandbox.contora.net/tg/avatar?u=${u.id}`
+    };
   }
   let tgUsers = [];
   if (hasToken) {
@@ -974,7 +966,7 @@ function handlePreview(request) {
   const project = url.searchParams.get("project") || "";
   const targetUrl = _siteUrl(project) + "?player=" + encodeURIComponent(player) + "&v=" + encodeURIComponent(v);
   const ua = request.headers.get("user-agent") || "";
-  const isBot = /TelegramBot|WhatsApp|Slack|Discord|facebook|Twitter|LinkedInBot|Googlebot|vkShare|Bingbot/i.test(ua);
+  const isBot = BOT_UA_RE.test(ua);
   if (isBot) {
     const safeTitle = _escapeHtml(title);
     const safeDesc = _escapeHtml(desc);
@@ -2251,7 +2243,7 @@ var worker_auth_default = {
     const displayName = username.charAt(0).toUpperCase() + username.slice(1).toLowerCase();
     const redirectUrl = _siteUrl() + "?auth=" + encodeURIComponent(authParam);
     const ua = request.headers.get("user-agent") || "";
-    const isBot = /TelegramBot|WhatsApp|Slack|Discord|facebook|Twitter|LinkedInBot|Googlebot/i.test(ua);
+    const isBot = BOT_UA_RE.test(ua);
     if (isBot) {
       const html = `<!DOCTYPE html>
 <html>
