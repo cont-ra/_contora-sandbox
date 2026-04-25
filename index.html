@@ -939,7 +939,7 @@
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
 <div id="updateBanner" class="update-banner hidden"><span id="updateBannerText"></span><button id="updateBannerNow">Reload now</button><button id="updateBannerCancel">Later</button></div>
-<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0163</div>
+<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0167</div>
 
 <script>
 const USERS = {
@@ -5489,9 +5489,7 @@ function toggleGifMute(){_playerMuted=!_playerMuted;if(!_playerMuted&&_playerVol
 function _setPlayerCache(id,idx){try{const c=JSON.parse(localStorage.getItem('kh_player_cache')||'{}');c[id]=idx;localStorage.setItem('kh_player_cache',JSON.stringify(c));}catch(e){}}
 function _getPlayerCache(id){try{const c=JSON.parse(localStorage.getItem('kh_player_cache')||'{}');return c[id]!==undefined?c[id]:null;}catch(e){return null;}}
 const TOOL_ICONS={pen:'✏️',triangle:'△',rect:'▭',circle:'○',arrow:'→'};
-// _drawing engine instance is created in the module script at end of file
-// and attached to window._draw. Until then it's undefined — the shim
-// functions below all guard with `?.`.
+let _drawMode=false, _drawColor="#f85149", _drawStrokes=[], _drawing=false, _currentStroke=null, _drawCanvas=null, _drawCtx=null, _drawTool="pen", _shapeStart=null;
 
 function _vid(){return document.getElementById("gifVideo");}
 
@@ -5514,7 +5512,7 @@ function openGif(id){
       _gifVersionIdx=-1;
     }
   }
-  window._draw?.setMode(false);
+  _drawMode=false;
   document.getElementById("drawToggle").classList.remove("active");
   const vid=_vid();
   document.getElementById("gifOverlay").classList.remove("hidden");
@@ -5533,7 +5531,7 @@ function openGif(id){
         document.getElementById("gifScrubber").value=Math.round(vid.currentTime*1000);
         _updateFrameLabel(f);
         _loadDrawingsForFrame();
-        window._draw?.redraw();
+        _redrawAll();
         _updatePnInputTC();
       }
     }
@@ -5591,7 +5589,7 @@ function _cleanupGif(){
   vid.onloadedmetadata=null;vid.onseeked=null;
   vid.pause();vid.removeAttribute("src");vid.load();
   _gifPaused=false;_gifCurrentId=null;
-  window._draw?.reset();
+  _drawCanvas=null;_drawCtx=null;_drawStrokes=[];_drawing=false;_drawMode=false;_drawTool="pen";_shapeStart=null;
   const old=document.getElementById("drawCanvas");if(old)old.remove();
 }
 
@@ -5681,58 +5679,207 @@ document.getElementById("gifVideo").addEventListener("seeked",function(){
 });
 
 // --- DRAWING ---
-// Engine impl lives in js/drawing.js; loaded via the <script type="module">
-// at the bottom of <body>, which sets window._draw. Functions below are the
-// public API wired into inline onclick="" handlers and the player lifecycle.
-// Adapters exposed to the engine (it can't read classic-script `let`s):
-window._drawHelpers = {
-  getSize:        ()=>parseInt(document.getElementById("drawSize").value,10)||4,
-  onBeforeDraw:   ()=>{if(!_gifPaused)toggleGifPause();},
-  onAfterStroke:  (s)=>{_saveDrawings();if(s)addDrawingNote(s.tool,s.color);},
-};
-
+function _getVideoRect(){
+  // Compute the actual rendered video area inside the object-fit:contain container
+  const vid=_vid();
+  if(!vid||!vid.videoWidth||!vid.videoHeight)return null;
+  const cw=vid.offsetWidth, ch=vid.offsetHeight;
+  const vw=vid.videoWidth, vh=vid.videoHeight;
+  const scale=Math.min(cw/vw, ch/vh);
+  const rw=vw*scale, rh=vh*scale;
+  const ox=(cw-rw)/2, oy=(ch-rh)/2;
+  return {left:ox, top:oy, width:rw, height:rh};
+}
 function _initDrawCanvas(){
-  const eng=window._draw;
-  if(!eng)return;
-  eng.attach();
+  const wrap=document.getElementById("videoWrap");
+  const vid=_vid();
+  if(!wrap||!vid)return;
+  const old=document.getElementById("drawCanvas");
+  if(old)old.remove();
+  const cv=document.createElement("canvas");
+  cv.id="drawCanvas";
+  cv.width=vid.videoWidth||vid.offsetWidth;
+  cv.height=vid.videoHeight||vid.offsetHeight;
+  const vr=_getVideoRect();
+  if(vr){
+    cv.style.position="absolute";
+    cv.style.left=vr.left+"px";
+    cv.style.top=vr.top+"px";
+    cv.style.width=vr.width+"px";
+    cv.style.height=vr.height+"px";
+  } else {
+    const rect=vid.getBoundingClientRect();
+    cv.style.width=rect.width+"px";
+    cv.style.height=rect.height+"px";
+  }
+  wrap.appendChild(cv);
+  _drawCanvas=cv;_drawCtx=cv.getContext("2d");
+  // Mouse events
+  cv.addEventListener("mousedown",e=>{e.stopPropagation();_drawStart(e);});
+  cv.addEventListener("mousemove",_drawMove);
+  cv.addEventListener("mouseup",_drawEnd);
+  cv.addEventListener("mouseleave",_drawEnd);
+  // Touch events
+  cv.addEventListener("touchstart",e=>{e.preventDefault();_drawStart(_touchToMouse(e));},{passive:false});
+  cv.addEventListener("touchmove",e=>{e.preventDefault();_drawMove(_touchToMouse(e));},{passive:false});
+  cv.addEventListener("touchend",_drawEnd);
+  // Load existing drawings from state
   _loadDrawingsForFrame();
-  eng.redraw();
+  _redrawAll();
   _updateMarkers();
 }
 
+function _touchToMouse(e){
+  const t=e.touches[0];const r=e.target.getBoundingClientRect();
+  return{offsetX:t.clientX-r.left,offsetY:t.clientY-r.top};
+}
+
+function _getDrawPos(e){
+  if(!_drawCanvas)return{x:0,y:0};
+  const rect=_drawCanvas.getBoundingClientRect();
+  const scaleX=_drawCanvas.width/rect.width;
+  const scaleY=_drawCanvas.height/rect.height;
+  return{x:(e.offsetX||e.clientX-rect.left)*scaleX, y:(e.offsetY||e.clientY-rect.top)*scaleY};
+}
+
+function _drawStart(e){
+  if(!_drawMode)return;
+  if(!_gifPaused)toggleGifPause();
+  _drawing=true;
+  const pos=_getDrawPos(e);
+  const size=parseInt(document.getElementById("drawSize").value);
+  _shapeStart=pos;
+  if(_drawTool==="pen"){
+    _currentStroke={tool:"pen",color:_drawColor,width:size,points:[pos]};
+    _drawCtx.beginPath();_drawCtx.strokeStyle=_drawColor;_drawCtx.lineWidth=size;
+    _drawCtx.lineCap="round";_drawCtx.lineJoin="round";_drawCtx.moveTo(pos.x,pos.y);
+  } else {
+    _currentStroke={tool:_drawTool,color:_drawColor,width:size,start:pos,end:pos};
+  }
+}
+
+function _drawMove(e){
+  if(!_drawing||!_currentStroke)return;
+  const pos=_getDrawPos(e);
+  if(_drawTool==="pen"){
+    _currentStroke.points.push(pos);
+    _drawCtx.lineTo(pos.x,pos.y);_drawCtx.stroke();
+    _drawCtx.beginPath();_drawCtx.moveTo(pos.x,pos.y);
+  } else {
+    _currentStroke.end=pos;
+    _redrawAll();
+    _drawShape(_currentStroke);
+  }
+}
+
+function _drawEnd(){
+  if(!_drawing)return;
+  _drawing=false;
+  if(_currentStroke){
+    if(_drawTool==="pen"&&_currentStroke.points&&_currentStroke.points.length>1){
+      _drawStrokes.push(_currentStroke);_saveDrawings();
+      addDrawingNote(_drawTool,_drawColor);
+    } else if(_drawTool!=="pen"&&_currentStroke.start&&_currentStroke.end){
+      const dx=_currentStroke.end.x-_currentStroke.start.x;
+      const dy=_currentStroke.end.y-_currentStroke.start.y;
+      if(Math.abs(dx)+Math.abs(dy)>5){_drawStrokes.push(_currentStroke);_saveDrawings();addDrawingNote(_drawTool,_drawColor);}
+      else _redrawAll();
+    }
+  }
+  _currentStroke=null;_shapeStart=null;
+}
+
+function _drawShape(s){
+  const ctx=_drawCtx;
+  ctx.strokeStyle=s.color;ctx.lineWidth=s.width;ctx.lineCap="round";ctx.lineJoin="round";
+  const x1=s.start.x,y1=s.start.y,x2=s.end.x,y2=s.end.y;
+  ctx.beginPath();
+  if(s.tool==="triangle"){
+    const cx=(x1+x2)/2;
+    ctx.moveTo(cx,Math.min(y1,y2));
+    ctx.lineTo(Math.min(x1,x2),Math.max(y1,y2));
+    ctx.lineTo(Math.max(x1,x2),Math.max(y1,y2));
+    ctx.closePath();
+  } else if(s.tool==="rect"){
+    ctx.rect(Math.min(x1,x2),Math.min(y1,y2),Math.abs(x2-x1),Math.abs(y2-y1));
+  } else if(s.tool==="circle"){
+    const rx=Math.abs(x2-x1)/2,ry=Math.abs(y2-y1)/2;
+    const cx=Math.min(x1,x2)+rx,cy=Math.min(y1,y2)+ry;
+    ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);
+  } else if(s.tool==="arrow"){
+    ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+    // Arrowhead
+    const angle=Math.atan2(y2-y1,x2-x1);const hl=Math.max(s.width*6,24);
+    ctx.beginPath();
+    ctx.moveTo(x2-hl*Math.cos(angle-0.4),y2-hl*Math.sin(angle-0.4));
+    ctx.lineTo(x2,y2);
+    ctx.lineTo(x2-hl*Math.cos(angle+0.4),y2-hl*Math.sin(angle+0.4));
+  }
+  ctx.stroke();
+}
+
+function _redrawAll(){
+  if(!_drawCtx||!_drawCanvas)return;
+  _drawCtx.clearRect(0,0,_drawCanvas.width,_drawCanvas.height);
+  _drawStrokes.forEach(s=>{
+    if(s.tool&&s.tool!=="pen"){_drawShape(s);return;}
+    if(!s.points||s.points.length<2)return;
+    _drawCtx.beginPath();_drawCtx.strokeStyle=s.color;_drawCtx.lineWidth=s.width;
+    _drawCtx.lineCap="round";_drawCtx.lineJoin="round";
+    _drawCtx.moveTo(s.points[0].x,s.points[0].y);
+    for(let i=1;i<s.points.length;i++)_drawCtx.lineTo(s.points[i].x,s.points[i].y);
+    _drawCtx.stroke();
+  });
+}
+
 function toggleDraw(){
-  const eng=window._draw;
+  _drawMode=!_drawMode;
   const btn=document.getElementById("drawToggle");
   const tools=document.getElementById("drawTools");
-  if(!eng){btn?.classList.remove("active");return;}
-  if(!eng.mode){
+  let cv=document.getElementById("drawCanvas");
+  if(_drawMode){
     btn.classList.add("active");
     if(tools)tools.classList.add("visible");
-    if(!document.getElementById("drawCanvas"))_initDrawCanvas();
-    eng.relayout();
-    eng.setMode(true);
+    if(!cv){_initDrawCanvas();cv=document.getElementById("drawCanvas");}
+    if(cv){
+      const vr=_getVideoRect();
+      if(vr){cv.style.left=vr.left+"px";cv.style.top=vr.top+"px";cv.style.width=vr.width+"px";cv.style.height=vr.height+"px";}
+      cv.classList.add("active");
+    }
   } else {
     btn.classList.remove("active");
     if(tools)tools.classList.remove("visible");
-    eng.setMode(false);
+    if(cv)cv.classList.remove("active");
   }
 }
 
 function setDrawTool(tool,btn){
-  window._draw?.setTool(tool);
+  _drawTool=tool;
   document.querySelectorAll("[id^=drawTool_]").forEach(b=>b.classList.remove("active"));
   btn.classList.add("active");
-  if(!window._draw?.mode)toggleDraw();
+  // Auto-enable draw mode
+  if(!_drawMode)toggleDraw();
 }
 
 function setDrawColor(color,btn){
-  window._draw?.setColor(color);
+  _drawColor=color;
   document.querySelectorAll(".draw-color").forEach(b=>b.classList.remove("selected"));
   btn.classList.add("selected");
 }
 
-function undoDraw(){window._draw?.undo();}
-function clearDraw(){window._draw?.clear();}
+function undoDraw(){
+  if(!_drawStrokes.length)return;
+  _drawStrokes.pop();
+  _redrawAll();
+  _saveDrawings();
+}
+
+function clearDraw(){
+  if(!_drawStrokes.length)return;
+  _drawStrokes=[];
+  _redrawAll();
+  _saveDrawings();
+}
 
 function _getDrawingsStore(){
   if(!_gifCurrentId)return null;
@@ -5746,14 +5893,12 @@ function _getDrawingsStore(){
   if(!state[_gifCurrentId].drawings)state[_gifCurrentId].drawings={};
   return state[_gifCurrentId].drawings;
 }
-
 function _saveDrawings(){
   const allDrawings=_getDrawingsStore();
   if(!allDrawings)return;
-  const strokes=window._draw?.getStrokes()||[];
   const frame=_currentFrame();
-  if(strokes.length){
-    allDrawings[frame]=strokes.map(s=>{
+  if(_drawStrokes.length){
+    allDrawings[frame]=_drawStrokes.map(s=>{
       if(s.tool&&s.tool!=="pen"){
         return{t:s.tool,c:s.color,w:s.width,s:[Math.round(s.start.x),Math.round(s.start.y)],e:[Math.round(s.end.x),Math.round(s.end.y)]};
       }
@@ -5767,9 +5912,9 @@ function _saveDrawings(){
 }
 
 function _loadDrawingsForFrame(){
-  const eng=window._draw;
+  _drawStrokes=[];
   const allDrawings=_getDrawingsStore();
-  if(!allDrawings){eng?.setStrokes([]);return;}
+  if(!allDrawings)return;
   // Migrate: if array (old format), convert to frame 0
   if(_gifVersionIdx<0&&Array.isArray(allDrawings)){
     state[_gifCurrentId].drawings={"0":allDrawings};
@@ -5777,19 +5922,18 @@ function _loadDrawingsForFrame(){
   }
   const frame=_currentFrame();
   const compact=allDrawings[frame];
-  if(!compact){eng?.setStrokes([]);return;}
-  const strokes=compact.map(s=>{
+  if(!compact)return;
+  _drawStrokes=compact.map(s=>{
     if(s.t&&s.t!=="pen"){
       return{tool:s.t,color:s.c,width:s.w,start:{x:s.s[0],y:s.s[1]},end:{x:s.e[0],y:s.e[1]}};
     }
     return{tool:"pen",color:s.c,width:s.w,points:(s.p||[]).map(pt=>({x:pt[0],y:pt[1]}))};
   });
-  eng?.setStrokes(strokes);
 }
 
 function _switchFrame(){
   _loadDrawingsForFrame();
-  window._draw?.redraw();
+  _redrawAll();
 }
 
 function _updateMarkers(){
@@ -5952,7 +6096,7 @@ function deletePlayerNote(nid){
       if(!arr.length)delete drawings[note.frame];
     }
     _loadDrawingsForFrame();
-    window._draw?.redraw();
+    _redrawAll();
     _updateMarkers();
   }
   const idx=store.findIndex(n=>n.id===nid);
@@ -7971,7 +8115,7 @@ function switchVersion(idx){
     _updateFrameLabel(0);
     _initDrawCanvas();
     _loadDrawingsForFrame();
-    window._draw?.redraw();
+    _redrawAll();
     _updateMarkers();
     _applyVolumeToVideo();
   },{once:true});
@@ -8958,17 +9102,6 @@ setInterval(async()=>{
     if(_gifCurrentId)renderPlayerNotes();
   }
 },15000);
-</script>
-<script type="module">
-  import { DrawingEngine } from "./js/drawing.js";
-  const h = window._drawHelpers || {};
-  window._draw = new DrawingEngine({
-    getVideo:      () => document.getElementById("gifVideo"),
-    getContainer:  () => document.getElementById("videoWrap"),
-    getSize:       () => h.getSize ? h.getSize() : 4,
-    onBeforeDraw:  () => h.onBeforeDraw && h.onBeforeDraw(),
-    onAfterStroke: (s) => h.onAfterStroke && h.onAfterStroke(s),
-  });
 </script>
 </body>
 </html>
