@@ -939,7 +939,7 @@
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
 <div id="updateBanner" class="update-banner hidden"><span id="updateBannerText"></span><button id="updateBannerNow">Reload now</button><button id="updateBannerCancel">Later</button></div>
-<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0166</div>
+<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0165</div>
 
 <script>
 const USERS = {
@@ -6538,80 +6538,6 @@ function _toggleQueueCollapse(){_uploadQueue.collapsed=!_uploadQueue.collapsed;_
 function _buildFileTip(id,name,size,editCell,date,icon){
   return ` data-tip="${esc(name)}" data-tip-size="${esc(size||'')}" data-tip-edit="${esc(editCell||'')}" data-tip-date="${esc(date||'')}" data-tip-icon="${esc(icon||'')}"`;
 }
-// Files-table SVG download icon — shared by toolbar/folder/file rows.
-const _DL_SVG=`<svg class="dl-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1v9m0 0L4.5 6.5M8 10l3.5-3.5M2 13h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`;
-
-// Folder + file row markup builders. Pure HTML — no DOM/event side effects.
-// Extracted from _renderShotFiles so the loop is readable and the per-row
-// HTML can be swapped/inspected without scrolling through 100 lines.
-function _buildFolderRow(f,id,isLocked){
-  const lock=f.locked?` 🔒`:'';
-  const delBtn=(!f.locked&&_canUpload(id))?`<button class="f-dl" onclick="event.stopPropagation();_deleteFolder('${id}','${esc(f.name)}')" title="Delete folder">🗑</button>`:'';
-  const renBtn=(!f.locked&&isAdmin())?`<button class="f-dl" onclick="event.stopPropagation();_renameFolder('${id}','${esc(f.name)}')" title="Rename folder">✎</button>`:'';
-  const shareBtn=(id==='__doneshots'&&f.colorTag==='#3fb950')?`<button class="f-dl" onclick="event.stopPropagation();_doneShareFolder('${esc(f.name)}')" title="Share download link">🔗</button>`:((id==='__doneshots'&&f.colorTag==='#f85149')?`<button class="f-dl" onclick="event.stopPropagation();_pingArtistFinalRequest('${esc(f.name)}')" title="Ping artist — request final upload" style="color:#f85149">📣</button>`:'');
-  const editCell=_renderEditCell(id,f.name);
-  const dropAttr=!f.locked?` data-drop-folder="${esc(f.name)}"`:` data-locked-folder="1"`;
-  const selAttr=` data-sel-name="${esc(f.name)}" class="f-selectable${_fileSelection.has(f.name)?' f-selected':''}"`;
-  const grip=`<span class="f-grip${f.locked?' f-grip-locked':''}" draggable="true" data-drag-folder="${esc(f.name)}"${f.locked?' data-locked="1"':''}>⠿</span>`;
-  const countFiles=(arr)=>{let n=0;for(const c of arr){if(c.type==='folder')n+=countFiles(c.children||[]);else n++;}return n;};
-  const sumBytes=(arr)=>{let n=0;for(const c of arr){if(c.type==='folder')n+=sumBytes(c.children||[]);else n+=(c._bytes||0);}return n;};
-  const fileCount=countFiles(f.children||[]);
-  const folderBytes=sumBytes(f.children||[]);
-  const folderSize=folderBytes?_formatSize(folderBytes):'';
-  const folderTip=_buildFileTip(id,f.name,folderSize,fileCount?fileCount+' files':'','','📁');
-  const colorStyle=f.colorTag?` style="color:${f.colorTag}"`:'';
-  const dsHoverAttr=(id==='__doneshots'&&_filesPath.length===0)?` data-ds-shot="${esc(f.name)}" data-ds-color="${esc(f.colorTag||'#3fb950')}"`:'';
-  const displayLabel=esc(f.displayName||f.name);
-  const dlBtn=(id==='__doneshots'&&f.colorTag!=='#3fb950')?'':`<button class="f-dl" onclick="event.stopPropagation();_downloadFolderByName('${id}','${esc(f.name)}')" title="Download folder">${_DL_SVG}</button>`;
-  return `<tr${dropAttr}${selAttr}${folderTip}${dsHoverAttr}>
-    <td class="f-name"${colorStyle} data-nav-folder="${esc(f.name)}">${grip}<span class="f-icon">📁</span>${displayLabel}${lock}</td>
-    <td class="f-size">${fileCount||''}</td>
-    <td class="f-size">${folderSize}</td>
-    <td class="f-edit">${editCell}</td>
-    <td class="f-date"></td>
-    <td class="f-actions">${shareBtn}${dlBtn}${renBtn}${delBtn}</td>
-  </tr>`;
-}
-
-function _buildFileRow(f,id,isLocked,canDel){
-  const isReadme=f.name==='README.txt'&&f.locked;
-  const dlBtn=(f.url&&!isReadme)?`<a class="f-dl" href="${f.url}" target="_blank" title="Download">${_DL_SVG}</a>`:'';
-  const fileDelBtn=(canDel&&!f.locked)?`<button class="f-dl" onclick="event.stopPropagation();_deleteFile('${id}','${esc(f.name)}')" title="Delete">🗑</button>`:'';
-  const fileRenBtn=(!f.locked&&!isReadme&&isAdmin())?`<button class="f-dl" onclick="event.stopPropagation();_renameFile('${id}','${esc(f.name)}')" title="Rename">✎</button>`:'';
-  const editCell=_renderEditCell(id,f.name);
-  const selAttr=f.locked?'':(` data-sel-name="${esc(f.name)}" class="f-selectable${_fileSelection.has(f.name)?' f-selected':''}"`);
-  const grip=f.locked?`<span class="f-grip f-grip-locked">⠿</span>`:`<span class="f-grip${isLocked?' f-grip-locked':''}" draggable="true" data-drag-file="${esc(f.name)}"${isLocked?' data-locked="1"':''}>⠿</span>`;
-  const fileTip=_buildFileTip(id,f.name,f.size||'',editCell,f.date||'',_fileIcon(f.name));
-  const readmeAttr=(f.name==='README.txt'&&f.url)?` data-readme-url="${esc(f.url)}" style="cursor:pointer"`:'';
-  return `<tr${selAttr}${fileTip}${readmeAttr}>
-    <td>${grip}<span class="f-icon">${_fileIcon(f.name)}</span>${esc(f.name)}</td>
-    <td class="f-size"></td>
-    <td class="f-size">${f.size||''}</td>
-    <td class="f-edit">${editCell}</td>
-    <td class="f-date">${f.date||''}</td>
-    <td class="f-actions">${dlBtn}${fileRenBtn}${fileDelBtn}</td>
-  </tr>`;
-}
-
-function _wireFilesNav(body,id){
-  body.querySelectorAll("tr[data-nav='up']").forEach(row=>{
-    row.addEventListener("dblclick",()=>{_filesPath.pop();_renderShotFiles(id);});
-    row.style.cursor="pointer";
-  });
-  body.querySelectorAll("td[data-nav-folder]").forEach(td=>{
-    td.closest("tr").addEventListener("dblclick",e=>{
-      if(e.target.closest("button,a"))return;
-      _filesPath.push(td.dataset.navFolder);_renderShotFiles(id);
-    });
-  });
-  body.querySelectorAll("tr[data-readme-url]").forEach(tr=>{
-    tr.addEventListener("click",e=>{
-      if(e.target.closest("button,a"))return;
-      _openReadme(tr.dataset.readmeUrl);
-    });
-  });
-}
-
 function _renderShotFiles(id,overrideBody){
   _clearSelection();_removeCfTip();if(typeof _dsHoverHide==='function')_dsHoverHide();
   const body=overrideBody||(id==='__myfiles'?document.getElementById("myFilesBody"):null)||(id==='__doneshots'?document.getElementById("doneShotsBody"):null)||document.getElementById("shotBody");
@@ -6635,7 +6561,7 @@ function _renderShotFiles(id,overrideBody){
   html+=`<span class="files-path">📁 ${esc(breadcrumb)}</span>`;
   html+=`<div class="files-sel-bar" id="filesSelBar"></div>`;
   if(canMkdir) html+=`<button class="files-btn" onclick="_showNewFolderInput('${id}')">📁+ New Folder</button>`;
-  html+=`<button class="files-btn" onclick="_downloadAllFiles('${id}')" title="Download all files">${_DL_SVG}</button>`;
+  html+=`<button class="files-btn" onclick="_downloadAllFiles('${id}')" title="Download all files"><svg class="dl-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1v9m0 0L4.5 6.5M8 10l3.5-3.5M2 13h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></button>`;
   html+=`</div>`;
   // new folder input (hidden by default)
   html+=`<div class="files-new-folder" id="newFolderRow" style="display:none">`;
@@ -6645,19 +6571,64 @@ function _renderShotFiles(id,overrideBody){
   html+=`</div>`;
   // table
   html+=`<div class="files-table-wrap">`;
-  html+=`<table class="files-table"><thead><tr><th>Name</th><th>Items</th><th>Size</th><th>Last Edit</th><th>Date</th><th></th></tr></thead><tbody>`;
+  const editColName='Last Edit';
+  html+=`<table class="files-table"><thead><tr><th>Name</th><th>Items</th><th>Size</th><th>${editColName}</th><th>Date</th><th></th></tr></thead><tbody>`;
   if(_filesPath.length>0){
     html+=`<tr data-drop-folder=".." data-nav="up"><td class="f-name"><span class="f-icon">⬆️</span>..</td><td></td><td></td><td></td><td></td><td></td></tr>`;
   }
   let lastWasLocked=false;
   for(const f of items){
     if(f.type==='folder'){
+      // Separator after locked folders
       if(lastWasLocked&&!f.locked){html+=`<tr class="f-locked-sep"><td colspan="6"><hr></td></tr>`;lastWasLocked=false;}
       if(f.locked)lastWasLocked=true;
-      html+=_buildFolderRow(f,id,isLocked);
+      const lock=f.locked?` 🔒`:'';
+      const delBtn=(!f.locked&&_canUpload(id))?`<button class="f-dl" onclick="event.stopPropagation();_deleteFolder('${id}','${esc(f.name)}')" title="Delete folder">🗑</button>`:'';
+      const renBtn=(!f.locked&&isAdmin())?`<button class="f-dl" onclick="event.stopPropagation();_renameFolder('${id}','${esc(f.name)}')" title="Rename folder">✎</button>`:'';
+      const shareBtn=(id==='__doneshots'&&f.colorTag==='#3fb950')?`<button class="f-dl" onclick="event.stopPropagation();_doneShareFolder('${esc(f.name)}')" title="Share download link">🔗</button>`:((id==='__doneshots'&&f.colorTag==='#f85149')?`<button class="f-dl" onclick="event.stopPropagation();_pingArtistFinalRequest('${esc(f.name)}')" title="Ping artist — request final upload" style="color:#f85149">📣</button>`:'');
+      const editCell=_renderEditCell(id,f.name);
+      const dropAttr=!f.locked?` data-drop-folder="${esc(f.name)}"`:` data-locked-folder="1"`;
+      const selAttr=` data-sel-name="${esc(f.name)}" class="f-selectable${_fileSelection.has(f.name)?' f-selected':''}"`;
+      const grip=`<span class="f-grip${f.locked?' f-grip-locked':''}" draggable="true" data-drag-folder="${esc(f.name)}"${f.locked?' data-locked="1"':''}>⠿</span>`;
+      const _countFiles=(arr)=>{let n=0;for(const c of arr){if(c.type==='folder')n+=_countFiles(c.children||[]);else n++;}return n;};
+      const _sumBytes=(arr)=>{let n=0;for(const c of arr){if(c.type==='folder')n+=_sumBytes(c.children||[]);else n+=(c._bytes||0);}return n;};
+      const fileCount=_countFiles(f.children||[]);
+      const folderBytes=_sumBytes(f.children||[]);
+      const folderSize=folderBytes?_formatSize(folderBytes):'';
+      const folderTip=_buildFileTip(id,f.name,folderSize,fileCount?fileCount+' files':'','','📁');
+      const colorStyle=f.colorTag?` style="color:${f.colorTag}"`:'';
+      const dsHoverAttr=(id==='__doneshots'&&_filesPath.length===0)?` data-ds-shot="${esc(f.name)}" data-ds-color="${esc(f.colorTag||'#3fb950')}"`:'';
+      const displayLabel=esc(f.displayName||f.name);
+      html+=`<tr${dropAttr}${selAttr}${folderTip}${dsHoverAttr}>
+        <td class="f-name"${colorStyle} data-nav-folder="${esc(f.name)}">${grip}<span class="f-icon">📁</span>${displayLabel}${lock}</td>
+        <td class="f-size">${fileCount||''}</td>
+        <td class="f-size">${folderSize}</td>
+        <td class="f-edit">${editCell}</td>
+        <td class="f-date"></td>
+        <td class="f-actions">${shareBtn}${(id==='__doneshots'&&f.colorTag!=='#3fb950')?'':`<button class="f-dl" onclick="event.stopPropagation();_downloadFolderByName('${id}','${esc(f.name)}')" title="Download folder"><svg class="dl-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1v9m0 0L4.5 6.5M8 10l3.5-3.5M2 13h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></button>`}${renBtn}${delBtn}</td>
+      </tr>`;
     } else {
       if(lastWasLocked){html+=`<tr class="f-locked-sep"><td colspan="6"><hr></td></tr>`;lastWasLocked=false;}
-      html+=_buildFileRow(f,id,isLocked,canDel);
+      const dlSvg=`<svg class="dl-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1v9m0 0L4.5 6.5M8 10l3.5-3.5M2 13h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`;
+      const isReadme=f.name==='README.txt'&&f.locked;
+      const dlBtn=(f.url&&!isReadme)?`<a class="f-dl" href="${f.url}" target="_blank" title="Download">${dlSvg}</a>`:'';
+
+      const fileLocked=f.locked||isLocked;
+      const fileDelBtn=(canDel&&!f.locked)?`<button class="f-dl" onclick="event.stopPropagation();_deleteFile('${id}','${esc(f.name)}')" title="Delete">🗑</button>`:'';
+      const fileRenBtn=(!f.locked&&!isReadme&&isAdmin())?`<button class="f-dl" onclick="event.stopPropagation();_renameFile('${id}','${esc(f.name)}')" title="Rename">✎</button>`:'';
+      const editCell=_renderEditCell(id,f.name);
+      const selAttr2=f.locked?'':(` data-sel-name="${esc(f.name)}" class="f-selectable${_fileSelection.has(f.name)?' f-selected':''}"`);
+      const grip2=f.locked?`<span class="f-grip f-grip-locked">⠿</span>`:`<span class="f-grip${isLocked?' f-grip-locked':''}" draggable="true" data-drag-file="${esc(f.name)}"${isLocked?' data-locked="1"':''}>⠿</span>`;
+      const fileTip=_buildFileTip(id,f.name,f.size||'',editCell,f.date||'',_fileIcon(f.name));
+      const readmeAttr=(f.name==='README.txt'&&f.url)?` data-readme-url="${esc(f.url)}" style="cursor:pointer"`:'';
+      html+=`<tr${selAttr2}${fileTip}${readmeAttr}>
+        <td>${grip2}<span class="f-icon">${_fileIcon(f.name)}</span>${esc(f.name)}</td>
+        <td class="f-size"></td>
+        <td class="f-size">${f.size||''}</td>
+        <td class="f-edit">${editCell}</td>
+        <td class="f-date">${f.date||''}</td>
+        <td class="f-actions">${dlBtn}${fileRenBtn}${fileDelBtn}</td>
+      </tr>`;
     }
   }
   html+=`</tbody></table>`;
@@ -6787,7 +6758,23 @@ function _renderShotFiles(id,overrideBody){
       if(_cfTipEl&&_cfDragging){_cfTipEl.classList.remove('drag-active');_cfTipEl.classList.add('drag-locked');}
     },true);
   }
-  _wireFilesNav(body,id);
+  // Double-click to open folders / navigate up
+  body.querySelectorAll("tr[data-nav='up']").forEach(row=>{
+    row.addEventListener("dblclick",()=>{_filesPath.pop();_renderShotFiles(id);});
+    row.style.cursor="pointer";
+  });
+  body.querySelectorAll("td[data-nav-folder]").forEach(td=>{
+    td.closest("tr").addEventListener("dblclick",e=>{
+      if(e.target.closest("button,a"))return;
+      _filesPath.push(td.dataset.navFolder);_renderShotFiles(id);
+    });
+  });
+  body.querySelectorAll("tr[data-readme-url]").forEach(tr=>{
+    tr.addEventListener("click",e=>{
+      if(e.target.closest("button,a"))return;
+      _openReadme(tr.dataset.readmeUrl);
+    });
+  });
   // Single click = select (skip if just finished rect-select)
   let _skipClick=false;
   body.querySelectorAll("tr[data-sel-name]").forEach(row=>{
