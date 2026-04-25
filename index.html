@@ -8877,7 +8877,7 @@ async function _getFFmpeg(){
   ffmpeg.on('log',({message})=>console.log('[ffmpeg]',message));
   const localBase=new URL('ffmpeg',location.href).href;
   const coreURL=await _toBlobURL(localBase+'/ffmpeg-core.js','text/javascript');
-  const wasmURL=await _toBlobURL(CDN_BASE+'/static/ffmpeg-core.wasm','application/wasm');
+  const wasmURL=await _toBlobURL('https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm','application/wasm');
   const workerURL=await _toBlobURL(localBase+'/814.ffmpeg.js','text/javascript');
   await ffmpeg.load({coreURL,wasmURL,workerURL});
   _ffmpegInstance=ffmpeg;
