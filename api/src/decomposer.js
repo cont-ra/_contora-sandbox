@@ -40,7 +40,7 @@ export const SHOT_EXTRACT_KEYS = new Set([
 
 // Kept as single-blob meta rows (entity_id == key).  Retains __users during
 // Phase 0-3; Phase 4 migrates users into the registry and removes this.
-export const META_BLOB_KEYS = new Set(["__admin","__bot","__users"]);
+export const META_BLOB_KEYS = new Set(["__bot","__users"]);
 
 // Fan-out keys whose source shape is a DICT {subKey: payload}.
 export const SYSTEM_FANOUT_DICT_KEYS = {

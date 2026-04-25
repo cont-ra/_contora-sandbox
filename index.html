@@ -703,26 +703,15 @@
   .export-btn.edit-active { background: #238636; border-color: #2ea043; color: #fff; }
   .export-btn.edit-active:hover { background: #2ea043; }
 
-  /* Admin Files share overlay */
-  .af-share-row { display: flex; align-items: center; gap: 8px; background: var(--bg-dark); border: 1px solid var(--border-soft); border-radius: 8px; padding: 10px 14px; }
-  .af-share-row code { flex: 1; font-family: 'SF Mono', monospace; font-size: 12px; color: var(--status-success); word-break: break-all; }
-  .af-share-row button { background: var(--bg-raised); border: 1px solid var(--border-soft); color: var(--text-primary); padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; }
-  .af-share-row button:hover { background: var(--border-soft); }
-  .af-share-row button.copied { border-color: var(--status-success); color: var(--status-success); }
-  /* Public upload page */
+  /* Share link overlay (download share for done shots) */
+  .share-row { display: flex; align-items: center; gap: 8px; background: var(--bg-dark); border: 1px solid var(--border-soft); border-radius: 8px; padding: 10px 14px; }
+  .share-row code { flex: 1; font-family: 'SF Mono', monospace; font-size: 12px; color: var(--status-success); word-break: break-all; }
+  .share-row button { background: var(--bg-raised); border: 1px solid var(--border-soft); color: var(--text-primary); padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+  .share-row button:hover { background: var(--border-soft); }
+  .share-row button.copied { border-color: var(--status-success); color: var(--status-success); }
+  /* Public download page wrapper (and error/loading shell) */
   .pub-upload-wrap { max-width: 700px; margin: 40px auto; text-align: center; padding: 0 20px; }
   .pub-upload-wrap h2 { color: #f0f6fc; font-size: 22px; margin-bottom: 6px; }
-  .pub-upload-wrap .pub-folder { color: var(--accent); font-family: 'SF Mono', monospace; font-size: 14px; margin-bottom: 20px; }
-  .pub-upload-wrap .pub-status { color: var(--text-secondary); font-size: 13px; margin-top: 12px; min-height: 20px; }
-  .pub-upload-list { text-align: left; margin-top: 16px; }
-  .pub-upload-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 13px; color: var(--text-primary); border-bottom: 1px solid var(--bg-raised); }
-  .pub-upload-item .pub-icon { font-size: 14px; flex-shrink: 0; }
-  .pub-upload-item .pub-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .pub-upload-item .pub-pct { font-family: 'SF Mono', monospace; font-size: 11px; color: var(--text-secondary); }
-  .pub-item-cancel { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; padding: 0 4px; flex-shrink: 0; }
-  .pub-item-cancel:hover { color: var(--status-error); }
-  .pub-cancel-all { background: rgba(248,81,73,0.1); border: 1px solid rgba(248,81,73,0.3); color: var(--status-error); padding: 2px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; margin-left: 8px; }
-  .pub-cancel-all:hover { background: rgba(248,81,73,0.2); }
   .pub-existing { text-align: left; margin-top: 24px; border-top: 1px solid var(--bg-raised); padding-top: 16px; }
   .pub-existing h3 { font-size: 13px; color: var(--text-secondary); font-weight: 600; margin-bottom: 8px; }
   .pub-existing-item { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 12px; color: var(--text-secondary); }
@@ -736,16 +725,6 @@
   .pub-file-cb:checked { background: #238636; border-color: #2ea043; opacity: 1; }
   .pub-file-cb:checked::before { color: #fff; font-size: 17px; }
   .pub-file-cb:checked:hover { background: #2ea043; }
-  .pub-dup-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 9000; display: flex; align-items: center; justify-content: center; }
-  .pub-dup-box { background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 12px; padding: 20px; max-width: 440px; width: 90%; }
-  .pub-dup-box h3 { color: #f0f6fc; font-size: 15px; margin-bottom: 8px; }
-  .pub-dup-box p { color: var(--text-secondary); font-size: 13px; margin-bottom: 16px; }
-  .pub-dup-box .dup-file { font-family: 'SF Mono', monospace; color: var(--accent); font-size: 13px; background: var(--bg-raised); padding: 6px 10px; border-radius: 6px; margin-bottom: 12px; }
-  .pub-dup-btns { display: flex; gap: 8px; flex-wrap: wrap; }
-  .pub-dup-btns button { flex: 1; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-soft); background: var(--bg-raised); color: var(--text-primary); cursor: pointer; font-size: 12px; }
-  .pub-dup-btns button:hover { background: var(--border-soft); }
-  .pub-dup-btns button.primary { background: #1f6feb; border-color: #1f6feb; color: #fff; }
-  .pub-dup-btns button.primary:hover { background: #388bfd; }
 </style>
 <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/streamsaver@2.0.6/StreamSaver.min.js"></script>
@@ -1030,7 +1009,7 @@ const SHOT_EXTRACT_KEYS = new Set([
 
 // Kept as single-blob meta rows (entity_id == key).  Retains __users during
 // Phase 0-3; Phase 4 migrates users into the registry and removes this.
-const META_BLOB_KEYS = new Set(["__admin","__bot","__users"]);
+const META_BLOB_KEYS = new Set(["__bot","__users"]);
 
 // Fan-out keys whose source shape is a DICT {subKey: payload}.
 const SYSTEM_FANOUT_DICT_KEYS = {
@@ -1438,7 +1417,7 @@ function composeProject(rows) {
     } else if (t === "download_track") {
       (state.__downloadTracking ||= {})[r.entity_id] = r.payload;
     } else if (t === "meta") {
-      state[r.entity_id] = r.payload;   // __admin, __bot, __users, + unknown __foo preserved verbatim
+      state[r.entity_id] = r.payload;   // __bot, __users, + unknown __foo preserved verbatim
     }
     // Unknown entity_types (e.g., added in a future phase) are dropped here —
     // round-trip test will flag them.
@@ -2872,6 +2851,7 @@ function runMigrations(){let c=false;for(const[k,d]of Object.entries(state)){
   }
 }
 if(state.__readState){delete state.__readState;c=true;}
+if(state.__admin){delete state.__admin;c=true;}
 if(!state.__tasks){state.__tasks=[];c=true;}
 if(!state.__categories){state.__categories={};c=true;}
 // Strip leftover '_anon' visitor buckets from any download share — early
@@ -2888,7 +2868,6 @@ if(c)localStorage.setItem(_storageKey(),JSON.stringify(state));}
 runMigrations();
 if(state.__users){for(const[id,u]of Object.entries(state.__users)){USERS[id]=u;}}
 _loadCustomCats();
-let _pubUploadMode=false;
 // Mobile fallback: until the site has a real mobile UI, anyone landing here
 // from a Telegram deep link on a phone gets redirected straight to the
 // version's video URL on R2 so they can watch it inline.
@@ -2921,7 +2900,7 @@ function _checkMobilePlayerRedirect(){
   })();
   return true;
 }
-if(!_checkMobilePlayerRedirect()&&!_checkPublicUpload()&&!_checkPublicDownload()) _initAuth();
+if(!_checkMobilePlayerRedirect()&&!_checkPublicDownload()) _initAuth();
 
 let currentFilter="all",artistFilter="all",searchQuery="",sortCol=-1,sortAsc=true;
 
@@ -3633,87 +3612,25 @@ function toggleAdminMenu(){
   dd.className="admin-menu";dd.id="adminMenu";
   const editLabel=_editMode?"✏️ Editing... (click to stop)":"✏️ Edit Shots";
   const addShotItem=_editMode?`<div class="admin-menu-item" onclick="closeAdminMenu();openAddShotDialog()">➕ Add Shot</div>`:'';
-  dd.innerHTML=`<div class="admin-menu-item" onclick="closeAdminMenu();toggleEditMode()">${editLabel}</div>${addShotItem}<div class="admin-menu-item" onclick="closeAdminMenu();openUserManager()">👥 Manage Users</div><div class="admin-menu-item" onclick="closeAdminMenu();openProjectManager()">🗂 Manage Projects</div><div class="admin-menu-item" onclick="closeAdminMenu();openMcpTokenManager()">🔌 MCP Tokens</div><div class="admin-menu-item" onclick="closeAdminMenu();_openAdminFiles()">📁 Admin Files</div><div class="admin-menu-item" onclick="closeAdminMenu();openBotSettings()">🤖 Bot Settings</div>`;
+  dd.innerHTML=`<div class="admin-menu-item" onclick="closeAdminMenu();toggleEditMode()">${editLabel}</div>${addShotItem}<div class="admin-menu-item" onclick="closeAdminMenu();openUserManager()">👥 Manage Users</div><div class="admin-menu-item" onclick="closeAdminMenu();openProjectManager()">🗂 Manage Projects</div><div class="admin-menu-item" onclick="closeAdminMenu();openMcpTokenManager()">🔌 MCP Tokens</div><div class="admin-menu-item" onclick="closeAdminMenu();openBotSettings()">🤖 Bot Settings</div>`;
   document.body.appendChild(dd);
   setTimeout(()=>document.addEventListener("click",closeAdminMenu,{once:true}),0);
 }
 function closeAdminMenu(){const d=document.getElementById("adminMenu");if(d)d.remove();}
 
-// === ADMIN FILES ===
-function _ensureAdminState(){
-  if(!state.__admin)state.__admin={};
-  if(!state.__admin.folders)state.__admin.folders=[];
-  if(!state.__admin.files)state.__admin.files={};
-  if(!state.__admin.shares)state.__admin.shares={};
-}
-function _isAdminMode(){return _shotCurrentId==='__admin';}
-// Unified accessors: folders array and files dict for any id (admin or shot)
+// Unified accessors: folders array and files dict for any shot id
 function _getFoldersArray(id){
-  if(id==='__admin'){_ensureAdminState();return state.__admin.folders;}
   if(!state[id])state[id]={};
   if(!state[id].userFolders)state[id].userFolders=[];
   return state[id].userFolders;
 }
 function _getFilesDict(id){
-  if(id==='__admin'){_ensureAdminState();return state.__admin.files;}
   if(!state[id])state[id]={};
   if(!state[id].files)state[id].files={};
   return state[id].files;
 }
 function _setFoldersArray(id,arr){
-  if(id==='__admin'){_ensureAdminState();state.__admin.folders=arr;}
-  else{if(!state[id])state[id]={};state[id].userFolders=arr;}
-}
-function _openAdminFiles(){
-  if(!isAdmin())return;
-  _shotCurrentId='__admin';_shotTab='files';_filesPath=[];
-  // Configure shot overlay for admin mode
-  document.getElementById("shotId").textContent='Admin Files';
-  document.getElementById("shotCatTag").innerHTML='';
-  document.getElementById("shotDesc").textContent='';
-  document.getElementById("shotTC").textContent='';
-  document.getElementById("shotTabVersions").style.display='none';
-  document.getElementById("shotTabFiles").classList.add("active");
-  document.getElementById("shotTabVersions").classList.remove("active");
-  document.querySelector(".shot-panel").classList.add("files-mode");
-  _renderShotFiles('__admin');
-  document.getElementById("shotOverlay").classList.remove("hidden");
-}
-function _closeAdminFiles(){closeShot();}
-function _adminShareFolder(name){
-  _ensureAdminState();
-  const fullPath=_filesPath.length===0?name:_filesPath.join('/')+'/'+name;
-  // Ensure folder exists
-  if(!state.__admin.folders.some(f=>f.name===fullPath))return;
-  let shareInfo=state.__admin.shares[fullPath];
-  if(!shareInfo){
-    const token=Math.random().toString(36).substr(2,10)+Math.random().toString(36).substr(2,10);
-    shareInfo={token,created:Date.now()};
-    state.__admin.shares[fullPath]=shareInfo;
-    saveState(state);
-    _renderShotFiles('__admin');
-  }
-  const prodBase=_shareBase();
-  const url=prodBase+'?upload='+shareInfo.token;
-  // Show share link overlay
-  const html=`<div class="confirm-box" style="text-align:left"><div class="confirm-title" style="color:#58a6ff">Share Link</div><div class="confirm-msg" style="text-align:left">Folder: <b>${esc(name)}</b><br><span style="font-size:11px;color:#484f58">Anyone with this link can upload files to this folder.</span></div><div class="af-share-row"><code id="afShareUrl">${esc(url)}</code><button id="afCopyBtn" onclick="_afCopyShareLink()">Copy</button></div><div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end"><button class="confirm-btn cancel" onclick="_afRevokeShare('${esc(fullPath)}')">Revoke</button><button class="confirm-btn cancel" onclick="document.getElementById('afShareOverlay').remove()">Close</button></div></div>`;
-  const ov=_buildOverlay("confirm-overlay",html,()=>ov.remove());
-  ov.id="afShareOverlay";
-}
-function _afCopyShareLink(){
-  const url=document.getElementById("afShareUrl")?.textContent;
-  if(!url)return;
-  navigator.clipboard.writeText(url).then(()=>{
-    const btn=document.getElementById("afCopyBtn");
-    if(btn){btn.textContent="Copied!";btn.classList.add("copied");setTimeout(()=>{btn.textContent="Copy";btn.classList.remove("copied");},2000);}
-  });
-}
-function _afRevokeShare(fullPath){
-  _ensureAdminState();
-  delete state.__admin.shares[fullPath];
-  saveState(state);
-  document.getElementById("afShareOverlay")?.remove();
-  _renderShotFiles('__admin');
+  if(!state[id])state[id]={};state[id].userFolders=arr;
 }
 
 // === DONE SHOTS — share download links ===
@@ -3757,7 +3674,7 @@ function _shareDownloadLink(ids,title){
   const pushBtn=canPushClient?`<button class="confirm-btn" id="dlPushClientBtn" onclick="_pushDownloadShareToClient()" style="background:#1f6feb;color:#fff;border-color:#1f6feb">📤 Push to client chat</button>`:'';
   // Internal test target — admin only, lands in KILLHOUSE _contora / General
   const internalBtn=isAdmin()?`<button class="confirm-btn" id="dlPushInternalBtn" onclick="_pushDownloadShareInternal()" style="background:#6e40c9;color:#fff;border-color:#6e40c9">🧪 Push to internal (General)</button>`:'';
-  const html=`<div class="confirm-box" style="text-align:left;max-width:580px"><div class="confirm-title" style="color:#3fb950">📥 Download Share Link</div><div class="confirm-msg" style="text-align:left">${esc(title)}<br><span style="font-size:11px;color:#8b949e">${list}</span><br><br><span style="font-size:11px;color:#484f58">Anyone with this link can download these files.</span></div><div class="af-share-row"><code id="dlShareUrl">${esc(url)}</code><button id="dlCopyBtn" onclick="_dlCopyShareLink()">Copy</button></div><div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">${internalBtn}${pushBtn}<button class="confirm-btn cancel" onclick="_dlRevokeShare('${esc(token)}')">Revoke</button><button class="confirm-btn cancel" onclick="document.getElementById('dlShareOverlay').remove()">Close</button></div></div>`;
+  const html=`<div class="confirm-box" style="text-align:left;max-width:580px"><div class="confirm-title" style="color:#3fb950">📥 Download Share Link</div><div class="confirm-msg" style="text-align:left">${esc(title)}<br><span style="font-size:11px;color:#8b949e">${list}</span><br><br><span style="font-size:11px;color:#484f58">Anyone with this link can download these files.</span></div><div class="share-row"><code id="dlShareUrl">${esc(url)}</code><button id="dlCopyBtn" onclick="_dlCopyShareLink()">Copy</button></div><div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">${internalBtn}${pushBtn}<button class="confirm-btn cancel" onclick="_dlRevokeShare('${esc(token)}')">Revoke</button><button class="confirm-btn cancel" onclick="document.getElementById('dlShareOverlay').remove()">Close</button></div></div>`;
   const ov=_buildOverlay("confirm-overlay",html,()=>ov.remove());
   ov.id="dlShareOverlay";
 }
@@ -4011,6 +3928,9 @@ function _doneShareSelected(){
 // true back to false. Bare `var` only hoists the declaration; default is
 // undefined (falsy) which is what we want pre-boot.
 var _pubDownloadMode;
+function _showPubError(msg){
+  document.body.innerHTML=`<div class="pub-upload-wrap"><h2>KILLHOUSE VFX</h2><div style="color:#f85149;font-size:16px;margin-top:20px">${msg}</div></div>`;
+}
 function _checkPublicDownload(){
   const params=new URLSearchParams(window.location.search);
   const token=params.get('download');
@@ -4206,202 +4126,6 @@ async function _pubDownloadAll(){
     if(btn){btn.textContent='Failed — retry';btn.disabled=false;}
     if(prog)prog.textContent='Error: '+e.message;
   }
-}
-
-// === PUBLIC UPLOAD PAGE (share link) ===
-function _checkPublicUpload(){
-  const params=new URLSearchParams(window.location.search);
-  const token=params.get('upload');
-  if(!token)return false;
-  _pubUploadMode=true;
-  // Auto-login as guest (bypasses password prompt)
-  currentUser={id:"guest",display:"Guest",role:"guest"};
-  // Hide ALL normal UI including login overlay
-  document.querySelectorAll('body > *:not(script):not(link)').forEach(el=>el.style.display='none');
-  // Load state to find which folder this token maps to
-  _initPublicUpload(token);
-  return true;
-}
-async function _initPublicUpload(token){
-  await _pullRemote();
-  if(!state.__admin||!state.__admin.shares){_showPubError('Invalid or expired link');return;}
-  let targetFolder=null;
-  for(const[folder,info] of Object.entries(state.__admin.shares)){
-    if(info.token===token){targetFolder=folder;break;}
-  }
-  if(!targetFolder){_showPubError('Invalid or expired link');return;}
-  // Keep token in URL so page survives refresh
-  _renderPublicUpload(targetFolder,token);
-}
-function _showPubError(msg){
-  document.body.innerHTML=`<div class="pub-upload-wrap"><h2>KILLHOUSE VFX</h2><div style="color:#f85149;font-size:16px;margin-top:20px">${msg}</div></div>`;
-}
-let _pubFolder=null;
-function _renderPublicUpload(folder,token){
-  _pubFolder=folder;
-  let html=`<div class="pub-upload-wrap"><h2>📁 Upload Files</h2><div class="pub-folder">${esc(folder)}</div>`;
-  html+=`<div class="files-drop" id="pubDropZone" onclick="document.getElementById('pubFileInput').click()">Drop files here or click to upload</div>`;
-  html+=`<input type="file" id="pubFileInput" multiple style="display:none">`;
-  html+=`<div class="pub-status" id="pubStatus"></div>`;
-  html+=`<div class="pub-upload-list" id="pubList"></div>`;
-  html+=`<div class="pub-existing" id="pubExisting"></div>`;
-  html+=`</div>`;
-  document.body.insertAdjacentHTML('beforeend',html);
-  const dz=document.getElementById("pubDropZone");
-  const fi=document.getElementById("pubFileInput");
-  fi.addEventListener("change",()=>{_pubHandleEntries(folder,Array.from(fi.files).map(f=>({type:'file',file:f,path:f.name})));fi.value='';});
-  dz.addEventListener("dragover",e=>{e.preventDefault();dz.classList.add("drag-over");});
-  dz.addEventListener("dragleave",()=>dz.classList.remove("drag-over"));
-  dz.addEventListener("drop",async e=>{
-    e.preventDefault();dz.classList.remove("drag-over");
-    const items=e.dataTransfer.items;
-    if(items&&items.length&&items[0].webkitGetAsEntry){
-      const entries=[];
-      for(let i=0;i<items.length;i++){const en=items[i].webkitGetAsEntry();if(en)entries.push(en);}
-      const coll=[];for(const en of entries)coll.push(...await _readEntry(en));
-      if(coll.length){_pubHandleEntries(folder,coll);return;}
-    }
-    // Plain files (no folder structure)
-    _pubHandleEntries(folder,Array.from(e.dataTransfer.files).map(f=>({type:'file',file:f,path:f.name})));
-  });
-  _pubRenderExisting(folder);
-}
-function _pubRenderExisting(folder){
-  const el=document.getElementById("pubExisting");
-  if(!el)return;
-  // Collect all files from this folder and subfolders
-  const allFiles=[];
-  const subFolders=[];
-  if(state.__admin?.files){
-    for(const[key,files] of Object.entries(state.__admin.files)){
-      if(key===folder){
-        for(const f of files)allFiles.push({...f,rel:f.name});
-      } else if(key.startsWith(folder+'/')){
-        const sub=key.substring(folder.length+1);
-        if(!subFolders.includes(sub))subFolders.push(sub);
-        for(const f of files)allFiles.push({...f,rel:sub+'/'+f.name});
-      }
-    }
-  }
-  if(allFiles.length===0&&subFolders.length===0){el.innerHTML='';return;}
-  let totalSize=0;
-  allFiles.forEach(f=>totalSize+=(f.size||0));
-  let html=`<h3>Uploaded — ${allFiles.length} file${allFiles.length!==1?'s':''}, ${_formatSize(totalSize)}</h3>`;
-  // Show folders first
-  for(const sf of subFolders.sort()){
-    const folderFiles=allFiles.filter(f=>f.rel.startsWith(sf+'/'));
-    let fSize=0;folderFiles.forEach(f=>fSize+=(f.size||0));
-    html+=`<div class="pub-existing-item"><span class="pe-icon">📁</span><span class="pe-name">${esc(sf)}/</span><span class="pe-size">${folderFiles.length} files, ${_formatSize(fSize)}</span></div>`;
-  }
-  // Root-level files
-  const rootFiles=allFiles.filter(f=>!f.rel.includes('/'));
-  for(const f of rootFiles){
-    html+=`<div class="pub-existing-item"><span class="pe-icon">${_fileIcon(f.name)}</span><span class="pe-name">${esc(f.name)}</span><span class="pe-size">${_formatSize(f.size)}</span></div>`;
-  }
-  el.innerHTML=html;
-}
-// Duplicate resolution dialog — returns promise: 'replace'|'skip'|'replace_all'|'skip_all'|null
-let _pubDupPolicy=null;// 'replace_all' or 'skip_all' — remembered for batch
-function _pubAskDuplicate(fileName){
-  if(_pubDupPolicy)return Promise.resolve(_pubDupPolicy);
-  return new Promise(resolve=>{
-    const ov=document.createElement('div');ov.className='pub-dup-overlay';
-    ov.innerHTML=`<div class="pub-dup-box"><h3>File already exists</h3><div class="dup-file">${esc(fileName)}</div><p>This file has already been uploaded. What would you like to do?</p><div class="pub-dup-btns"><button onclick="_pubDupResolve(this,'skip')">Skip</button><button onclick="_pubDupResolve(this,'skip_all')">Skip All</button><button onclick="_pubDupResolve(this,'replace')" class="primary">Replace</button><button onclick="_pubDupResolve(this,'replace_all')" class="primary">Replace All</button></div></div>`;
-    ov._resolve=resolve;
-    document.body.appendChild(ov);
-  });
-}
-function _pubDupResolve(btn,action){
-  const ov=btn.closest('.pub-dup-overlay');
-  if(action==='replace_all'||action==='skip_all')_pubDupPolicy=action;
-  if(ov._resolve)ov._resolve(action);
-  ov.remove();
-}
-let _pubCancelled=new Set();
-let _pubCancelAll=false;
-async function _pubHandleEntries(folder,entries){
-  if(!entries.length)return;
-  _pubDupPolicy=null;_pubCancelAll=false;_pubCancelled.clear();
-  const statusEl=document.getElementById("pubStatus");
-  const listEl=document.getElementById("pubList");
-  // Ensure admin state
-  if(!state.__admin)state.__admin={};
-  if(!state.__admin.files)state.__admin.files={};
-  if(!state.__admin.folders)state.__admin.folders=[];
-  // Create subfolders from entries
-  const fileEntries=entries.filter(c=>c.type==='file');
-  const subFolders=new Set();
-  for(const c of fileEntries){
-    const dir=c.path.substring(0,c.path.lastIndexOf('/'));
-    if(dir){
-      const parts=dir.split('/');
-      for(let i=1;i<=parts.length;i++){subFolders.add(parts.slice(0,i).join('/'));}
-    }
-  }
-  for(const sf of subFolders){
-    const fullPath=folder+'/'+sf;
-    if(!state.__admin.folders.some(f=>f.name===fullPath)){
-      state.__admin.folders.push({name:fullPath});
-    }
-    if(!state.__admin.files[fullPath])state.__admin.files[fullPath]=[];
-  }
-  if(subFolders.size)saveState(state);
-  // Show cancel all button
-  const totalCount=fileEntries.length;
-  statusEl.innerHTML=`Uploading 0/${totalCount}... <button class="pub-cancel-all" onclick="_pubCancelAll=true;this.textContent='Cancelling...'">Cancel All</button>`;
-  let doneCount=0;
-  for(const entry of fileEntries){
-    if(_pubCancelAll)break;
-    const file=entry.file;
-    const relPath=entry.path;// e.g. "folder/sub/file.txt"
-    const dir=relPath.substring(0,relPath.lastIndexOf('/'));
-    const stateKey=dir?folder+'/'+dir:folder;
-    const existingArr=state.__admin.files[stateKey]||(state.__admin.files[stateKey]=[]);
-    // Check duplicate
-    const dupIdx=existingArr.findIndex(f=>f.name===file.name);
-    if(dupIdx>=0){
-      const action=await _pubAskDuplicate(file.name);
-      if(action==='skip'||action==='skip_all'){
-        listEl.insertAdjacentHTML('beforeend',`<div class="pub-upload-item"><span class="pub-icon">⏭</span><span class="pub-name">${esc(relPath)}</span><span class="pub-pct" style="color:#d29922">Skipped</span></div>`);
-        doneCount++;continue;
-      }
-      existingArr.splice(dupIdx,1);
-    }
-    const r2Key=projectPath('admin/'+folder+'/'+relPath);
-    const itemId='pub-'+Date.now()+'-'+Math.random().toString(36).substr(2,4);
-    listEl.insertAdjacentHTML('beforeend',`<div class="pub-upload-item" id="${itemId}"><span class="pub-icon">◌</span><span class="pub-name">${esc(relPath)}</span><span class="pub-pct">0%</span><button class="pub-item-cancel" onclick="_pubCancelled.add('${itemId}')">✕</button></div>`);
-    // Upload with infinite retry
-    let ok=false,attempt=0;
-    while(!ok){
-      if(_pubCancelAll||_pubCancelled.has(itemId)){
-        const el=document.getElementById(itemId);
-        if(el){el.querySelector('.pub-icon').textContent='⛔';el.querySelector('.pub-pct').textContent='Cancelled';const xb=el.querySelector('.pub-item-cancel');if(xb)xb.remove();}
-        break;
-      }
-      ok=await r2UploadXHR(r2Key,file,(pct)=>{
-        const el=document.getElementById(itemId);
-        if(el)el.querySelector('.pub-pct').textContent=pct+'%';
-      });
-      if(ok)break;
-      if(_pubCancelAll||_pubCancelled.has(itemId))break;
-      attempt++;
-      const el=document.getElementById(itemId);
-      if(el){el.querySelector('.pub-icon').textContent='🔄';el.querySelector('.pub-pct').textContent='Retry #'+attempt+' in 10s...';}
-      // Cancellable wait
-      for(let w=0;w<100;w++){await new Promise(r=>setTimeout(r,100));if(_pubCancelAll||_pubCancelled.has(itemId))break;}
-    }
-    if(ok){
-      const el=document.getElementById(itemId);
-      if(el){el.querySelector('.pub-icon').textContent='✅';el.querySelector('.pub-pct').textContent=_formatSize(file.size);const xb=el.querySelector('.pub-item-cancel');if(xb)xb.remove();}
-      existingArr.push({name:file.name,size:file.size,r2key:r2Key,author:'Guest',date:new Date().toISOString().slice(0,10)});
-      saveState(state);
-      _pubRenderExisting(folder);
-    }
-    doneCount++;
-    if(!_pubCancelAll)statusEl.innerHTML=`Uploading ${doneCount}/${totalCount}... <button class="pub-cancel-all" onclick="_pubCancelAll=true;this.textContent='Cancelling...'">Cancel All</button>`;
-  }
-  statusEl.textContent=_pubCancelAll?'Cancelled':'Done!';
-  _pubRenderExisting(folder);
 }
 
 async function _hydrateLegacyBotConfig(){
@@ -6590,7 +6314,6 @@ function openShot(id){
   document.getElementById("shotOverlay").classList.remove("hidden");
 }
 function _canUpload(id){
-  if(id==='__admin')return isAdmin();
   if(id==='__doneshots')return false;
   const realId=(id==='__myfiles'&&_filesPath.length>0)?_filesPath[0]:id;
   if(realId==='__myfiles')return false;
@@ -6599,7 +6322,6 @@ function _canUpload(id){
   return isAdmin()||(isArtist()&&getAssignee(realId)===currentUser.id);
 }
 function _canDeleteFile(id){
-  if(id==='__admin')return isAdmin();
   if(id==='__doneshots')return false;
   const realId=(id==='__myfiles'&&_filesPath.length>0)?_filesPath[0]:id;
   if(realId==='__myfiles')return false;
@@ -6845,31 +6567,6 @@ function _getFilesRoot(id){
     });
     return result;
   }
-  // Admin files: no locked source/versions folders, just user folders + files
-  if(id==='__admin'){
-    _ensureAdminState();
-    const filesDict=state.__admin.files;
-    const folderData=state.__admin.folders;
-    const shares=state.__admin.shares||{};
-    function _buildAdminTree(prefix){
-      const result=[];const seen=new Set();
-      for(const uf of folderData){
-        let relName;
-        if(prefix===''){if(uf.name.includes('/'))continue;relName=uf.name;}
-        else{if(!uf.name.startsWith(prefix+'/'))continue;relName=uf.name.substring(prefix.length+1);if(relName.includes('/'))continue;}
-        if(seen.has(relName))continue;seen.add(relName);
-        const fullPath=prefix?prefix+'/'+relName:relName;
-        const files=(filesDict[fullPath]||[]).map(f=>({name:f.name,size:_formatSize(f.size),_bytes:f.size||0,date:f.date||'—',url:CDN_BASE+'/'+f.r2key,author:f.author||''}));
-        const subFolders=_buildAdminTree(fullPath);
-        const hasShare=!!shares[fullPath];
-        result.push({name:relName,type:'folder',locked:false,children:files.concat(subFolders),fullPath,hasShare});
-      }
-      return result;
-    }
-    const userFolders=_buildAdminTree('');
-    const rootFiles=(filesDict['_root']||[]).map(f=>({name:f.name,size:_formatSize(f.size),_bytes:f.size||0,date:f.date||'—',url:CDN_BASE+'/'+f.r2key,author:f.author||''}));
-    return userFolders.concat(rootFiles);
-  }
   const hasSrc=hasGif(id);
   // source: original + preview — read from state files, fallback to video/ convention
   const statePreviewFiles=(state[id]?.files?.['source/preview'])||[];
@@ -6956,7 +6653,7 @@ function _formatSize(bytes){
 }
 function _resolveFilesPath(id){
   let items=_getFilesRoot(id);
-  let breadcrumb=id==='__admin'?'admin':(id==='__myfiles'?'My Files':(id==='__doneshots'?'Done Shots':id));
+  let breadcrumb=id==='__myfiles'?'My Files':(id==='__doneshots'?'Done Shots':id);
   let currentFolder=null;
   let validDepth=0;
   for(const p of _filesPath){
@@ -7064,10 +6761,9 @@ async function _deleteSelected(id){
         delete filesDict[uf.name];
       }
       _setFoldersArray(id,foldersArr.filter(f=>f.name!==fullPath&&!f.name.startsWith(fullPath+'/')));
-      if(id==='__admin'){_ensureAdminState();delete state.__admin.shares[fullPath];}
-      else _addFileHistory(id,'deleted',name,'');
+      _addFileHistory(id,'deleted',name,'');
     } else if(!item?.type||item?.type!=='folder'){
-      if(id!=='__admin'&&stateKey==='versions/preview'){
+      if(stateKey==='versions/preview'){
         const versions=state[id]?.versions||[];
         const idx=versions.findIndex(v=>v.name===name);
         if(idx>=0){
@@ -7082,7 +6778,7 @@ async function _deleteSelected(id){
         if(filesDict[stateKey])filesDict[stateKey]=filesDict[stateKey].filter(f=>f.name!==name);
       }
       done++;if(panel)_updateOperationProgress(panel,done,totalOps,name);
-      if(id!=='__admin')_addFileHistory(id,'deleted',name,stateKey||'');
+      _addFileHistory(id,'deleted',name,stateKey||'');
     }
   }
   if(panel)_removeOperationProgress(panel);
@@ -7156,18 +6852,6 @@ async function _processQueue(){
 function _commitUploadedFile(item){
   const id=_uploadQueue.shotId;
   if(!id)return;
-  if(id==='__admin'){
-    // Admin file upload
-    const filesDict=_getFilesDict(id);
-    if(!filesDict[item.stateKey])filesDict[item.stateKey]=[];
-    filesDict[item.stateKey].push({
-      name:item.fileName,size:item.size,r2key:item.r2Key,
-      author:currentUser?.display||currentUser?.id||'unknown',
-      date:new Date().toISOString().slice(0,10)
-    });
-    _debouncedCommitFlush(id);
-    return;
-  }
   if(!state[id])state[id]={};
   if(item.meta.isVersion){
     // Version preview
@@ -7350,7 +7034,7 @@ function _renderShotFiles(id,overrideBody){
   html+=`</div>`;
   // table
   html+=`<div class="files-table-wrap">`;
-  const editColName=id==='__admin'?'Author':'Last Edit';
+  const editColName='Last Edit';
   html+=`<table class="files-table"><thead><tr><th>Name</th><th>Items</th><th>Size</th><th>${editColName}</th><th>Date</th><th></th></tr></thead><tbody>`;
   if(_filesPath.length>0){
     html+=`<tr data-drop-folder=".." data-nav="up"><td class="f-name"><span class="f-icon">⬆️</span>..</td><td></td><td></td><td></td><td></td><td></td></tr>`;
@@ -7364,12 +7048,11 @@ function _renderShotFiles(id,overrideBody){
       const lock=f.locked?` 🔒`:'';
       const delBtn=(!f.locked&&_canUpload(id))?`<button class="f-dl" onclick="event.stopPropagation();_deleteFolder('${id}','${esc(f.name)}')" title="Delete folder">🗑</button>`:'';
       const renBtn=(!f.locked&&isAdmin())?`<button class="f-dl" onclick="event.stopPropagation();_renameFolder('${id}','${esc(f.name)}')" title="Rename folder">✎</button>`:'';
-      const shareBtn=(id==='__admin'&&!f.locked)?`<button class="f-dl" onclick="event.stopPropagation();_adminShareFolder('${esc(f.name)}')" title="Share link">${f.hasShare?'🔗':'🔗'}</button>`:((id==='__doneshots'&&f.colorTag==='#3fb950')?`<button class="f-dl" onclick="event.stopPropagation();_doneShareFolder('${esc(f.name)}')" title="Share download link">🔗</button>`:((id==='__doneshots'&&f.colorTag==='#f85149')?`<button class="f-dl" onclick="event.stopPropagation();_pingArtistFinalRequest('${esc(f.name)}')" title="Ping artist — request final upload" style="color:#f85149">📣</button>`:''));
-      const editCell=id==='__admin'?'':_renderEditCell(id,f.name);
+      const shareBtn=(id==='__doneshots'&&f.colorTag==='#3fb950')?`<button class="f-dl" onclick="event.stopPropagation();_doneShareFolder('${esc(f.name)}')" title="Share download link">🔗</button>`:((id==='__doneshots'&&f.colorTag==='#f85149')?`<button class="f-dl" onclick="event.stopPropagation();_pingArtistFinalRequest('${esc(f.name)}')" title="Ping artist — request final upload" style="color:#f85149">📣</button>`:'');
+      const editCell=_renderEditCell(id,f.name);
       const dropAttr=!f.locked?` data-drop-folder="${esc(f.name)}"`:` data-locked-folder="1"`;
       const selAttr=` data-sel-name="${esc(f.name)}" class="f-selectable${_fileSelection.has(f.name)?' f-selected':''}"`;
       const grip=`<span class="f-grip${f.locked?' f-grip-locked':''}" draggable="true" data-drag-folder="${esc(f.name)}"${f.locked?' data-locked="1"':''}>⠿</span>`;
-      const shareIcon=(id==='__admin'&&f.hasShare)?' 🔗':'';
       const _countFiles=(arr)=>{let n=0;for(const c of arr){if(c.type==='folder')n+=_countFiles(c.children||[]);else n++;}return n;};
       const _sumBytes=(arr)=>{let n=0;for(const c of arr){if(c.type==='folder')n+=_sumBytes(c.children||[]);else n+=(c._bytes||0);}return n;};
       const fileCount=_countFiles(f.children||[]);
@@ -7380,7 +7063,7 @@ function _renderShotFiles(id,overrideBody){
       const dsHoverAttr=(id==='__doneshots'&&_filesPath.length===0)?` data-ds-shot="${esc(f.name)}" data-ds-color="${esc(f.colorTag||'#3fb950')}"`:'';
       const displayLabel=esc(f.displayName||f.name);
       html+=`<tr${dropAttr}${selAttr}${folderTip}${dsHoverAttr}>
-        <td class="f-name"${colorStyle} data-nav-folder="${esc(f.name)}">${grip}<span class="f-icon">📁</span>${displayLabel}${lock}${shareIcon}</td>
+        <td class="f-name"${colorStyle} data-nav-folder="${esc(f.name)}">${grip}<span class="f-icon">📁</span>${displayLabel}${lock}</td>
         <td class="f-size">${fileCount||''}</td>
         <td class="f-size">${folderSize}</td>
         <td class="f-edit">${editCell}</td>
@@ -7396,7 +7079,7 @@ function _renderShotFiles(id,overrideBody){
       const fileLocked=f.locked||isLocked;
       const fileDelBtn=(canDel&&!f.locked)?`<button class="f-dl" onclick="event.stopPropagation();_deleteFile('${id}','${esc(f.name)}')" title="Delete">🗑</button>`:'';
       const fileRenBtn=(!f.locked&&!isReadme&&isAdmin())?`<button class="f-dl" onclick="event.stopPropagation();_renameFile('${id}','${esc(f.name)}')" title="Rename">✎</button>`:'';
-      const editCell=id==='__admin'?esc(f.author||''):_renderEditCell(id,f.name);
+      const editCell=_renderEditCell(id,f.name);
       const selAttr2=f.locked?'':(` data-sel-name="${esc(f.name)}" class="f-selectable${_fileSelection.has(f.name)?' f-selected':''}"`);
       const grip2=f.locked?`<span class="f-grip f-grip-locked">⠿</span>`:`<span class="f-grip${isLocked?' f-grip-locked':''}" draggable="true" data-drag-file="${esc(f.name)}"${isLocked?' data-locked="1"':''}>⠿</span>`;
       const fileTip=_buildFileTip(id,f.name,f.size||'',editCell,f.date||'',_fileIcon(f.name));
@@ -7779,7 +7462,7 @@ function _createFolder(id){
   const fullPath=_filesPath.length===0?name:_filesPath.join('/')+'/'+name;
   if(folders.some(f=>f.name===fullPath))return;
   folders.push({name:fullPath});
-  if(id!=='__admin')_addFileHistory(id,'added',name,fullPath);
+  _addFileHistory(id,'added',name,fullPath);
   saveState(state);
   _renderShotFiles(id);
 }
@@ -7806,8 +7489,7 @@ async function _deleteFolder(id,name){
   }
   if(panel)_removeOperationProgress(panel);
   _setFoldersArray(id,folders.filter(f=>f.name!==fullPath&&!f.name.startsWith(fullPath+'/')));
-  if(id==='__admin'){_ensureAdminState();delete state.__admin.shares[fullPath];}
-  else _addFileHistory(id,'deleted',name,fullPath);
+  _addFileHistory(id,'deleted',name,fullPath);
   saveState(state);
   _renderShotFiles(id);
 }
@@ -7866,25 +7548,19 @@ async function _renameFolder(id,folderName){
   } else if(missing>0){
     await _showAlert('Folder renamed','Folder renamed, but '+missing+' file(s) were not present in R2 (state updated only — download links will stay broken for those until re-uploaded).');
   }
-  if(id==='__admin'&&state.__admin?.shares?.[currentPath]){
-    state.__admin.shares[newPath]=state.__admin.shares[currentPath];
-    delete state.__admin.shares[currentPath];
-  }
-  if(id!=='__admin')_addFileHistory(id,'renamed',folderName,currentPath+' → '+newPath);
+  _addFileHistory(id,'renamed',folderName,currentPath+' → '+newPath);
   saveState(state);
   _renderShotFiles(id);
 }
 function _getCurrentR2Folder(id){
   let base;
-  if(id==='__admin'){base=_filesPath.length===0?'admin':'admin/'+_filesPath.join('/');}
-  else if(id==='__myfiles'&&_filesPath.length>0){const shotId=_filesPath[0];const rest=_filesPath.slice(1);base=rest.length?'files/'+shotId+'/'+rest.join('/'):'files/'+shotId;}
+  if(id==='__myfiles'&&_filesPath.length>0){const shotId=_filesPath[0];const rest=_filesPath.slice(1);base=rest.length?'files/'+shotId+'/'+rest.join('/'):'files/'+shotId;}
   else if(id==='__doneshots'&&_filesPath.length>0){base='files/'+_filesPath[0]+'/versions/final';}
   else if(_filesPath.length===0)base='files/'+id;
   else base='files/'+id+'/'+_filesPath.join('/');
   return projectPath(base);
 }
 function _getCurrentStateKey(){
-  if(_shotCurrentId==='__admin'){return _filesPath.length===0?'_root':_filesPath.join('/');}
   if(_shotCurrentId==='__doneshots'){return null;}
   if(_shotCurrentId==='__myfiles'){
     if(_filesPath.length<=1)return null;
@@ -8067,18 +7743,6 @@ async function _uploadFilesToR2(id,fileList){
   if(!r2Folder)return;
   const queue=[];// validated items to enqueue
 
-  // Admin mode: simple upload, no version detection
-  if(id==='__admin'){
-    const filesDict=_getFilesDict(id);
-    if(!filesDict[stateKey])filesDict[stateKey]=[];
-    for(const file of fileList){
-      if(filesDict[stateKey].some(f=>f.name===file.name))continue;
-      queue.push({file,r2Key:r2Folder+'/'+file.name,stateKey,meta:{}});
-    }
-    if(queue.length)_enqueueFiles(id,queue);
-    return;
-  }
-
   // source/assets — naming: {shotId}_{context}_asset###.ext
   if(stateKey==='source/assets'){
     const idLower=id.toLowerCase();
@@ -8178,7 +7842,7 @@ async function _handleEntriesDrop(id,entries){
   const coll=[];for(const e of entries)coll.push(...await _readEntry(e));if(!coll.length)return;
   const cp=_filesPath.join('/');const stateKey=_getCurrentStateKey();
   // Validate sequence folders for source/original and versions/final
-  if(id!=='__admin'&&(stateKey==='source/original'||stateKey==='versions/final')){
+  if(stateKey==='source/original'||stateKey==='versions/final'){
     const topFolders={};
     for(const c of coll){if(c.type!=='file')continue;const parts=c.path.split('/');if(parts.length<2)continue;const top=parts[0];if(!topFolders[top])topFolders[top]=[];topFolders[top].push(c);}
     const r2B=_getCurrentR2Folder(id),q=[];const foldersArr=_getFoldersArray(id);
@@ -8203,7 +7867,7 @@ async function _handleFolderInput(id,input){
   const files=Array.from(input.files);input.value='';if(!files.length)return;
   const cp=_filesPath.join('/');const stateKey=_getCurrentStateKey();
   // Validate sequence folders for source/original and versions/final
-  if(id!=='__admin'&&(stateKey==='source/original'||stateKey==='versions/final')){
+  if(stateKey==='source/original'||stateKey==='versions/final'){
     const topFolders={};
     for(const f of files){const r=f.webkitRelativePath||f.name;const parts=r.split('/');if(parts.length<2)continue;const top=parts[0];if(!topFolders[top])topFolders[top]=[];topFolders[top].push({file:f,path:r});}
     const r2B=_getCurrentR2Folder(id),q=[];const foldersArr=_getFoldersArray(id);
@@ -8231,8 +7895,8 @@ async function _deleteFile(id,fileName){
   if(!ok)return;
 
   const filesDict=_getFilesDict(id);
-  // Version previews live in state[id].versions, not files (not applicable for admin)
-  if(id!=='__admin'&&stateKey==='versions/preview'){
+  // Version previews live in state[id].versions, not files
+  if(stateKey==='versions/preview'){
     const versions=state[id]?.versions||[];
     const idx=versions.findIndex(v=>v.name===fileName);
     if(idx>=0){
@@ -8248,7 +7912,7 @@ async function _deleteFile(id,fileName){
       filesDict[stateKey]=filesDict[stateKey].filter(f=>f.name!==fileName);
     }
   }
-  if(id!=='__admin')_addFileHistory(id,'deleted',fileName,stateKey);
+  _addFileHistory(id,'deleted',fileName,stateKey);
   saveState(state);
   _renderShotFiles(id);
 }
@@ -8298,7 +7962,7 @@ async function _renameFile(id,fileName){
   const oldUrl=entry.url;
   entry.name=newName;
   if(newR2key){entry.r2key=newR2key;entry.url=CDN_BASE+'/'+newR2key;}
-  if(id!=='__admin')_addFileHistory(id,'renamed',fileName,stateKey+' → '+newName);
+  _addFileHistory(id,'renamed',fileName,stateKey+' → '+newName);
   saveState(state);
   _renderShotFiles(id);
 }
@@ -8332,7 +7996,7 @@ async function _moveFile(id,fileName,targetFolder){
   // Move: remove from source, add to target
   srcFiles.splice(idx,1);
   filesDict[destKey].push(fileEntry);
-  if(id!=='__admin')_addFileHistory(id,'moved',fileName,srcKey+' → '+destKey);
+  _addFileHistory(id,'moved',fileName,srcKey+' → '+destKey);
   saveState(state);
   _renderShotFiles(id);
 }
@@ -8391,7 +8055,7 @@ async function _moveFolder(id,folderName,targetFolder){
       }
     }
   });
-  if(id!=='__admin')_addFileHistory(id,'moved',folderName,currentPath+' → '+newPath);
+  _addFileHistory(id,'moved',folderName,currentPath+' → '+newPath);
   saveState(state);
   _renderShotFiles(id);
 }
@@ -8451,7 +8115,7 @@ function _downloadFolderByName(id,name){
   // Done Shots: nest files under "<shotId>_FINAL/" so the zip has a clearly labeled folder
   const folderPrefix=(id==='__doneshots'&&_filesPath.length===0)?(name+'_FINAL/'):'';
   const files=_collectFileUrlsWithPath(folder.children,folderPrefix);
-  const prefix=id==='__admin'?'admin':(id==='__myfiles'?'myfiles':(id==='__doneshots'?'doneshots':id));
+  const prefix=id==='__myfiles'?'myfiles':(id==='__doneshots'?'doneshots':id);
   const zipName=id==='__doneshots'?(name+'_FINAL'):(prefix+'_'+name);
   _downloadAsZip(files,zipName);
 }
@@ -8468,7 +8132,7 @@ function _downloadAllFiles(id){
   } else {
     files=_collectFileUrlsWithPath(root,'');
   }
-  const prefix=id==='__admin'?'admin':(id==='__myfiles'?'myfiles':(id==='__doneshots'?'doneshots':id));
+  const prefix=id==='__myfiles'?'myfiles':(id==='__doneshots'?'doneshots':id);
   _downloadAsZip(files,prefix+'_files');
 }
 function _fileIcon(name){
@@ -9324,7 +8988,6 @@ async function _generateThumbnail(videoUrl,thumbKey){
 
 // --- RENDER TABLE ---
 function render(){
-  if(_pubUploadMode)return;
   const tbody=document.getElementById("tbody");
   let rows=TASKS.map((t,i)=>({...t,idx:i+1,status:getStatus(t.id),assignee:getAssignee(t.id),hidden:!!state[t.id]?.hidden}));
   // Hidden shots are visible only inside Edit Shots mode
