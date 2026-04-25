@@ -317,7 +317,7 @@ async function handleTgPush(request, env) {
   const parsed = await _parseJsonBody(request, origin);
   if (parsed.error) return parsed.error;
   const body = parsed.body;
-  const { shotId, shotDesc, artistId, text, fromUser, link, userId, linkToken, kind, kindLabel, comment, thumbUrl, versionNumber, targetChatId, frame, versionIdx, tc, files, projectId } = body || {};
+  const { shotId, artistId, fromUser, link, userId, linkToken, kind, comment, thumbUrl, versionNumber, targetChatId, projectId } = body || {};
   if (kind !== "download" && !shotId) {
     return _jsonResp({ ok: false, error: "missing_fields" }, 400, origin);
   }
@@ -439,11 +439,11 @@ async function handleTgPush(request, env) {
 \u{1F4DD} ${safeCommentFr}` : "") + `
 
 <i>by ${safeFromFr}</i>`;
-      const trackerLink = `${_siteUrl(_projectRowId)}?chat=${encodeURIComponent(ids[0])}`;
+      const trackerLink = _siteUrl(_projectRowId);
       reply_markup2 = { inline_keyboard: [[{ text: "\u{1F5C2} Open tracker", url: trackerLink }]] };
     } else {
       const safeShotFr = _escapeHtml(ids[0]);
-      const trackerLink = `${_siteUrl(_projectRowId)}?chat=${encodeURIComponent(ids[0])}`;
+      const trackerLink = _siteUrl(_projectRowId);
       text2 = `\u{1F3AC} <b>${safeShotFr}</b> \u2014 <b>APPROVED</b>
 
 \u2705 Client approved the shot. You can upload the final render.` + (safeCommentFr ? `
@@ -457,18 +457,12 @@ async function handleTgPush(request, env) {
     if (!sent.ok) return sent.errorResp;
     return _jsonResp({ ok: true, mode: "final_request", message_id: sent.messageId }, 200, origin);
   }
-  const safeShot = _escapeHtml(shotId);
-  const safeDesc = _escapeHtml(shotDesc || "").slice(0, 120);
-  const safeText = _escapeHtml((text || "").slice(0, 500));
-  const safeFrom = _escapeHtml(fromUser || "user");
-  const safeKind = _escapeHtml(kindLabel || kind || "");
-  const safeComment = _escapeHtml((comment || "").slice(0, 500));
-  const safeVersion = _escapeHtml(versionNumber || "");
-  const safeLink = String(link || "").replace(/[^a-zA-Z0-9:/?=&._\-#%]/g, "");
-  const linkLine = safeLink ? `
-
-<a href="${safeLink}">Open in tracker</a>` : "";
   if (kind === "video" && thumbUrl && /^https?:\/\//.test(thumbUrl)) {
+    const safeShot = _escapeHtml(shotId);
+    const safeFrom = _escapeHtml(fromUser || "user");
+    const safeComment = _escapeHtml((comment || "").slice(0, 500));
+    const safeVersion = _escapeHtml(versionNumber || "");
+    const safeLink = String(link || "").replace(/[^a-zA-Z0-9:/?=&._\-#%]/g, "");
     const videoHeader = safeVersion ? `<b>${safeShot}</b> ${safeVersion}` : `<b>${safeShot}</b>`;
     const caption = `\u{1F514} ${videoHeader}
 \u{1F464} By: ${safeFrom}${safeComment ? `
@@ -484,35 +478,7 @@ async function handleTgPush(request, env) {
     if (!textSent.ok) return textSent.errorResp;
     return _jsonResp({ ok: true, mode: "text+button", message_id: textSent.messageId }, 200, origin);
   }
-  const headerLine = safeDesc ? `<b>${safeShot}</b> \u2014 ${safeDesc}` : `<b>${safeShot}</b>`;
-  const fromLine = `
-\u{1F464} By: ${safeFrom}`;
-  const safeTc = _escapeHtml(tc || "");
-  const hasFrame = typeof frame === "number" && typeof versionIdx === "number";
-  const frameLink = hasFrame ? `${_siteUrl(_projectRowId)}?player=${encodeURIComponent(shotId)}&v=${versionIdx}&f=${frame}` : "";
-  const safeFrameLink = frameLink.replace(/[^a-zA-Z0-9:/?=&._\-#%]/g, "");
-  const kindWithTc = safeKind && safeTc && safeFrameLink ? `${safeKind} at <a href="${safeFrameLink}">${safeTc}</a>` : safeKind;
-  const kindLine = kindWithTc ? `
-<i>pushed ${kindWithTc}</i>` : "";
-  const bodyLine = safeText ? `
-
-<b>\xAB${safeText}\xBB</b>` : "";
-  const commentLine = safeComment ? `
-
-\u{1F4DD} ${safeComment}` : "";
-  const msg = `\u{1F514} ${headerLine}${fromLine}${kindLine}${bodyLine}${commentLine}`;
-  let buttonText, buttonUrl;
-  if (hasFrame && safeFrameLink) {
-    buttonText = safeTc ? `\u25B6 Open at ${tc}` : "\u25B6 Open at frame";
-    buttonUrl = frameLink;
-  } else {
-    buttonText = "\u{1F4AC} Open in chat";
-    buttonUrl = safeLink || `${_siteUrl(_projectRowId)}?chat=${encodeURIComponent(shotId)}`;
-  }
-  const reply_markup = { inline_keyboard: [[{ text: buttonText, url: buttonUrl }]] };
-  const sent = await _tgSendMessage(env, _withChat, { text: msg, reply_markup }, origin);
-  if (!sent.ok) return sent.errorResp;
-  return _jsonResp({ ok: true, message_id: sent.messageId }, 200, origin);
+  return _jsonResp({ ok: false, error: "unknown_kind" }, 400, origin);
 }
 __name(handleTgPush, "handleTgPush");
 async function _processTelegramUpdate(env, stateData, update, ctx) {
@@ -1280,7 +1246,7 @@ var MCP_TOOL_DEFS = [
   },
   {
     name: "kh_get_shot",
-    description: "Fetch the full record for one shot: description, timecodes, status, assignee, versions (with CDN URLs), files tree, last chat messages, approval state.",
+    description: "Fetch the full record for one shot: description, timecodes, status, assignee, versions (with CDN URLs), files tree, approval state.",
     inputSchema: {
       type: "object",
       properties: {
@@ -1553,37 +1519,6 @@ var MCP_TOOL_DEFS = [
     annotations: { title: "Delete File", readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false }
   },
   {
-    name: "kh_list_chat",
-    description: "Return the last chat messages (artistNotes) on a shot. Default limit 20.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        project: { type: "string" },
-        shot_id: { type: "string" },
-        limit: { type: "integer", minimum: 1, maximum: 200, default: 20 }
-      },
-      required: ["shot_id"],
-      additionalProperties: false
-    },
-    annotations: { title: "List Chat", readOnlyHint: true, openWorldHint: false }
-  },
-  {
-    name: "kh_add_chat_message",
-    description: `Post a message into a shot's chat thread. Author is recorded as the MCP token's display name (or "MCP").`,
-    inputSchema: {
-      type: "object",
-      properties: {
-        project: { type: "string" },
-        shot_id: { type: "string" },
-        text: { type: "string", minLength: 1, maxLength: 4e3 },
-        author: { type: "string", description: "Override the recorded author label." }
-      },
-      required: ["shot_id", "text"],
-      additionalProperties: false
-    },
-    annotations: { title: "Post Chat", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }
-  },
-  {
     name: "kh_generate_share_link",
     description: "Create a public download token that bundles the approved versions of a list of shots and returns a shareable URL.",
     inputSchema: {
@@ -1704,8 +1639,7 @@ var MCP_TOOL_HANDLERS = {
           size: v.size,
           approved: sd.approvedVersion === i
         })),
-        files: sd.files || {},
-        chat: (sd.artistNotes || []).slice(-20)
+        files: sd.files || {}
       }
     });
   },
@@ -2041,29 +1975,6 @@ var MCP_TOOL_HANDLERS = {
     } catch (e) {
     }
     return _mcpToolJson({ ok: true, project: project.id, shot_id: args.shot_id, r2key: args.r2key, removedFromState: removed });
-  },
-  async kh_list_chat(args, ctx) {
-    const { project } = await _mcpResolveProject(args.project, ctx.token);
-    const row = await _mcpFetchRow(project.id);
-    const notes = (row?.data?.[args.shot_id]?.artistNotes || []).slice(-(args.limit || 20));
-    return _mcpToolJson({ project: project.id, shot_id: args.shot_id, messages: notes });
-  },
-  async kh_add_chat_message(args, ctx) {
-    const { project } = await _mcpResolveProject(args.project, ctx.token);
-    const authorLabel = args.author || ctx.token.name || "MCP";
-    await _mcpUpdateRow(project.id, async (data) => {
-      if (!data[args.shot_id]) data[args.shot_id] = {};
-      if (!data[args.shot_id].artistNotes) data[args.shot_id].artistNotes = [];
-      const nextId = (data[args.shot_id].artistNotes.reduce((m, n) => Math.max(m, n.id || 0), 0) || 0) + 1;
-      data[args.shot_id].artistNotes.push({
-        id: nextId,
-        author: "mcp",
-        displayName: authorLabel,
-        text: args.text,
-        ts: Date.now()
-      });
-    });
-    return _mcpToolJson({ ok: true, project: project.id, shot_id: args.shot_id });
   },
   async kh_generate_share_link(args, ctx) {
     const { project } = await _mcpResolveProject(args.project, ctx.token);

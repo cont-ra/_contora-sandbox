@@ -27,7 +27,7 @@
 
 export const SHOT_SCALAR_KEYS = new Set([
   "status","desc","assignee","approvedVersion","adminNote",
-  "priority","hidden","difficulty","cat","chatLastPush",
+  "priority","hidden","difficulty","cat",
 ]);
 
 export const SHOT_INLINE_CONTAINER_KEYS = new Set([
@@ -35,7 +35,7 @@ export const SHOT_INLINE_CONTAINER_KEYS = new Set([
 ]);
 
 export const SHOT_EXTRACT_KEYS = new Set([
-  "artistNotes","playerNotes","drawings","versions","fileHistory",
+  "playerNotes","drawings","versions","fileHistory",
 ]);
 
 // Kept as single-blob meta rows (entity_id == key).  Retains __users during
@@ -45,7 +45,6 @@ export const META_BLOB_KEYS = new Set(["__admin","__bot","__users"]);
 // Fan-out keys whose source shape is a DICT {subKey: payload}.
 export const SYSTEM_FANOUT_DICT_KEYS = {
   __categories:       "category",
-  __readState:        "read_state",
   __downloadShares:   "download_share",
   __downloadTracking: "download_track",
 };
@@ -135,18 +134,7 @@ function decomposeShot(shotId, shotData) {
     const val = shotData[key];
 
     if (SHOT_EXTRACT_KEYS.has(key)) {
-      if (key === "artistNotes" && Array.isArray(val)) {
-        for (let i = 0; i < val.length; i++) {
-          const note = val[i] ?? {};
-          const ts = note.ts ?? 0;
-          rows.push({
-            entity_type: "chat_msg",
-            entity_id:   md5(shotId + "art_" + i + "_" + ts),
-            parent_type: "shot", parent_id: shotId,
-            payload:     { ...note, type: "artist", _seq: i },
-          });
-        }
-      } else if (key === "playerNotes" && Array.isArray(val)) {
+      if (key === "playerNotes" && Array.isArray(val)) {
         for (let i = 0; i < val.length; i++) {
           const note = val[i] ?? {};
           const ts = note.ts ?? 0;

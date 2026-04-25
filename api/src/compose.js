@@ -43,7 +43,6 @@ function composeProject(rows) {
     const p = { ...(shot.payload || {}) };
     const kids = childrenByShot.get(shotId) || [];
 
-    const artistNotes = [];
     const playerNotes = [];
     const versions    = [];
     const fileHistory = [];
@@ -51,10 +50,12 @@ function composeProject(rows) {
 
     for (const c of kids) {
       if (c.entity_type === "chat_msg") {
+        // Legacy entity_type kept (renaming the type would invalidate old DB
+        // rows). Old artist-typed rows from the deleted chat are silently
+        // ignored — they fall through this if/else with nothing to push.
         const pl = c.payload || {};
         const { type, _seq, ...rest } = pl;
-        if (type === "artist") artistNotes.push({ ...rest, _seq });
-        else if (type === "player") playerNotes.push({ ...rest, _seq });
+        if (type === "player") playerNotes.push({ ...rest, _seq });
       } else if (c.entity_type === "version") {
         versions.push({ ...(c.payload || {}) });
       } else if (c.entity_type === "file_log") {
@@ -69,12 +70,10 @@ function composeProject(rows) {
 
     // Sort by internal _seq (decomposer stored original array index), then strip it.
     const bySeq = (a, b) => (a._seq ?? 0) - (b._seq ?? 0);
-    artistNotes.sort(bySeq);  stripSeq(artistNotes);
     playerNotes.sort(bySeq);  stripSeq(playerNotes);
     versions.sort(bySeq);     stripSeq(versions);
     fileHistory.sort(bySeq);  stripSeq(fileHistory);
 
-    if (artistNotes.length) p.artistNotes = artistNotes;
     if (playerNotes.length) p.playerNotes = playerNotes;
     if (versions.length)    p.versions    = versions;
     if (fileHistory.length) p.fileHistory = fileHistory;
@@ -94,8 +93,6 @@ function composeProject(rows) {
       artistBuf.push({ id: r.entity_id, seq: _seq ?? 0, payload: rest });
     } else if (t === "category") {
       (state.__categories ||= {})[r.entity_id] = r.payload;
-    } else if (t === "read_state") {
-      (state.__readState ||= {})[r.entity_id] = r.payload;
     } else if (t === "download_share") {
       (state.__downloadShares ||= {})[r.entity_id] = r.payload;
     } else if (t === "download_track") {

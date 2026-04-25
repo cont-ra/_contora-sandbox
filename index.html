@@ -669,47 +669,8 @@
   .status-select.s-delivered { border-color: #6e7681; color: #6e7681; }
   .assign-nikita { border-color: var(--accent); color: var(--accent); }
   .assign-igor { border-color: var(--status-success); color: var(--status-success); }
-  .note-cell { cursor: pointer; padding: 4px 4px 4px 6px; border-radius: 6px; font-size: 9px; min-width: 180px; max-width: 300px; background: var(--bg-dark); border: 1px solid var(--bg-raised); color: var(--text-muted); display: block; text-align: left; transition: 0.15s; position: relative; overflow: hidden; height: 100%; box-sizing: border-box; }
-  .note-cell:hover { border-color: var(--border-soft); }
-  .note-cell.has-text .chat-preview-fade { -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 60%); mask-image: linear-gradient(to bottom, transparent 0%, #000 60%); }
-  .note-cell.unread { border-left: 3px solid var(--status-warning); }
-  .note-cell.read { border-left: 3px solid var(--border-soft); }
-  .chat-preview-fade { display: flex; flex-direction: column; justify-content: flex-end; gap: 2px; height: 100%; min-height: 80px; }
-  .cp-bubble { padding: 2px 5px; border-radius: 4px; max-width: 85%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3; }
-  .cp-bubble.cp-admin { background: rgba(248,81,73,0.15); color: var(--status-error); margin-left: auto; border-bottom-right-radius: 1px; }
-  .cp-bubble.cp-client { background: rgba(210,153,34,0.15); color: var(--status-warning); margin-left: auto; border-bottom-right-radius: 1px; }
-  .cp-bubble.cp-artist { background: rgba(88,166,255,0.1); color: var(--text-secondary); margin-right: auto; border-bottom-left-radius: 1px; }
-  .cp-bubble.cp-note { background: rgba(63,185,80,0.1); border-left: 2px solid var(--status-success); color: var(--text-secondary); margin-right: auto; border-bottom-left-radius: 1px; }
 
   /* Fullscreen note overlay */
-  .note-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 2000; display: flex; align-items: stretch; justify-content: center; padding: 40px; gap: 0; }
-  .note-overlay.hidden { display: none; }
-  .note-panel { background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 12px; width: 100%; max-width: 700px; display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0; }
-  .chat-files-panel { background: var(--bg-panel); border: 1px solid var(--border-soft); border-right: none; border-radius: 12px 0 0 12px; width: 400px; display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0; }
-  .chat-files-panel.collapsed { width: 36px; min-width: 36px; }
-  .chat-files-panel.collapsed .chat-files-body { display: none; }
-  .chat-files-panel.collapsed .chat-files-header span { display: none; }
-  .chat-files-header { padding: 10px 12px; border-bottom: 1px solid var(--border-soft); display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 600; color: var(--text-primary); flex-shrink: 0; }
-  .chat-files-toggle { background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 14px; padding: 2px 4px; }
-  .chat-files-toggle:hover { color: var(--text-primary); }
-  .chat-files-body { flex: 1; overflow-y: auto; padding: 8px; }
-  .chat-files-body .files-panel { gap: 6px; }
-  .chat-files-body .files-toolbar { flex-wrap: wrap; gap: 4px; }
-  .chat-files-body .files-toolbar .files-path { font-size: 11px; }
-  .chat-files-body .files-btn { padding: 4px 8px; font-size: 11px; }
-  .chat-files-body .files-table th { font-size: 10px; padding: 4px 6px; }
-  .chat-files-body .files-table td { padding: 6px 6px; font-size: 11px; }
-  .chat-files-body .files-table td:first-child { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; -webkit-mask-image: linear-gradient(to right, #000 80%, transparent); mask-image: linear-gradient(to right, #000 80%, transparent); }
-  .chat-files-body .files-table .f-edit,
-  .chat-files-body .files-table .f-date,
-  .chat-files-body .files-table th:nth-child(2),
-  .chat-files-body .files-table th:nth-child(4),
-  .chat-files-body .files-table th:nth-child(5),
-  .chat-files-body .files-table td:nth-child(2) { display: none; }
-  .chat-files-body .files-toolbar .files-sel-bar { display: none !important; }
-  .chat-sel-bar { padding: 6px 8px; justify-content: center; }
-  .chat-files-body .files-drop { padding: 16px; font-size: 11px; min-height: 40px; }
-  .chat-files-body .f-grip { font-size: 14px; width: 18px; padding-right: 4px; }
   .ds-hover-preview { position: fixed; z-index: 10000; background: var(--bg-dark); border: 1px solid var(--status-success); border-radius: 8px; padding: 6px; box-shadow: 0 8px 32px rgba(0,0,0,0.6); pointer-events: none; opacity: 0; transition: opacity 0.15s ease-out; }
   .ds-hover-preview.visible { opacity: 1; }
   .ds-hover-preview video { display: block; width: 320px; height: 180px; object-fit: cover; border-radius: 4px; background: #000; }
@@ -728,130 +689,13 @@
   .cf-tip.drag-active .cft-size, .cf-tip.drag-locked .cft-size,
   .cf-tip.drag-active .cft-edit, .cf-tip.drag-locked .cft-edit,
   .cf-tip.drag-active .cft-date, .cf-tip.drag-locked .cft-date { max-width: 0; opacity: 0; padding: 0; margin: 0; }
-  .chat-file-link { color: var(--accent); cursor: pointer; text-decoration: underline; text-decoration-style: dotted; padding: 1px 4px; border-radius: 3px; }
-  .chat-file-link:hover { background: rgba(88,166,255,0.1); }
-  .chat-drop-active { border-color: var(--accent) !important; background: rgba(88,166,255,0.05) !important; }
-  .chat-file-card { background: var(--bg-raised); border: 1px solid var(--border-soft); border-radius: 8px; padding: 10px 14px; margin-top: 4px; display: flex; align-items: center; gap: 10px; cursor: pointer; }
-  .chat-file-card:hover { border-color: var(--accent); }
-  .chat-file-card .cfc-icon { font-size: 18px; flex-shrink: 0; }
-  .chat-file-card .cfc-info { flex: 1; min-width: 0; }
-  .chat-file-card .cfc-name { font-size: 13px; color: var(--text-primary); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .chat-file-card .cfc-meta { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
-  .chat-file-card .cfc-actions { display: flex; gap: 6px; flex-shrink: 0; }
-  .chat-file-card .cfc-btn { background: none; border: 1px solid var(--border-soft); color: var(--text-secondary); padding: 3px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; }
-  .chat-file-card .cfc-btn:hover { color: var(--text-primary); border-color: var(--text-muted); }
-  .chat-messages.drop-highlight { outline: 2px dashed var(--accent); outline-offset: -4px; border-radius: 8px; }
-  .chat-files-panel:not([style*="display: none"]) + .note-panel { border-radius: 0 12px 12px 0; }
-  .chat-upload-queue .upload-queue-panel { position: static; border-radius: 0 12px 12px 0; border-left: none; max-height: none; width: 280px; flex-shrink: 0; }
-  .note-panel:has(+ .chat-upload-queue:not([style*="display: none"])) { border-radius: 0 !important; }
-  .note-panel-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px 16px; border-bottom: 1px solid var(--bg-raised); flex-shrink: 0; }
-  .note-panel-title { display: flex; align-items: center; gap: 10px; }
-  .note-panel-title h3 { color: #f0f6fc; font-size: 16px; font-weight: 600; }
-  .note-type-badge { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; padding: 2px 8px; border-radius: 4px; }
-  .note-type-badge.admin-badge { background: #3d0000; color: var(--status-error); }
-  .note-type-badge.artist-badge { background: #0a1929; color: var(--accent); }
-  .note-push-btn, .player-push-btn { background: none; border: 1px solid var(--status-warning); color: var(--status-warning); font-size: 13px; cursor: pointer; padding: 4px 10px; border-radius: 4px; line-height: 1; transition: .15s; display: inline-flex; align-items: center; gap: 4px; }
-  .note-push-btn:hover:not(:disabled), .player-push-btn:hover:not(:disabled) { background: var(--status-warning)33; }
-  .note-push-btn:disabled, .player-push-btn:disabled { opacity: 0.4; cursor: not-allowed; border-color: var(--text-muted); color: var(--text-muted); }
-  .note-push-btn.hidden, .player-push-btn.hidden { display: none !important; }
+  .player-push-btn { background: none; border: 1px solid var(--status-warning); color: var(--status-warning); font-size: 13px; cursor: pointer; padding: 4px 10px; border-radius: 4px; line-height: 1; transition: .15s; display: inline-flex; align-items: center; gap: 4px; }
+  .player-push-btn:hover:not(:disabled) { background: var(--status-warning)33; }
+  .player-push-btn:disabled { opacity: 0.4; cursor: not-allowed; border-color: var(--text-muted); color: var(--text-muted); }
+  .player-push-btn.hidden { display: none !important; }
   .player-push-client-btn { border-color: var(--status-success); color: var(--status-success); }
   .player-push-client-btn:hover:not(:disabled) { background: var(--status-success)22; }
-  .chat-msg-pushed-mark { font-size: 10px; color: var(--status-warning); margin-left: 6px; opacity: 0.8; }
   .pv-pushed-mark { font-size: 9px; color: var(--status-warning); margin-left: 4px; }
-  .note-panel-close { background: none; border: none; color: var(--text-muted); font-size: 24px; cursor: pointer; padding: 4px 8px; border-radius: 4px; line-height: 1; }
-  .note-panel-close:hover { color: var(--text-primary); background: var(--bg-raised); }
-  .note-panel-meta { padding: 12px 24px; font-size: 13px; color: var(--text-secondary); border-bottom: 1px solid var(--bg-raised); flex-shrink: 0; }
-  .note-panel-meta .shot-id { font-family: 'SF Mono', monospace; color: var(--accent); font-weight: 600; }
-  .note-panel-meta .shot-desc { margin-left: 8px; }
-  .note-panel-body { flex: 1; padding: 20px 24px; overflow-y: auto; display: flex; flex-direction: column; }
-  .note-panel-body textarea { flex: 1; background: var(--bg-dark); border: 1px solid var(--border-soft); color: var(--text-primary); padding: 16px; border-radius: 8px; font-size: 15px; line-height: 1.6; font-family: inherit; resize: none; min-height: 200px; }
-  .note-panel-body textarea:focus { outline: none; border-color: #1f6feb; }
-  .note-panel-body textarea::placeholder { color: var(--text-muted); }
-  .note-panel-readonly { flex: 1; background: var(--bg-dark); border: 1px solid var(--bg-raised); color: var(--text-primary); padding: 16px; border-radius: 8px; font-size: 15px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; overflow-y: auto; min-height: 200px; }
-  .note-panel-readonly.empty { color: var(--text-muted); font-style: italic; }
-  .note-panel-footer { padding: 16px 24px; border-top: 1px solid var(--bg-raised); display: flex; justify-content: flex-end; gap: 10px; flex-shrink: 0; }
-  .note-panel-footer.hidden { display: none; }
-  .note-save-btn { background: #1f6feb; border: none; color: #fff; padding: 8px 24px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; }
-  .note-save-btn:hover { background: #388bfd; }
-  .note-cancel-btn { background: var(--bg-raised); border: 1px solid var(--border-soft); color: var(--text-primary); padding: 8px 20px; border-radius: 6px; font-size: 14px; cursor: pointer; }
-  .note-cancel-btn:hover { background: var(--border-soft); }
-
-  /* Chat messages */
-  .chat-messages { flex: 1; overflow-y: auto; margin-bottom: 12px; display: flex; flex-direction: column; justify-content: flex-end; }
-  .chat-empty { color: var(--text-muted); font-style: italic; padding: 20px 0; text-align: center; }
-  .chat-msg { position: relative; padding: 10px 14px; border-radius: 10px; margin-bottom: 8px; max-width: 85%; font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
-  .chat-msg.from-admin { background: #2a0000; color: var(--status-error); margin-left: auto; border-bottom-right-radius: 3px; }
-  .chat-msg.from-artist { background: #0a1929; color: var(--text-primary); margin-right: auto; border-bottom-left-radius: 3px; }
-  .chat-msg.from-client { background: #1a1400; color: var(--status-warning); margin-left: auto; border-bottom-right-radius: 3px; }
-  .chat-msg.from-note { background: var(--bg-dark); border: 1px solid var(--bg-raised); border-left: 3px solid var(--status-success); color: var(--text-secondary); margin-right: auto; font-size: 12px; opacity: 0.8; }
-  .chat-msg.from-system { background: transparent; max-width: 100%; margin: 4px auto; padding: 4px 8px; }
-  .chat-msg.from-system .chat-msg-system-text { font-size: 10px; color: var(--text-muted); text-align: center; font-style: italic; }
-  .chat-msg.deleted { opacity: 0.4; font-style: italic; }
-  .chat-msg-header { font-size: 10px; font-weight: 600; margin-bottom: 4px; opacity: 0.7; }
-  .chat-msg-reply { font-size: 12px; padding: 4px 8px; border-radius: 4px; margin-bottom: 6px; border-left: 2px solid; cursor: pointer; }
-  .chat-msg.from-admin .chat-msg-reply { background: #1a0000; border-color: var(--status-error); color: var(--status-error)99; }
-  .chat-msg.from-artist .chat-msg-reply { background: #060d18; border-color: var(--accent); color: var(--accent)99; }
-  .chat-msg.from-client .chat-msg-reply { background: #0f0a00; border-color: var(--status-warning); color: var(--status-warning)99; }
-  .chat-msg-actions { position: absolute; top: 4px; right: 4px; display: none; gap: 0; z-index: 10; }
-  .chat-msg:hover .chat-msg-actions { display: flex; }
-  .chat-msg { padding-top: 14px; }
-  .chat-action-btn { background: none; border: none; color: var(--text-muted); width: 32px; height: 32px; cursor: pointer; border-radius: 6px; font-size: 15px; display: flex; align-items: center; justify-content: center; padding: 0; margin: 0; line-height: 1; }
-  .chat-action-btn:hover { color: var(--text-primary); background: rgba(255,255,255,0.08); }
-  /* Chat multi-select */
-  .chat-select-mode .chat-msg { cursor: pointer; }
-  .chat-select-mode .chat-msg:hover { background: rgba(255,255,255,0.03); }
-  .chat-select-mode .chat-msg.selected { background: #1f6feb22; }
-  .chat-select-mode .chat-msg-actions { display: none !important; }
-  .chat-msg-checkbox { display: none; width: 18px; height: 18px; accent-color: #1f6feb; cursor: pointer; flex-shrink: 0; margin-top: 2px; }
-  .chat-select-mode .chat-msg-checkbox { display: block; }
-  .chat-msg-inner { display: flex; gap: 8px; }
-  .chat-msg-content { flex: 1; min-width: 0; }
-  .chat-select-bar { display: none; position: absolute; bottom: 0; left: 0; right: 0; background: var(--bg-panel); border-top: 1px solid var(--border-soft); padding: 10px 16px; gap: 10px; align-items: center; z-index: 20; }
-  .chat-select-bar.visible { display: flex; }
-  .chat-select-bar .sel-count { color: var(--text-secondary); font-size: 13px; }
-  .chat-select-bar button { padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; border: 1px solid; }
-  .chat-select-bar .sel-delete { background: var(--status-error)33; border-color: var(--status-error); color: var(--status-error); }
-  .chat-select-bar .sel-delete:hover { background: var(--status-error)55; }
-  .chat-select-bar .sel-cancel { background: var(--bg-raised); border-color: var(--border-soft); color: var(--text-secondary); }
-  .chat-select-bar .sel-cancel:hover { background: var(--border-soft); color: var(--text-primary); }
-  .chat-deleted-label { font-size: 11px; color: var(--text-muted); }
-  .chat-restore-btn { background: none; border: none; color: var(--status-success); font-size: 11px; cursor: pointer; margin-left: 8px; text-decoration: underline; }
-  .chat-restore-btn:hover { color: #56d364; }
-
-  /* Todo list in chat */
-  .chat-todo { list-style: none; padding: 0; margin: 4px 0 0; }
-  .chat-todo li { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 4px; line-height: 1.4; }
-  .chat-todo-check { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--text-muted); background: none; cursor: pointer; flex-shrink: 0; margin-top: 1px; display: flex; align-items: center; justify-content: center; transition: 0.15s; font-size: 0; line-height: 0; padding: 0; color: transparent; }
-  .chat-todo-check:hover { border-color: var(--text-secondary); }
-  .chat-todo-check.checked { border-color: var(--status-success); background: var(--status-success); color: var(--bg-dark); font-size: 13px; font-weight: 700; line-height: 1; }
-  .chat-todo-text { flex: 1; }
-  .chat-todo-text.done { text-decoration: line-through; opacity: 0.5; }
-
-  /* Chat input area */
-  .chat-input-area { flex-shrink: 0; }
-  .chat-reply-preview { background: var(--bg-raised); border-radius: 6px; padding: 6px 10px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--text-secondary); }
-  .chat-reply-preview.hidden { display: none; }
-  .chat-reply-close { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px; padding: 0 4px; }
-  .chat-reply-close:hover { color: var(--text-primary); }
-  .chat-input-row { display: flex; gap: 8px; align-items: flex-end; }
-  .chat-input-row textarea { flex: 1; background: var(--bg-dark); border: 1px solid var(--border-soft); color: var(--text-primary); padding: 10px 14px; border-radius: 8px; font-size: 14px; line-height: 1.4; font-family: inherit; resize: none; min-height: 42px; max-height: 150px; overflow-y: auto; }
-  .chat-input-row textarea:focus { outline: none; border-color: #1f6feb; }
-  .chat-input-row textarea::placeholder { color: var(--text-muted); }
-  .chat-send-btn { background: #1f6feb; border: none; color: #fff; width: 42px; height: 42px; border-radius: 8px; cursor: pointer; font-size: 18px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
-  .chat-send-btn:hover { background: #388bfd; }
-  .chat-hint { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
-  .chat-paste-preview { position: relative; margin-top: 6px; max-width: 200px; border-radius: 6px; overflow: hidden; border: 1px solid var(--border-soft); }
-  .chat-paste-preview.hidden { display: none; }
-  .chat-paste-preview img { display: block; max-width: 100%; max-height: 150px; }
-  .chat-msg-img { max-width: 100%; max-height: 300px; border-radius: 6px; margin-top: 4px; cursor: pointer; border: 1px solid var(--bg-raised); }
-  .chat-msg-img:hover { border-color: var(--accent); }
-  .chat-todo-btn { background: none; border: 1px solid var(--border-soft); color: var(--text-muted); width: 42px; height: 42px; border-radius: 8px; cursor: pointer; font-size: 16px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: 0.15s; }
-  .chat-todo-btn:hover { border-color: var(--text-muted); color: var(--text-primary); }
-  .chat-todo-btn.active { border-color: var(--status-success); color: var(--status-success); background: #0a1f0a; }
-  .chat-edited-mark { font-size: 10px; color: var(--text-muted); font-style: italic; margin-top: 4px; }
-  .chat-editing-hint { background: #1c1c00; border: 1px solid var(--status-warning); border-radius: 6px; padding: 6px 10px; margin-bottom: 8px; font-size: 12px; color: var(--status-warning); display: flex; align-items: center; justify-content: space-between; }
-  .chat-editing-hint.hidden { display: none; }
-  .chat-editing-close { background: none; border: none; color: var(--status-warning); cursor: pointer; font-size: 16px; }
 
   .save-notice { position: fixed; bottom: 20px; right: 20px; background: #1f6feb; color: #fff; padding: 10px 18px; border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
   .save-notice.show { opacity: 1; }
@@ -1068,33 +912,6 @@
   </div>
 </div>
 
-<div class="note-overlay hidden" id="noteOverlay" onclick="if(event.target===this)closeNote()">
-  <div class="chat-files-panel" id="chatFilesPanel" style="display:none">
-    <div class="chat-files-header"><span>📁 Files</span><button class="chat-files-toggle" id="chatFilesToggle" onclick="_toggleChatFiles()">▸</button></div>
-    <div class="chat-files-body" id="chatFilesBody"></div>
-  </div>
-  <div class="note-panel">
-    <div class="note-panel-header">
-      <div class="note-panel-title">
-        <h3 id="notePanelTitle">Note</h3>
-        <span class="note-type-badge" id="noteTypeBadge"></span>
-      </div>
-      <button class="note-push-btn hidden" id="notePushBtn" onclick="pushChatNotification()" title="Push notification">&#128276; <span id="notePushLabel">Push</span></button>
-      <button class="note-panel-close" onclick="closeNote()">&times;</button>
-    </div>
-    <div class="note-panel-meta">
-      <span class="shot-id" id="noteShotId"></span>
-      <span class="shot-desc" id="noteShotDesc"></span>
-    </div>
-    <div class="note-panel-body" id="notePanelBody"></div>
-    <div class="note-panel-footer" id="notePanelFooter">
-      <button class="note-cancel-btn" onclick="closeNote()">Cancel</button>
-      <button class="note-save-btn" onclick="saveNote()">Save</button>
-    </div>
-  </div>
-  <div class="chat-upload-queue" id="chatUploadQueue" style="display:none"></div>
-</div>
-
 <div class="header-row">
   <h1>KILLHOUSE VFX Tracker</h1>
   <div class="user-badge" id="userBadge" style="display:none">
@@ -1140,7 +957,6 @@
     <th data-col="6" data-label="Artist"><span onclick="sortTable(6)" style="cursor:pointer">Artist</span> <button class="col-filter-btn" onclick="event.stopPropagation();toggleColFilter('artist',this)" title="Filter artists">&#9662;</button><div class="col-filter-drop" id="cf-artist" onclick="event.stopPropagation()"></div></th>
     <th data-col="7" data-label="Status"><span onclick="sortTable(7)" style="cursor:pointer">Status</span> <button class="col-filter-btn" onclick="event.stopPropagation();toggleColFilter('status',this)" title="Filter statuses">&#9662;</button><div class="col-filter-drop" id="cf-status" onclick="event.stopPropagation()"></div></th>
     <th class="admin-col">Admin</th>
-    <th>Chat</th>
   </tr></thead>
   <tbody id="tbody"></tbody>
 </table>
@@ -1203,7 +1019,7 @@ var SESSION_ID=(function(){
 
 const SHOT_SCALAR_KEYS = new Set([
   "status","desc","assignee","approvedVersion","adminNote",
-  "priority","hidden","difficulty","cat","chatLastPush",
+  "priority","hidden","difficulty","cat",
 ]);
 
 const SHOT_INLINE_CONTAINER_KEYS = new Set([
@@ -1211,7 +1027,7 @@ const SHOT_INLINE_CONTAINER_KEYS = new Set([
 ]);
 
 const SHOT_EXTRACT_KEYS = new Set([
-  "artistNotes","playerNotes","drawings","versions","fileHistory",
+  "playerNotes","drawings","versions","fileHistory",
 ]);
 
 // Kept as single-blob meta rows (entity_id == key).  Retains __users during
@@ -1221,7 +1037,6 @@ const META_BLOB_KEYS = new Set(["__admin","__bot","__users"]);
 // Fan-out keys whose source shape is a DICT {subKey: payload}.
 const SYSTEM_FANOUT_DICT_KEYS = {
   __categories:       "category",
-  __readState:        "read_state",
   __downloadShares:   "download_share",
   __downloadTracking: "download_track",
 };
@@ -1311,18 +1126,7 @@ function decomposeShot(shotId, shotData) {
     const val = shotData[key];
 
     if (SHOT_EXTRACT_KEYS.has(key)) {
-      if (key === "artistNotes" && Array.isArray(val)) {
-        for (let i = 0; i < val.length; i++) {
-          const note = val[i] ?? {};
-          const ts = note.ts ?? 0;
-          rows.push({
-            entity_type: "chat_msg",
-            entity_id:   md5(shotId + "art_" + i + "_" + ts),
-            parent_type: "shot", parent_id: shotId,
-            payload:     { ...note, type: "artist", _seq: i },
-          });
-        }
-      } else if (key === "playerNotes" && Array.isArray(val)) {
+      if (key === "playerNotes" && Array.isArray(val)) {
         for (let i = 0; i < val.length; i++) {
           const note = val[i] ?? {};
           const ts = note.ts ?? 0;
@@ -1582,7 +1386,6 @@ function composeProject(rows) {
     const p = { ...(shot.payload || {}) };
     const kids = childrenByShot.get(shotId) || [];
 
-    const artistNotes = [];
     const playerNotes = [];
     const versions    = [];
     const fileHistory = [];
@@ -1590,10 +1393,11 @@ function composeProject(rows) {
 
     for (const c of kids) {
       if (c.entity_type === "chat_msg") {
+        // Legacy entity_type kept; old artist-typed rows from the deleted
+        // chat are silently ignored — only "player" notes pull through now.
         const pl = c.payload || {};
         const { type, _seq, ...rest } = pl;
-        if (type === "artist") artistNotes.push({ ...rest, _seq });
-        else if (type === "player") playerNotes.push({ ...rest, _seq });
+        if (type === "player") playerNotes.push({ ...rest, _seq });
       } else if (c.entity_type === "version") {
         versions.push({ ...(c.payload || {}) });
       } else if (c.entity_type === "file_log") {
@@ -1608,12 +1412,10 @@ function composeProject(rows) {
 
     // Sort by internal _seq (decomposer stored original array index), then strip it.
     const bySeq = (a, b) => (a._seq ?? 0) - (b._seq ?? 0);
-    artistNotes.sort(bySeq);  stripSeq(artistNotes);
     playerNotes.sort(bySeq);  stripSeq(playerNotes);
     versions.sort(bySeq);     stripSeq(versions);
     fileHistory.sort(bySeq);  stripSeq(fileHistory);
 
-    if (artistNotes.length) p.artistNotes = artistNotes;
     if (playerNotes.length) p.playerNotes = playerNotes;
     if (versions.length)    p.versions    = versions;
     if (fileHistory.length) p.fileHistory = fileHistory;
@@ -1633,8 +1435,6 @@ function composeProject(rows) {
       artistBuf.push({ id: r.entity_id, seq: _seq ?? 0, payload: rest });
     } else if (t === "category") {
       (state.__categories ||= {})[r.entity_id] = r.payload;
-    } else if (t === "read_state") {
-      (state.__readState ||= {})[r.entity_id] = r.payload;
     } else if (t === "download_share") {
       (state.__downloadShares ||= {})[r.entity_id] = r.payload;
     } else if (t === "download_track") {
@@ -1953,7 +1753,6 @@ async function showLoggedIn(){
   try{if(typeof _renderProjectBadge==='function')_renderProjectBadge();}catch(e){}
   try{setTimeout(()=>{try{_autoPromoteDelivered();}catch(e){}},250);}catch(e){}
   render();
-  _handleChatDeepLink();
   _handlePlayerDeepLink();
   if(!isGuest())_prefetchTgBotInfo();
 }
@@ -2174,19 +1973,6 @@ async function _prefetchTgBotInfo(){
   }catch(e){/* silent */}
 }
 
-function _handleChatDeepLink(){
-  const params=new URLSearchParams(window.location.search);
-  const chatId=params.get('chat');
-  if(!chatId)return;
-  // Strip from URL so it doesn't reopen on refresh
-  params.delete('chat');
-  const newSearch=params.toString();
-  window.history.replaceState({},'',window.location.pathname+(newSearch?'?'+newSearch:''));
-  // Verify shot exists
-  if(!TASKS.some(t=>t.id===chatId)){console.warn("Chat deep link: shot not found",chatId);return;}
-  setTimeout(()=>openNote(chatId,'chat'),100);
-}
-
 function _handlePlayerDeepLink(){
   const params=new URLSearchParams(window.location.search);
   const playerId=params.get('player');
@@ -2231,7 +2017,6 @@ function canEditStatus(t){if(isGuest()||isClient())return false;if(isAdmin())ret
 function canAssign(){return isAdmin();}
 function canEditAdminNote(){return isAdmin();}
 function canEditDesc(){return isAdmin()||isClient();}
-function canChat(t){if(isGuest())return false;if(isAdmin()||isClient())return true;return isArtist()&&getAssignee(t)===currentUser.id;}
 
 let TASKS=[];
 const CAT_LABELS={};
@@ -4726,9 +4511,7 @@ async function _pullRemote(){
     // re-render (reloading every <video> preview).  _canonicalJSON sorts
     // keys recursively, making the compare content-accurate.
     if(_canonicalJSON(remote)===_canonicalJSON(state))return false;
-    const localRead=state&&state.__readState&&currentUser?state.__readState[currentUser.id]:null;
     state=remote;
-    if(localRead&&currentUser){if(!state.__readState)state.__readState={};state.__readState[currentUser.id]=localRead;}
     localStorage.setItem(_storageKey(),JSON.stringify(state));
     try{setTimeout(()=>{try{_autoPromoteDelivered();}catch(e){}},150);}catch(e){}
     return true;
@@ -4788,7 +4571,6 @@ function _initRealtime(){
         if(typeof _initGifs==='function')_initGifs();
         render();
         if(_gifCurrentId)renderPlayerNotes();
-        if(noteTaskId&&noteType==='chat')renderChat();
         if(_shotCurrentId&&_shotTab==='files')_renderShotFiles(_shotCurrentId);
         if(_shotCurrentId&&_shotTab==='versions')_renderShotBody(_shotCurrentId);
         if(_doneShotsMode&&typeof _renderDoneShotsTracker==='function')_renderDoneShotsTracker();
@@ -4890,10 +4672,15 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 let state=loadState();
 
 function runMigrations(){let c=false;for(const[k,d]of Object.entries(state)){
-  if(d.notes&&!d.adminNote){d.adminNote=d.notes;delete d.notes;c=true;}
-  if(typeof d.artistNote==="string"&&d.artistNote){d.artistNotes=[{id:0,author:"artist",text:d.artistNote}];delete d.artistNote;c=true;}
-  if(d.artistNotes){d.artistNotes.forEach((n,i)=>{if(n.id===undefined){n.id=i;c=true;}});}
+  if(d&&typeof d==='object'&&!k.startsWith('__')){
+    if(d.notes&&!d.adminNote){d.adminNote=d.notes;delete d.notes;c=true;}
+    // Chat removal one-shot cleanup: drop legacy chat fields from each shot.
+    if('artistNotes' in d){delete d.artistNotes;c=true;}
+    if('artistNote' in d){delete d.artistNote;c=true;}
+    if('chatLastPush' in d){delete d.chatLastPush;c=true;}
+  }
 }
+if(state.__readState){delete state.__readState;c=true;}
 if(!state.__tasks){state.__tasks=[];c=true;}
 if(!state.__categories){state.__categories={};c=true;}
 // Strip leftover '_anon' visitor buckets from any download share — early
@@ -7253,7 +7040,6 @@ function removeUser(id){
 }
 
 function getAdminNote(id){return state[id]?.adminNote||"";}
-function getChat(id){return state[id]?.artistNotes||[];}
 function getAssignee(id){return state[id]?.assignee||"";}
 function getDesc(id,fallback){return state[id]?.desc||fallback;}
 function getShotInfo(id){return state[id]?.shotInfo||{};}
@@ -7810,41 +7596,6 @@ function saveShotInfoModal(id){
   closeShotInfoModal();
   render();
 }
-function nextMsgId(tid){const msgs=getChat(tid);return msgs.length?Math.max(...msgs.map(m=>m.id||0))+1:1;}
-function _getLastMsgTs(id){
-  const chat=getChat(id).filter(m=>!m.deleted);
-  const pn=_collectPlayerNotes(id);
-  const all=[...chat,...pn];
-  if(!all.length)return 0;
-  return Math.max(...all.map(m=>m.ts||0));
-}
-function _getReadTs(id){
-  if(!currentUser)return 0;
-  return state.__readState?.[currentUser.id]?.[id]||0;
-}
-function _markRead(id){
-  if(!currentUser)return;
-  if(!state.__readState)state.__readState={};
-  if(!state.__readState[currentUser.id])state.__readState[currentUser.id]={};
-  state.__readState[currentUser.id][id]=Date.now();
-  saveState(state);
-  render();
-}
-function hasUnread(id){return _getLastMsgTs(id)>_getReadTs(id);}
-function chatPreview(id){
-  const chatMsgs=getChat(id).filter(m=>!m.deleted).map(m=>({...m,_pn:false}));
-  const pn=_collectPlayerNotes(id).map(n=>({...n,_pn:true}));
-  const all=[...chatMsgs,...pn].sort((a,b)=>(a.ts||0)-(b.ts||0));
-  if(!all.length)return{text:"",count:0,lines:[]};
-  const last=all.slice(-8);
-  const lines=last.map(m=>{
-    if(m._pn){return{author:m.tc||'📌',text:trunc(m.text||'(drawing)',35),role:'note'};}
-    const a=m.author==='admin'?'A':m.author==='client'?'C':'Art';
-    return{author:a,text:trunc(m.text,35),role:m.author};
-  });
-  return{text:all[all.length-1].text||'',count:all.length,lines};
-}
-
 function updateStats(){
   let c={todo:0,progress:0,review:0,done:0,delivered:0,skip:0};
   const ac={};
@@ -7935,149 +7686,7 @@ function updateStats(){
   }
 }
 
-// --- NOTE / CHAT PANEL ---
-let noteTaskId=null,noteType=null,replyToId=null,todoMode=false,editingMsgId=null;
-
-function openNote(taskId,type){
-  noteTaskId=taskId;noteType=type;replyToId=null;
-  const task=findById(TASKS,taskId);
-  const badge=document.getElementById("noteTypeBadge"),title=document.getElementById("notePanelTitle");
-  if(type==="admin"){title.textContent="Admin Note";badge.textContent="ADMIN";badge.className="note-type-badge admin-badge";}
-  else{title.textContent="Chat";badge.textContent="CHAT";badge.className="note-type-badge artist-badge";_markRead(taskId);}
-  document.getElementById("noteShotId").textContent=taskId;
-  document.getElementById("noteShotDesc").textContent=task?"— "+task.desc:"";
-  const body=document.getElementById("notePanelBody"),footer=document.getElementById("notePanelFooter");
-
-  if(type==="admin"){
-    const text=getAdminNote(taskId),canEdit=canEditAdminNote();
-    if(canEdit){body.innerHTML=`<textarea id="noteTA" placeholder="Write your note here...">${esc(text)}</textarea>`;footer.classList.remove("hidden");setTimeout(()=>{const ta=document.getElementById("noteTA");if(ta){ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length);}},50);}
-    else{body.innerHTML=`<div class="note-panel-readonly${text?'':' empty'}">${text?esc(text):'No notes yet'}</div>`;footer.classList.add("hidden");}
-  } else {
-    footer.classList.add("hidden"); // chat has its own send
-    renderChat();
-  }
-  document.getElementById("noteOverlay").classList.remove("hidden");
-  // Show files panel for chat (hidden for guests)
-  const cfp=document.getElementById("chatFilesPanel");
-  if(type==='chat'&&!isGuest()){
-    cfp.style.display='';
-    _renderChatFiles(taskId);
-  } else {
-    cfp.style.display='none';
-  }
-  _updatePushBtn();
-}
-
-function _renderFileLinks(html){
-  // Replace [[filecard:path]] with rich file card
-  html=html.replace(/\[\[filecard:([^\]]+)\]\]/g,(m,path)=>_renderFileCard(path));
-  // Replace [[file:path/to/file.txt]] with clickable link
-  html=html.replace(/\[\[file:([^\]]+)\]\]/g,(m,path)=>{
-    const name=path.includes('/')?path.split('/').pop():path;
-    const icon=path.endsWith('/')||!name.includes('.')?'📁':'📄';
-    return `<span class="chat-file-link" onclick="_navigateChatFile('${esc(path)}')" title="${esc(path)}">${icon} ${esc(name)}</span>`;
-  });
-  return html;
-}
-function _navigateChatFile(path){
-  if(!noteTaskId||noteType!=='chat')return;
-  const parts=path.split('/');
-  const fileName=parts.pop();
-  // Try to find current location of file in state
-  const id=noteTaskId;
-  let foundPath=parts;
-  if(id!=='__admin'){
-    const filesDict=state[id]?.files||{};
-    for(const [sk, files] of Object.entries(filesDict)){
-      if(files?.some(f=>f.name===fileName)){foundPath=sk==='_root'?[]:sk.split('/');break;}
-    }
-  }
-  // Navigate to folder
-  _filesPath=[...foundPath];
-  _renderShotFiles(id);
-  // Highlight file after render
-  setTimeout(()=>{
-    const body=document.getElementById("chatFilesBody");
-    if(!body)return;
-    _clearSelection();
-    _fileSelection.add(fileName);
-    _updateSelectionUI(id);
-    // Scroll to selected row
-    const row=body.querySelector(`tr[data-sel-name="${CSS.escape(fileName)}"]`);
-    if(row)row.scrollIntoView({behavior:'smooth',block:'center'});
-  },50);
-}
-function renderMsgContent(text, mid) {
-  // Handle file cards/links BEFORE escaping (they contain raw paths)
-  if(text.includes('[[filecard:'))return `<div>${text.replace(/\[\[filecard:([^\]]+)\]\]/g,(m,p)=>_renderFileCard(p))}</div>`;
-  // Check if message contains todo items: lines starting with - [ ] or - [x]
-  const lines = text.split('\n');
-  const hasTodo = lines.some(l => /^\s*-\s*\[([ xX])\]/.test(l));
-  if (!hasTodo){
-    // Extract [[file:...]] before escaping, replace with placeholders
-    const fileLinks=[];
-    let safe=text.replace(/\[\[file:([^\]]+)\]\]/g,(m,p)=>{fileLinks.push(p);return `__FLINK${fileLinks.length-1}__`;});
-    let html=`<div>${esc(safe)}</div>`;
-    fileLinks.forEach((p,i)=>{
-      const name=p.includes('/')?p.split('/').pop():p;
-      const icon=p.endsWith('/')||!name.includes('.')?'📁':'📄';
-      html=html.replace(`__FLINK${i}__`,`<span class="chat-file-link" onclick="_navigateChatFile('${esc(p)}')" title="${esc(p)}">${icon} ${esc(name)}</span>`);
-    });
-    return html;
-  }
-
-  let html = '<ul class="chat-todo">';
-  let lineIdx = 0;
-  for (const line of lines) {
-    const todoMatch = line.match(/^\s*-\s*\[([ xX])\]\s*(.*)/);
-    if (todoMatch) {
-      const checked = todoMatch[1].toLowerCase() === 'x';
-      const label = todoMatch[2];
-      const canToggle = canChat(noteTaskId);
-      html += `<li>`;
-      html += `<button class="chat-todo-check${checked?' checked':''}" ${canToggle?`onclick="toggleTodo(${mid},${lineIdx})"`:''} title="${checked?'Uncheck':'Check'}">${checked?'&#10003;':''}</button>`;
-      html += `<span class="chat-todo-text${checked?' done':''}">${esc(label)}</span>`;
-      html += `</li>`;
-    } else if (line.trim()) {
-      html += `<li><span class="chat-todo-text">${esc(line)}</span></li>`;
-    }
-    lineIdx++;
-  }
-  html += '</ul>';
-  return _renderFileLinks(html);
-}
-
-function toggleTodo(mid, lineIdx) {
-  const msgs = getChat(noteTaskId);
-  const m = msgs.find(x => x.id === mid);
-  if (!m || m.deleted) return;
-  const lines = m.text.split('\n');
-  if (lineIdx >= lines.length) return;
-  const line = lines[lineIdx];
-  const match = line.match(/^(\s*-\s*\[)([ xX])(\]\s*.*)/);
-  if (!match) return;
-  const newCheck = match[2].toLowerCase() === 'x' ? ' ' : 'x';
-  lines[lineIdx] = match[1] + newCheck + match[3];
-  m.text = lines.join('\n');
-  saveState(state);
-  renderChat();
-  render();
-}
-
-function _collectPlayerNotes(id){
-  const notes=[];
-  // Source notes
-  const src=state[id]?.playerNotes||[];
-  src.forEach(n=>{notes.push({...n,_isPlayerNote:true,_version:'Source',_versionIdx:-1});});
-  // Version notes
-  const versions=state[id]?.versions||[];
-  versions.forEach((v,i)=>{
-    (v.notes||[]).forEach(n=>{notes.push({...n,_isPlayerNote:true,_version:v.name||'Version '+(i+1),_versionIdx:i});});
-  });
-  return notes;
-}
 function jumpToPlayerNote(id,versionIdx,frame){
-  closeNote();
   if(versionIdx>=0){
     _playVersion(id,versionIdx);
   } else {
@@ -8089,602 +7698,18 @@ function jumpToPlayerNote(id,versionIdx,frame){
   if(vid&&vid.readyState>=1)setTimeout(doSeek,300);
   else vid?.addEventListener('loadedmetadata',()=>setTimeout(doSeek,100),{once:true});
 }
-function _chatPanelDragOver(e){
-  if(noteType!=='chat')return;
-  e.preventDefault();e.dataTransfer.dropEffect="copy";
-  // Highlight appropriate zone
-  const ta=document.getElementById("chatTA");
-  const cm=document.getElementById("chatMessages");
-  if(ta&&ta.contains(e.target)){ta.classList.add("chat-drop-active");if(cm)cm.classList.remove("drop-highlight");}
-  else if(cm){cm.classList.add("drop-highlight");if(ta)ta.classList.remove("chat-drop-active");}
-}
-function _chatPanelDragLeave(e){
-  if(e.currentTarget.contains(e.relatedTarget))return;
-  const ta=document.getElementById("chatTA");if(ta)ta.classList.remove("chat-drop-active");
-  const cm=document.getElementById("chatMessages");if(cm)cm.classList.remove("drop-highlight");
-}
-function _chatPanelDrop(e){
-  if(noteType!=='chat')return;
-  e.preventDefault();e.stopPropagation();
-  const ta=document.getElementById("chatTA");if(ta)ta.classList.remove("chat-drop-active");
-  const cm=document.getElementById("chatMessages");if(cm)cm.classList.remove("drop-highlight");
-  const file=e.dataTransfer.getData("text/x-file-move");
-  const folder=e.dataTransfer.getData("text/x-folder-move");
-  const multi=e.dataTransfer.getData("text/x-multi-move");
-  let names=[];
-  if(multi){try{names=JSON.parse(multi);}catch(ex){}}
-  else if(file)names=[file];
-  else if(folder)names=[folder];
-  if(!names.length)return;
-  const path=_filesPath.length?_filesPath.join('/')+'/':'';
-  // Drop on textarea = inline link, drop on messages = file card
-  const onTA=ta&&(ta.contains(e.target)||e.target===ta);
-  if(onTA){
-    const insert=names.map(n=>`[[file:${path}${n}]]`).join(' ');
-    const pos=ta.selectionStart||0;
-    ta.value=ta.value.slice(0,pos)+insert+ta.value.slice(pos);
-    ta.focus();ta.selectionStart=ta.selectionEnd=pos+insert.length;
-    ta.dispatchEvent(new Event("input"));
-  } else {
-    for(const n of names)_sendChatFileCard(`[[filecard:${path}${n}]]`);
-  }
-}
-function _sendChatFileCard(text){
-  if(!noteTaskId)return;
-  if(!state[noteTaskId])state[noteTaskId]={};
-  if(!state[noteTaskId].artistNotes)state[noteTaskId].artistNotes=[];
-  const role=isAdmin()?'admin':isClient()?'client':'artist';
-  state[noteTaskId].artistNotes.push({id:Date.now(),author:role,text,ts:Date.now()});
-  saveState(state);renderChat();
-}
-function _renderFileCard(path){
-  // Find file/folder info from shot data
-  const id=noteTaskId;
-  if(!id)return `<span class="chat-file-link" onclick="_navigateChatFile('${esc(path)}')">${esc(path)}</span>`;
-  const parts=path.replace(/\/$/,'').split('/');
-  const name=parts[parts.length-1];
-  const isFolder=path.endsWith('/');
-  // Try to find in file tree
-  let items=_getFilesRoot(id);
-  for(let i=0;i<parts.length-1;i++){
-    const f=items.find(x=>x.name===parts[i]&&x.type==='folder');
-    if(f)items=f.children||[];else break;
-  }
-  const entry=items.find(x=>x.name===name);
-  let size='',count='';
-  const icon=isFolder||entry?.type==='folder'?'📁':_fileIcon(name);
-  if(entry?.type==='folder'){
-    const _cnt=(arr)=>{let n=0;for(const c of arr){if(c.type==='folder')n+=_cnt(c.children||[]);else n++;}return n;};
-    const _sz=(arr)=>{let n=0;for(const c of arr){if(c.type==='folder')n+=_sz(c.children||[]);else n+=(c._bytes||0);}return n;};
-    const fc=_cnt(entry.children||[]);const fb=_sz(entry.children||[]);
-    if(fc)count=fc+' file'+(fc!==1?'s':'');
-    if(fb)size=_formatSize(fb);
-  } else if(entry){
-    size=entry.size||'';
-  }
-  const meta=[count,size].filter(Boolean).join(' • ');
-  let dlBtn='';
-  if(entry?.type==='folder'){
-    dlBtn=`<button class="cfc-btn" onclick="event.stopPropagation();_downloadCardFolder('${esc(path)}')" title="Download as ZIP">⬇</button>`;
-  } else if(entry?.url){
-    dlBtn=`<button class="cfc-btn" onclick="event.stopPropagation();_downloadFile('${esc(entry.url)}','${esc(name)}')" title="Download">⬇</button>`;
-  }
-  return `<div class="chat-file-card" onclick="_navigateChatFile('${esc(path)}')"><span class="cfc-icon">${icon}</span><div class="cfc-info"><div class="cfc-name">${esc(name)}</div>${meta?`<div class="cfc-meta">${meta}</div>`:''}</div><div class="cfc-actions"><button class="cfc-btn" onclick="event.stopPropagation()" title="Share (coming soon)">🔗</button>${dlBtn}</div></div>`;
-}
-function _downloadFile(url,name){
-  if(_blockGuest("Guests cannot download files"))return;
-  const a=document.createElement('a');
-  a.href=url;a.download=name;a.target='_blank';a.rel='noopener';
-  document.body.appendChild(a);a.click();document.body.removeChild(a);
-}
-function _downloadCardFolder(path){
-  if(_blockGuest("Guests cannot download files"))return;
-  const id=noteTaskId;if(!id)return;
-  const parts=path.replace(/\/$/,'').split('/');
-  let items=_getFilesRoot(id);
-  for(let i=0;i<parts.length-1;i++){const f=items.find(x=>x.name===parts[i]&&x.type==='folder');if(f)items=f.children||[];else return;}
-  const folder=items.find(x=>x.name===parts[parts.length-1]&&x.type==='folder');
-  if(!folder||!folder.children)return;
-  _downloadAsZip(_collectFileUrlsWithPath(folder.children,''),id+'_'+parts[parts.length-1]);
-}
-// Document-level capture handlers for chat file drop
-// Use element ID matching instead of contains() — target may be detached after re-render
-function _isInsideChat(el){
-  while(el){if(el.id==='notePanelBody')return true;el=el.parentElement;}
-  // Fallback: check by tag/class for detached elements
-  return false;
-}
-function _isOnTextarea(el){
-  while(el){if(el.id==='chatTA')return true;el=el.parentElement;}
-  return false;
-}
-document.addEventListener('dragover',e=>{
-  if(noteType!=='chat')return;
-  // Don't intercept dragover on file manager folders
-  if(e.target.closest&&e.target.closest('tr[data-drop-folder]'))return;
-  // Accept drop anywhere in note overlay when chat is open
-  const ov=document.getElementById("noteOverlay");
-  if(!ov||ov.classList.contains("hidden"))return;
-  const notePanel=ov.querySelector(".note-panel");
-  if(!notePanel||!notePanel.contains(e.target))return;
-  e.preventDefault();e.dataTransfer.dropEffect="copy";
-  const ta=document.getElementById("chatTA");
-  const cm=document.getElementById("chatMessages");
-  if(_isOnTextarea(e.target)){if(ta)ta.classList.add("chat-drop-active");if(cm)cm.classList.remove("drop-highlight");}
-  else{if(cm)cm.classList.add("drop-highlight");if(ta)ta.classList.remove("chat-drop-active");}
-},true);
-document.addEventListener('dragleave',e=>{
-  if(noteType!=='chat')return;
-  const ta=document.getElementById("chatTA");if(ta)ta.classList.remove("chat-drop-active");
-  const cm=document.getElementById("chatMessages");if(cm)cm.classList.remove("drop-highlight");
-},true);
-document.addEventListener('drop',e=>{
-  if(noteType!=='chat')return;
-  // Don't intercept drops on file manager folders
-  if(e.target.closest&&e.target.closest('tr[data-drop-folder]'))return;
-  const file=e.dataTransfer.getData("text/x-file-move");
-  const folder=e.dataTransfer.getData("text/x-folder-move");
-  const multi=e.dataTransfer.getData("text/x-multi-move");
-  if(!file&&!folder&&!multi)return;
-  e.preventDefault();e.stopPropagation();
-  const ta=document.getElementById("chatTA");if(ta)ta.classList.remove("chat-drop-active");
-  const cm=document.getElementById("chatMessages");if(cm)cm.classList.remove("drop-highlight");
-  let names=[];
-  if(multi){try{names=JSON.parse(multi);}catch(ex){}}
-  else if(file)names=[file];
-  else if(folder)names=[folder];
-  if(!names.length)return;
-  const path=_filesPath.length?_filesPath.join('/')+'/':'';
-  if(_isOnTextarea(e.target)){
-    const taEl=document.getElementById("chatTA");
-    if(taEl){
-      const insert=names.map(n=>`[[file:${path}${n}]]`).join(' ');
-      const pos=taEl.selectionStart||0;
-      taEl.value=taEl.value.slice(0,pos)+insert+taEl.value.slice(pos);
-      taEl.focus();taEl.selectionStart=taEl.selectionEnd=pos+insert.length;
-      taEl.dispatchEvent(new Event("input"));
-    }
-  } else {
-    for(const n of names)_sendChatFileCard(`[[filecard:${path}${n}]]`);
-  }
-},true);
-
-function _chatTaDragOver(e){
-  e.preventDefault();e.dataTransfer.dropEffect="copy";
-  e.target.classList.add("chat-drop-active");
-}
-function _chatTaDrop(e){
-  e.preventDefault();e.stopPropagation();
-  const ta=e.target;
-  ta.classList.remove("chat-drop-active");
-  const file=e.dataTransfer.getData("text/x-file-move");
-  const folder=e.dataTransfer.getData("text/x-folder-move");
-  const multi=e.dataTransfer.getData("text/x-multi-move");
-  let links=[];
-  if(multi){try{links=JSON.parse(multi);}catch(ex){}}
-  else if(file)links=[file];
-  else if(folder)links=[folder+'/'];
-  if(!links.length)return;
-  const path=_filesPath.length?_filesPath.join('/')+'/':'';
-  const insert=links.map(n=>`[[file:${path}${n}]]`).join(' ');
-  const pos=ta.selectionStart||0;
-  ta.value=ta.value.slice(0,pos)+insert+ta.value.slice(pos);
-  ta.focus();ta.selectionStart=ta.selectionEnd=pos+insert.length;
-  ta.dispatchEvent(new Event("input"));
-}
-function renderChat(){
-  const chatMsgs=getChat(noteTaskId),canSend=canChat(noteTaskId);
-  const playerNotes=_collectPlayerNotes(noteTaskId);
-  // Merge: chat msgs get ts from .ts, player notes too
-  const all=[];
-  chatMsgs.forEach(m=>all.push({...m,_isPlayerNote:false}));
-  playerNotes.forEach(n=>all.push(n));
-  all.sort((a,b)=>(a.ts||0)-(b.ts||0));
-  const msgs=chatMsgs; // keep for reply lookups
-  const body=document.getElementById("notePanelBody");
-  let html='<div class="chat-messages" id="chatMessages">';
-  if(!all.length) html+='<div class="chat-empty">No messages yet</div>';
-  else all.forEach(m=>{
-    if(m._isPlayerNote){
-      const pnKey="pn_"+m.id+"_"+m._versionIdx;
-      const _pnSel=_chatSelected.has(pnKey);
-      const tc=m.tc||'';
-      const drawHtml=m.drawing?`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${m.drawing.color};margin-right:4px"></span>`:'';
-      const tcClick=tc&&m.frame!=null?`onclick="event.stopPropagation();jumpToPlayerNote('${noteTaskId}',${m._versionIdx},${m.frame})" style="color:#58a6ff;font-size:11px;cursor:pointer;text-decoration:underline;text-decoration-style:dotted"`:`style="color:#58a6ff;font-size:11px"`;
-      html+=`<div class="chat-msg from-note${_pnSel?' selected':''}" data-mid="${pnKey}" onclick="_chatSelectMode?chatToggleSelect('${pnKey}',this):void(0)">`;
-      html+=`<div class="chat-msg-inner">`;
-      html+=`<input type="checkbox" class="chat-msg-checkbox" ${_pnSel?'checked':''} onclick="event.stopPropagation();chatToggleSelect('${pnKey}',this.closest('.chat-msg'))">`;
-      html+=`<div class="chat-msg-content">`;
-      if(isAdmin()) html+=`<div class="chat-msg-actions"><div class="chat-action-btn" onclick="event.stopPropagation();chatEnterSelectMode('${pnKey}')" title="Select">☐</div></div>`;
-      html+=`<div class="chat-msg-header">${esc(m.author||'')}<span style="opacity:0.4;margin-left:6px">${esc(m._version)}</span>${tc?` &nbsp;<span ${tcClick}>${esc(tc)}</span>`:''}</div>`;
-      html+=`<div class="chat-msg-body" style="color:#8b949e">${drawHtml}${esc(m.text||'(drawing)')}</div>`;
-      html+=`</div></div></div>`;
-      return;
-    }
-    if(m.system){
-      const ts=formatChatTimestamp(m.ts);
-      html+=`<div class="chat-msg from-system" data-mid="${m.id}"><div class="chat-msg-inner"><div class="chat-msg-content"><div class="chat-msg-system-text">&#128276; ${esc(m.text||'')}${ts?` <span style="opacity:0.5;margin-left:6px">${ts}</span>`:''}</div></div></div></div>`;
-      return;
-    }
-    const isAdm=m.author==="admin",isCli=m.author==="client",cls=isAdm?"from-admin":isCli?"from-client":"from-artist";
-    const del=m.deleted;
-    const _sel=_chatSelected.has(m.id);
-    html+=`<div class="chat-msg ${cls}${del?' deleted':''}${_sel?' selected':''}" data-mid="${m.id}" onclick="_chatSelectMode?chatToggleSelect(${m.id},this):void(0)">`;
-    html+=`<div class="chat-msg-inner">`;
-    html+=`<input type="checkbox" class="chat-msg-checkbox" ${_sel?'checked':''} onclick="event.stopPropagation();chatToggleSelect(${m.id},this.closest('.chat-msg'))">`;
-    html+=`<div class="chat-msg-content">`;
-    if(!isGuest()){
-      const isOwn=(isAdmin()&&m.author==="admin")||(isArtist()&&m.author==="artist")||(isClient()&&m.author==="client");
-      if(!del){
-        html+=`<div class="chat-msg-actions">`;
-        if(canSend) html+=`<div class="chat-action-btn" onclick="event.stopPropagation();replyTo(${m.id})" title="Reply">↩</div>`;
-        if(isOwn) html+=`<div class="chat-action-btn" onclick="event.stopPropagation();editMsg(${m.id})" title="Edit">✎</div>`;
-        if(isAdmin()||isOwn) html+=`<div class="chat-action-btn" onclick="event.stopPropagation();deleteMsg(${m.id})" title="Delete">✕</div>`;
-        html+=`<div class="chat-action-btn" onclick="event.stopPropagation();chatEnterSelectMode(${m.id})" title="Select">☐</div>`;
-        html+=`</div>`;
-      } else if(del&&isAdmin()){
-        html+=`<div class="chat-msg-actions"><div class="chat-action-btn" onclick="event.stopPropagation();deleteMsg(${m.id})" title="Delete permanently" style="color:#f85149">✕</div></div>`;
-      }
-    }
-    const timeStr=formatChatTimestamp(m.ts);
-    const authorName=isAdm?'Admin':isCli?'Client':'Artist';
-    const pushedMark=m.pushed?'<span class="chat-msg-pushed-mark" title="Pushed to Telegram">&#128276;</span>':'';
-    html+=`<div class="chat-msg-header">${authorName}${timeStr?' &nbsp;<span style="opacity:0.5;font-weight:400">'+timeStr+'</span>':''}${pushedMark}</div>`;
-    if(m.replyTo!==undefined&&m.replyTo!==null){
-      const orig=findById(msgs,m.replyTo);
-      const preview=orig?(orig.deleted?'deleted message':trunc(orig.text,40)):'...';
-      html+=`<div class="chat-msg-reply" onclick="event.stopPropagation();scrollToMsg(${m.replyTo})">${esc(preview)}</div>`;
-    }
-    if(del){
-      html+=`<span class="chat-deleted-label">message deleted</span>`;
-      if(isAdmin()) html+=`<button class="chat-restore-btn" onclick="event.stopPropagation();restoreMsg(${m.id})">restore</button>`;
-    } else {
-      html+=renderMsgContent(m.text, m.id);
-      if(m.img)html+=`<img class="chat-msg-img" src="${esc(m.img)}" onclick="event.stopPropagation();window.open('${esc(m.img)}','_blank')">`;
-      if(m.edited) html+=`<div class="chat-edited-mark">edited</div>`;
-    }
-    html+=`</div></div></div>`;
-  });
-  html+='</div>';
-  if(canSend){
-    html+=`<div class="chat-input-area">`;
-    html+=`<div class="chat-editing-hint${editingMsgId!==null?'':' hidden'}" id="chatEditHint"><span>Editing message...</span><button class="chat-editing-close" onclick="cancelEdit()">&times;</button></div>`;
-    html+=`<div class="chat-reply-preview hidden" id="chatReplyPreview"><span id="chatReplyText"></span><button class="chat-reply-close" onclick="cancelReply()">&times;</button></div>`;
-    html+=`<div class="chat-input-row"><button class="chat-todo-btn${todoMode?' active':''}" onclick="toggleTodoMode()" title="Todo list builder">&#9745;</button><button class="chat-todo-btn" onclick="document.getElementById('chatFileInput').click()" title="Attach image">&#128206;</button><input type="file" id="chatFileInput" accept="image/*" style="display:none" onchange="chatAttachFile(this)"><textarea id="chatTA" placeholder="${todoMode?'Each line = todo item. Enter to send list.':'Paste image or type...'}" rows="1"></textarea><button class="chat-send-btn" onclick="sendChat()">&#9654;</button></div>`;
-    html+=`<div class="chat-paste-preview hidden" id="chatPastePreview"><img id="chatPasteImg"><button onclick="cancelPaste()" style="position:absolute;top:4px;right:4px;background:#21262d;border:none;color:#fff;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:12px">&times;</button></div>`;
-    html+=`<div class="chat-hint">${todoMode?'Todo mode: each Shift+Enter = new item &nbsp;|&nbsp; Enter — send list':'Enter — send &nbsp;|&nbsp; Shift+Enter — new line &nbsp;|&nbsp; &#9745; — todo builder'}</div>`;
-    html+=`</div>`;
-  }
-  html+=`<div class="chat-select-bar${_chatSelectMode?' visible':''}" id="chatSelectBar"><span class="sel-count" id="chatSelCount">${_chatSelected.size} selected</span><button class="sel-delete" onclick="chatDeleteSelected()">Delete</button><button class="sel-cancel" onclick="chatExitSelectMode()">Cancel</button></div>`;
-  body.innerHTML=html;
-  if(_chatSelectMode) body.closest('.note-panel-body,.note-panel')?.querySelector('.chat-messages')?.classList.add('chat-select-mode');
-  // Auto-scroll to bottom
-  scrollToBottom("chatMessages",30);
-  // Bind Enter key
-  const ta=document.getElementById("chatTA");
-  if(ta){
-    ta.addEventListener("keydown",e=>{
-      if(todoMode){
-        if(e.key==="Enter"&&e.shiftKey){
-          // Add new todo item
-          e.preventDefault();
-          const pos=ta.selectionStart;
-          ta.value=ta.value.substring(0,pos)+"\n○ "+ta.value.substring(ta.selectionEnd);
-          ta.selectionStart=ta.selectionEnd=pos+3;
-          ta.dispatchEvent(new Event("input"));
-        } else if(e.key==="Enter"&&!e.shiftKey){
-          e.preventDefault();sendChat();
-        }
-      } else {
-        if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat();}
-      }
-    });
-    ta.addEventListener("input",()=>{ta.style.height="auto";ta.style.height=Math.min(ta.scrollHeight,150)+"px";});
-    ta.addEventListener("paste",e=>{
-      const items=e.clipboardData?.items;
-      if(!items)return;
-      for(const item of items){
-        if(item.type.startsWith('image/')){
-          e.preventDefault();
-          const file=item.getAsFile();
-          if(file){_chatPendingFile=file;_showPastePreview(file);}
-          return;
-        }
-      }
-    });
-    ta.focus();
-  }
-}
-
-// --- CHAT IMAGE ATTACH ---
-let _chatPendingFile=null;
-function chatAttachFile(input){
-  const file=input.files[0];
-  if(!file||!file.type.startsWith('image/'))return;
-  _chatPendingFile=file;
-  _showPastePreview(file);
-  input.value='';
-}
-function _showPastePreview(file){
-  const preview=document.getElementById('chatPastePreview');
-  const img=document.getElementById('chatPasteImg');
-  if(!preview||!img)return;
-  const url=URL.createObjectURL(file);
-  img.src=url;
-  preview.classList.remove('hidden');
-}
-function cancelPaste(){
-  _chatPendingFile=null;
-  const preview=document.getElementById('chatPastePreview');
-  if(preview)preview.classList.add('hidden');
-}
-async function _uploadChatImage(file){
-  const ts=Date.now();
-  const ext=file.name?.split('.').pop()||'png';
-  const key=projectPath(`chat/${noteTaskId}/img_${ts}.${ext}`);
-  const ok=await r2UploadXHR(key,file,()=>{});
-  if(!ok)return null;
-  return CDN_BASE+'/'+key;
-}
-function toggleTodoMode(){
-  const ta=document.getElementById("chatTA");
-  const savedText=ta?ta.value:'';
-  todoMode=!todoMode;
-  renderChat();
-  setTimeout(()=>{
-    const t=document.getElementById("chatTA");
-    if(!t)return;
-    if(todoMode){
-      if(!savedText.trim()) t.value="○ ";
-      else t.value=savedText;
-    } else {
-      t.value=savedText;
-    }
-    t.focus();t.setSelectionRange(t.value.length,t.value.length);
-    t.dispatchEvent(new Event("input"));
-  },50);
-}
-
-async function sendChat(){
-  const ta=document.getElementById("chatTA");if(!ta)return;
-  let text=ta.value.trim();
-  let imgUrl=null;
-  // Upload pending image
-  if(_chatPendingFile){
-    imgUrl=await _uploadChatImage(_chatPendingFile);
-    _chatPendingFile=null;
-    const preview=document.getElementById('chatPastePreview');
-    if(preview)preview.classList.add('hidden');
-  }
-  if(!text&&!imgUrl)return;
-  // Convert visual ○/● back to - [ ]/- [x], and auto-prefix plain lines in todo mode
-  if(todoMode){
-    text=text.split('\n').map(l=>{
-      let trimmed=l.trim();
-      if(!trimmed)return '';
-      // Convert visual circles to markdown
-      if(trimmed.startsWith('○ '))return '- [ ] '+trimmed.substring(2);
-      if(trimmed.startsWith('● '))return '- [x] '+trimmed.substring(2);
-      if(/^\s*-\s*\[([ xX])\]/.test(trimmed))return trimmed;
-      return '- [ ] '+trimmed;
-    }).filter(Boolean).join('\n');
-    if(!text)return;
-  }
-  if(!state[noteTaskId])state[noteTaskId]={};
-  if(!state[noteTaskId].artistNotes)state[noteTaskId].artistNotes=[];
-  if(editingMsgId!==null){
-    // Edit existing message
-    const m=state[noteTaskId].artistNotes.find(x=>x.id===editingMsgId);
-    if(m){m.text=text;m.edited=true;}
-    editingMsgId=null;
-  } else {
-    const author=isAdmin()?"admin":isClient()?"client":"artist";
-    const msg={id:nextMsgId(noteTaskId),author,text,replyTo:replyToId,ts:Date.now()};
-    if(imgUrl)msg.img=imgUrl;
-    state[noteTaskId].artistNotes.push(msg);
-  }
-  replyToId=null;
-  if(todoMode)todoMode=false;
-  saveState(state);
-  renderChat();
-  render();
-}
-
-/* ── Chat multi-select ── */
-let _chatSelectMode=false;
-const _chatSelected=new Set();
-
-function chatEnterSelectMode(mid){
-  _chatSelectMode=true;
-  _chatSelected.clear();
-  _chatSelected.add(mid);
-  const cm=document.getElementById("chatMessages");
-  if(cm)cm.classList.add("chat-select-mode");
-  renderChat();
-}
-
-function chatExitSelectMode(){
-  _chatSelectMode=false;
-  _chatSelected.clear();
-  const cm=document.getElementById("chatMessages");
-  if(cm)cm.classList.remove("chat-select-mode");
-  renderChat();
-  _updatePushBtn();
-}
-
-function chatToggleSelect(mid,el){
-  if(!_chatSelectMode) return;
-  if(_chatSelected.has(mid)) _chatSelected.delete(mid); else _chatSelected.add(mid);
-  if(el){el.classList.toggle("selected",_chatSelected.has(mid));const cb=el.querySelector('.chat-msg-checkbox');if(cb)cb.checked=_chatSelected.has(mid);}
-  const cnt=document.getElementById("chatSelCount");
-  if(cnt)cnt.textContent=_chatSelected.size+" selected";
-  _updatePushBtn();
-  if(_chatSelected.size===0) chatExitSelectMode();
-}
-
-/* ── Telegram Push notification ── */
+/* ── Telegram Push (shared helpers) ── */
 const TG_PUSH_URL='https://sandbox.contora.net/tg/push';
-function _tgArtistCooldown(){return state.__bot?.cooldowns?.artistMs??60000;}
 function _tgAdminDebounce(){return state.__bot?.cooldowns?.adminMs??1000;}
 let _lastPushAt=0;                     // local timestamp of last successful push (admin debounce)
 
+// Misleading legacy name — used by player push and version-uploaded dialog
+// to gate "can this user push for this shot?". Not chat-specific.
 function _canPushChat(shotId){
   if(!shotId||!currentUser)return false;
   if(isGuest()||isClient())return false;
   if(isAdmin())return true;
   return getAssignee(shotId)===currentUser.id;
-}
-
-function _updatePushBtn(){
-  const btn=document.getElementById("notePushBtn");
-  if(!btn)return;
-  const lbl=document.getElementById("notePushLabel");
-  if(!noteTaskId||noteType!=='chat'||!_canPushChat(noteTaskId)){btn.classList.add('hidden');return;}
-  btn.classList.remove('hidden');
-  if(lbl)lbl.textContent='Push';
-  const assignee=getAssignee(noteTaskId);
-  if(!assignee){btn.disabled=true;btn.title="No assignee";return;}
-  const selSize=_chatSelected.size;
-  if(selSize>1){btn.disabled=true;btn.title="Select only one message";return;}
-  const chat=(state[noteTaskId]?.artistNotes||[]).filter(m=>!m.deleted&&!m.system);
-  const playerNotes=_collectPlayerNotes(noteTaskId);
-  // Admins: skip "already pushed" / 60s cooldown — they always have a push button
-  if(isAdmin()){
-    if(selSize===1){btn.disabled=false;btn.title=`Push selected message to ${assignee}`;return;}
-    if(!chat.length&&!playerNotes.length){btn.disabled=true;btn.title="No messages to push";return;}
-    btn.disabled=false;
-    btn.title=chat.length?`Push latest message to ${assignee}`:`Select a player note and click Push`;
-    return;
-  }
-  // Artists: keep once-per-message rule + 60s cooldown
-  if(selSize===1){
-    const mid=[..._chatSelected][0];
-    // Player notes don't have lifetime "pushed" lockout
-    if(typeof mid==='string'&&mid.startsWith('pn_')){
-      btn.disabled=false;btn.title=`Push selected note to ${assignee}`;return;
-    }
-    const m=chat.find(x=>x.id===mid);
-    if(m&&m.pushed){btn.disabled=true;btn.title="Already pushed";return;}
-    btn.disabled=false;btn.title=`Push selected message to ${assignee}`;
-    return;
-  }
-  const lastPush=state[noteTaskId]?.chatLastPush||0;
-  const elapsed=Date.now()-lastPush;
-  if(elapsed<_tgArtistCooldown()){
-    const remain=Math.ceil((_tgArtistCooldown()-elapsed)/1000);
-    btn.disabled=true;btn.title=`Wait ${remain}s before next push`;
-    return;
-  }
-  if(!chat.length&&!playerNotes.length){btn.disabled=true;btn.title="No messages to push";return;}
-  btn.disabled=false;
-  btn.title=chat.length?`Push latest message to ${assignee}`:`Select a player note and click Push`;
-}
-
-function _appendSystemChatMsg(shotId,text){
-  if(!state[shotId])state[shotId]={};
-  if(!state[shotId].artistNotes)state[shotId].artistNotes=[];
-  state[shotId].artistNotes.push({id:nextMsgId(shotId),author:"system",text,ts:Date.now(),system:true});
-}
-async function pushChatNotification(){
-  if(!noteTaskId)return;
-  if(!_canPushChat(noteTaskId)){alert("No permission");return;}
-  const assignee=getAssignee(noteTaskId);
-  if(!assignee){alert("No artist assigned");return;}
-  if(!currentUser||!_currentUserLinkToken()){
-    alert("Your account has no link token. Ask admin to regenerate.");return;
-  }
-  // Global admin debounce against accidental double clicks
-  if(Date.now()-_lastPushAt<_tgAdminDebounce())return;
-  const chat=(state[noteTaskId]?.artistNotes||[]).filter(m=>!m.deleted&&!m.system);
-  let msg=null,isSelected=false,playerNote=null;
-  if(_chatSelected.size>1){alert("Select only one message");return;}
-  if(_chatSelected.size===1){
-    const mid=[..._chatSelected][0];
-    if(typeof mid==='string'&&mid.startsWith('pn_')){
-      // Player note: lookup in playerNotes / versions[i].notes
-      const allPN=_collectPlayerNotes(noteTaskId);
-      const found=allPN.find(n=>('pn_'+n.id+'_'+n._versionIdx)===mid);
-      if(!found){alert("Player note not found");return;}
-      playerNote=found;
-      msg={id:mid,text:found.text||'(drawing)',pushed:false};
-      isSelected=true;
-    } else {
-      msg=chat.find(x=>x.id===mid);
-      if(!msg){alert("Message not found");return;}
-      if(!isAdmin()&&msg.pushed){alert("Already pushed");return;}
-      isSelected=true;
-    }
-  } else {
-    if(!isAdmin()){
-      const lastPush=state[noteTaskId]?.chatLastPush||0;
-      if(Date.now()-lastPush<_tgArtistCooldown()){
-        const remain=Math.ceil((_tgArtistCooldown()-(Date.now()-lastPush))/1000);
-        alert(`Wait ${remain}s`);return;
-      }
-    }
-    if(!chat.length){
-      // Only player notes available — user must select one explicitly
-      const playerNotes=_collectPlayerNotes(noteTaskId);
-      if(playerNotes.length){alert("Select a player note above and click Push again");return;}
-      alert("No messages to push");return;
-    }
-    msg=chat[chat.length-1];
-  }
-  const msgText=msg.text||(msg.img?"[image]":"");
-  const tcInfo=playerNote?` @ ${playerNote.tc||''}`:'';
-  const subject=playerNote
-    ? `Player note ${playerNote._version||''}${tcInfo}\n\n«${msgText}»`
-    : `Chat message in ${noteTaskId}\n\n«${msgText}»`;
-  const comment=await _showPushPrompt("Push to Telegram",subject);
-  if(comment===null)return; // cancelled
-  const desc=getDesc(noteTaskId,(findById(TASKS,noteTaskId)?.desc)||"");
-  const fromUser=currentUser.display||currentUser.id;
-  const link=playerNote
-    ? `${_shareBase()}?player=${encodeURIComponent(noteTaskId)}&v=${playerNote._versionIdx}&f=${playerNote.frame||0}`
-    : `${_shareBase()}?chat=${encodeURIComponent(noteTaskId)}`;
-  const kindLabel=playerNote
-    ? `player note (${playerNote._version||''})`
-    : (isSelected?"selected message":"latest message");
-  const btn=document.getElementById("notePushBtn");
-  const lbl=document.getElementById("notePushLabel");
-  if(btn)btn.disabled=true;if(lbl)lbl.textContent='Sending…';
-  try{
-    const r=await fetch(TG_PUSH_URL,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        shotId:noteTaskId,shotDesc:desc,artistId:assignee,
-        kind:"chat",kindLabel,text:msgText,comment,fromUser,link,
-        frame:playerNote?.frame,
-        versionIdx:playerNote?._versionIdx,
-        tc:playerNote?.tc||null,
-        userId:currentUser.id,linkToken:_currentUserLinkToken(),projectId:CURRENT_PROJECT_ID||LEGACY_PROJECT_ID
-      })
-    });
-    const data=await r.json().catch(()=>({}));
-    if(!r.ok||!data.ok)throw new Error(data.error||('HTTP '+r.status));
-    // Mark in state
-    if(!state[noteTaskId])state[noteTaskId]={};
-    if(isSelected&&!playerNote){
-      // Real chat message — flip its pushed flag
-      msg.pushed=true;msg.pushedBy=currentUser.id;msg.pushedAt=Date.now();
-    } else if(!isSelected){
-      state[noteTaskId].chatLastPush=Date.now();
-    }
-    _lastPushAt=Date.now();
-    // Leave a system note in the chat
-    const sysText=`Pushed ${kindLabel} to Telegram by ${fromUser}${comment?` — "${comment}"`:""}`;
-    _appendSystemChatMsg(noteTaskId,sysText);
-    saveState(state);
-    renderChat();
-    if(lbl)lbl.textContent='Sent ✓';
-    setTimeout(()=>{if(lbl)lbl.textContent='Push';_updatePushBtn();},1500);
-  }catch(e){
-    console.error("Push failed:",e);
-    alert("Push failed: "+(e.message||e));
-    if(lbl)lbl.textContent='Push';
-    _updatePushBtn();
-  }
 }
 
 /* ── Player Telegram Push ── */
@@ -8772,9 +7797,6 @@ async function pushPlayerNotification(){
     if(!state[_gifCurrentId].playerPushed)state[_gifCurrentId].playerPushed={};
     state[_gifCurrentId].playerPushed[key]={by:currentUser.id,at:Date.now()};
     _lastPushAt=Date.now();
-    // System note in chat
-    const sysText=`Pushed video (${versionNumber}) to Telegram by ${fromUser}${comment?` — "${comment}"`:""}`;
-    _appendSystemChatMsg(_gifCurrentId,sysText);
     saveState(state);
     renderVersionsPanel();
     if(lbl)lbl.textContent='Sent ✓';
@@ -8855,8 +7877,6 @@ async function pushPlayerToClient(){
     if(!state[_gifCurrentId])state[_gifCurrentId]={};
     if(!state[_gifCurrentId].clientPushed)state[_gifCurrentId].clientPushed={};
     state[_gifCurrentId].clientPushed[_versionKey(_gifVersionIdx)]={by:currentUser.id,at:Date.now(),chat:targetChatId};
-    const sysText=`Pushed video (${versionNumber}) to CLIENT chat by ${fromUser}${comment?` — "${comment}"`:""}`;
-    _appendSystemChatMsg(_gifCurrentId,sysText);
     saveState(state);
     if(cLbl)cLbl.textContent='Sent ✓';
     setTimeout(()=>{if(cLbl)cLbl.textContent='Push to client';if(cBtn)cBtn.disabled=false;},1500);
@@ -8912,167 +7932,6 @@ function _showVersionUploadedDialog(shotId,versionIdx){
   };
 }
 
-function _canDeleteSelected(mid){
-  if(typeof mid==="string"&&mid.startsWith("pn_")) return isAdmin();
-  const msgs=getChat(noteTaskId);
-  const m=findById(msgs,mid);
-  if(!m) return false;
-  if(m.deleted) return isAdmin();
-  const isOwn=(isAdmin()&&m.author==="admin")||(isArtist()&&m.author==="artist")||(isClient()&&m.author==="client");
-  return isAdmin()||isOwn;
-}
-
-function chatDeleteSelected(){
-  if(!_chatSelected.size)return;
-  const msgs=getChat(noteTaskId);
-  let deleted=0;
-  _chatSelected.forEach(mid=>{
-    if(!_canDeleteSelected(mid)) return;
-    if(typeof mid==="string"&&mid.startsWith("pn_")){
-      const parts=mid.split("_");const pnId=parseInt(parts[1]);const vIdx=parseInt(parts[2]);
-      let arr=null;
-      if(vIdx===-1){ arr=state[noteTaskId]?.playerNotes; }
-      else { const v=state[noteTaskId]?.versions?.[vIdx]; arr=v?.notes; }
-      if(arr){
-        const idx=arr.findIndex(n=>n.id===pnId);
-        if(idx>=0){
-          const note=arr[idx];
-          // Delete associated drawing
-          if(note.drawing&&note.frame!=null){
-            const dStore=vIdx===-1?state[noteTaskId]?.drawings:state[noteTaskId]?.versions?.[vIdx]?.drawings;
-            if(dStore&&dStore[note.frame]){
-              const da=dStore[note.frame];
-              for(let i=da.length-1;i>=0;i--){if(da[i].t===note.drawing.tool&&da[i].c===note.drawing.color){da.splice(i,1);break;}}
-              if(!da.length)delete dStore[note.frame];
-            }
-          }
-          arr.splice(idx,1);deleted++;
-        }
-      }
-      return;
-    }
-    const m=findById(msgs,mid);
-    if(!m)return;
-    if(m.deleted&&isAdmin()){
-      const idx=msgs.indexOf(m);if(idx>=0){msgs.splice(idx,1);deleted++;}
-    } else {
-      const isOwn=(isArtist()&&m.author==="artist")||(isClient()&&m.author==="client");
-      if(isAdmin()||isOwn){m.deletedText=m.text;m.deleted=true;m.text="";deleted++;}
-    }
-  });
-  if(!deleted)return;
-  saveState(state);
-  _chatSelectMode=false;_chatSelected.clear();
-  renderChat();render();
-}
-
-function deleteMsg(mid){
-  const msgs=getChat(noteTaskId);
-  const m=findById(msgs,mid);
-  if(!m)return;
-  // If already soft-deleted and admin clicks again — permanent delete
-  if(m.deleted&&isAdmin()){
-    const idx=msgs.indexOf(m);
-    if(idx>=0)msgs.splice(idx,1);
-    saveState(state);
-    renderChat();
-    render();
-    return;
-  }
-  const isOwn=(isArtist()&&m.author==="artist")||(isClient()&&m.author==="client");
-  if(isAdmin()||isOwn){
-    m.deletedText=m.text;
-    m.deleted=true;m.text="";
-    saveState(state);
-    renderChat();
-    render();
-  }
-}
-
-function restoreMsg(mid){
-  if(!isAdmin())return;
-  const msgs=getChat(noteTaskId);
-  const m=findById(msgs,mid);
-  if(!m||!m.deleted)return;
-  m.text=m.deletedText||"[restored]";
-  m.deleted=false;
-  delete m.deletedText;
-  saveState(state);
-  renderChat();
-  render();
-}
-
-function editMsg(mid){
-  const msgs=getChat(noteTaskId);
-  const m=findById(msgs,mid);
-  if(!m||m.deleted)return;
-  editingMsgId=mid;
-  renderChat();
-  setTimeout(()=>{
-    const ta=document.getElementById("chatTA");
-    if(ta){ta.value=m.text;ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length);ta.dispatchEvent(new Event("input"));}
-  },50);
-}
-
-function cancelEdit(){
-  editingMsgId=null;
-  renderChat();
-}
-
-function replyTo(mid){
-  replyToId=mid;
-  const msgs=getChat(noteTaskId);
-  const m=findById(msgs,mid);
-  const prev=document.getElementById("chatReplyPreview");
-  const txt=document.getElementById("chatReplyText");
-  if(prev&&txt&&m){
-    txt.textContent="Reply to: "+(m.deleted?"deleted message":trunc(m.text,50));
-    prev.classList.remove("hidden");
-  }
-  const ta=document.getElementById("chatTA");if(ta)ta.focus();
-}
-
-function cancelReply(){
-  replyToId=null;
-  const prev=document.getElementById("chatReplyPreview");
-  if(prev)prev.classList.add("hidden");
-}
-
-function scrollToMsg(mid){
-  const el=document.querySelector(`.chat-msg[data-mid="${mid}"]`);
-  if(el){el.scrollIntoView({behavior:"smooth",block:"center"});el.style.outline="1px solid #484f58";setTimeout(()=>el.style.outline="",1500);}
-}
-
-function closeNote(){document.getElementById("noteOverlay").classList.add("hidden");document.getElementById("chatFilesPanel").style.display='none';_closeChatFiles();noteTaskId=null;noteType=null;replyToId=null;editingMsgId=null;todoMode=false;_chatSelectMode=false;_chatSelected.clear();}
-
-let _savedShotId=null,_savedFilesPath=null,_savedShotTab=null;
-function _renderChatFiles(shotId){
-  _savedShotId=_shotCurrentId;_savedFilesPath=[..._filesPath];_savedShotTab=_shotTab;
-  _shotCurrentId=shotId;_filesPath=[];_shotTab='files';
-  _chatFileMode=true;
-  _renderShotFiles(shotId);
-}
-function _closeChatFiles(){
-  _chatFileMode=false;
-  if(_savedShotId!==null){_shotCurrentId=_savedShotId;_filesPath=_savedFilesPath||[];_shotTab=_savedShotTab||'versions';}
-  _savedShotId=null;_savedFilesPath=null;_savedShotTab=null;
-}
-function _toggleChatFiles(){
-  const panel=document.getElementById("chatFilesPanel");
-  const btn=document.getElementById("chatFilesToggle");
-  panel.classList.toggle("collapsed");
-  btn.textContent=panel.classList.contains("collapsed")?'▸':'◂';
-}
-
-function saveNote(){
-  if(!noteTaskId||noteType!=="admin")return;
-  const ta=document.getElementById("noteTA");if(!ta)return;
-  if(!state[noteTaskId])state[noteTaskId]={};
-  state[noteTaskId].adminNote=ta.value;
-  saveState(state);closeNote();render();
-}
-
-document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!document.getElementById("noteOverlay").classList.contains("hidden"))closeNote();});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(!document.getElementById("doneShotsOverlay").classList.contains("hidden")){closeDoneShots();return;}if(!document.getElementById("myFilesOverlay").classList.contains("hidden")){closeMyFiles();return;}if(!document.getElementById("shotOverlay").classList.contains("hidden"))closeShot();}});
 
 const CDN_BASE="https://pub-eaaae306b81842a080df2d6cab4b7808.r2.dev";
@@ -9872,9 +8731,6 @@ function getNextId(arr){return Math.max(0,...(Array.isArray(arr)?arr.map(x=>x&&x
 function getDirectoryPath(p){const i=String(p||'').lastIndexOf('/');return i<0?'':p.substring(0,i);}
 function ensureFolder(arr,name){if(!Array.isArray(arr))return null;let f=arr.find(x=>x&&x.name===name);if(!f){f={name};arr.push(f);}return f;}
 
-// Format a timestamp (ms) as "DD.MM, HH:MM" in uk-UA locale. Returns '' for
-// falsy input. Used by chat / notes / versions / history rendering.
-function formatChatTimestamp(ts){return ts?new Date(ts).toLocaleString('uk-UA',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';}
 // Scroll an element to the bottom. Accepts an Element or a DOM id string.
 // Optional delayMs schedules the scroll via setTimeout (used after innerHTML
 // rewrites where layout has not yet settled).
@@ -10303,16 +9159,12 @@ function _rangeSelect(id,name){
   _lastClickedItem=name;
 }
 function _updateSelectionUI(id){
-  const body=_chatFileMode?document.getElementById("chatFilesBody"):document.getElementById("shotBody");
+  const body=(id==='__myfiles'?document.getElementById("myFilesBody"):null)||(id==='__doneshots'?document.getElementById("doneShotsBody"):null)||document.getElementById("shotBody");
   if(!body)return;
   body.querySelectorAll("tr[data-sel-name]").forEach(row=>{
     row.classList.toggle("f-selected",_fileSelection.has(row.dataset.selName));
   });
-  // Selection toolbar
-  const barId=_chatFileMode?'filesSelBar2':'filesSelBar';
-  const bar=document.getElementById(barId);
-  // Also clear the other bar in chat mode
-  if(_chatFileMode){const ob=document.getElementById('filesSelBar');if(ob){ob.classList.remove('active');ob.innerHTML='';}}
+  const bar=document.getElementById('filesSelBar');
   if(bar){
     if(_fileSelection.size>0){
       bar.classList.add("active");
@@ -10583,20 +9435,13 @@ function _renderUploadQueue(){
   const active=_uploadQueue.items.filter(i=>i.status!=='cancelled');
   if(active.length===0){
     if(panel)panel.remove();
-    const cq=document.getElementById("chatUploadQueue");if(cq)cq.style.display='none';
     return;
   }
   if(!panel){
     panel=document.createElement("div");panel.id="uploadQueuePanel";panel.className="upload-queue-panel";
-    if(_chatFileMode){
-      const cq=document.getElementById("chatUploadQueue");
-      if(cq){cq.style.display='';cq.appendChild(panel);}
-      else document.body.appendChild(panel);
-    } else {
-      const shotOv=document.getElementById("shotOverlay");
-      if(shotOv)shotOv.appendChild(panel);
-      else document.body.appendChild(panel);
-    }
+    const shotOv=document.getElementById("shotOverlay");
+    if(shotOv)shotOv.appendChild(panel);
+    else document.body.appendChild(panel);
   }
   // Preserve scroll position
   const list=panel.querySelector(".upload-queue-list");
@@ -10641,10 +9486,9 @@ function _toggleQueueCollapse(){_uploadQueue.collapsed=!_uploadQueue.collapsed;_
 function _buildFileTip(id,name,size,editCell,date,icon){
   return ` data-tip="${esc(name)}" data-tip-size="${esc(size||'')}" data-tip-edit="${esc(editCell||'')}" data-tip-date="${esc(date||'')}" data-tip-icon="${esc(icon||'')}"`;
 }
-let _chatFileMode=false;
 function _renderShotFiles(id,overrideBody){
   _clearSelection();_removeCfTip();if(typeof _dsHoverHide==='function')_dsHoverHide();
-  const body=overrideBody||(id==='__myfiles'?document.getElementById("myFilesBody"):null)||(id==='__doneshots'?document.getElementById("doneShotsBody"):null)||(_chatFileMode?document.getElementById("chatFilesBody"):document.getElementById("shotBody"));
+  const body=overrideBody||(id==='__myfiles'?document.getElementById("myFilesBody"):null)||(id==='__doneshots'?document.getElementById("doneShotsBody"):null)||document.getElementById("shotBody");
   const {items,breadcrumb,currentFolder}=_resolveFilesPath(id);
   // Check if current folder or any ancestor in path is locked
   let isLocked=currentFolder?.locked||false;
@@ -10710,13 +9554,13 @@ function _renderShotFiles(id,overrideBody){
         <td class="f-size">${folderSize}</td>
         <td class="f-edit">${editCell}</td>
         <td class="f-date"></td>
-        <td class="f-actions">${shareBtn}${_chatFileMode?`<button class="f-dl f-share-stub" onclick="event.stopPropagation()" title="Share (coming soon)">🔗</button>`:''}${(id==='__doneshots'&&f.colorTag!=='#3fb950')?'':`<button class="f-dl" onclick="event.stopPropagation();_downloadFolderByName('${id}','${esc(f.name)}')" title="Download folder"><svg class="dl-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1v9m0 0L4.5 6.5M8 10l3.5-3.5M2 13h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></button>`}${renBtn}${delBtn}</td>
+        <td class="f-actions">${shareBtn}${(id==='__doneshots'&&f.colorTag!=='#3fb950')?'':`<button class="f-dl" onclick="event.stopPropagation();_downloadFolderByName('${id}','${esc(f.name)}')" title="Download folder"><svg class="dl-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1v9m0 0L4.5 6.5M8 10l3.5-3.5M2 13h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></button>`}${renBtn}${delBtn}</td>
       </tr>`;
     } else {
       if(lastWasLocked){html+=`<tr class="f-locked-sep"><td colspan="6"><hr></td></tr>`;lastWasLocked=false;}
       const dlSvg=`<svg class="dl-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1v9m0 0L4.5 6.5M8 10l3.5-3.5M2 13h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`;
       const isReadme=f.name==='README.txt'&&f.locked;
-      const dlBtn=(f.url&&!isReadme)?(_chatFileMode?`<button class="f-dl" onclick="event.stopPropagation();_downloadFile('${esc(f.url)}','${esc(f.name)}')" title="Download">${dlSvg}</button>`:`<a class="f-dl" href="${f.url}" target="_blank" title="Download">${dlSvg}</a>`):'';
+      const dlBtn=(f.url&&!isReadme)?`<a class="f-dl" href="${f.url}" target="_blank" title="Download">${dlSvg}</a>`:'';
 
       const fileLocked=f.locked||isLocked;
       const fileDelBtn=(canDel&&!f.locked)?`<button class="f-dl" onclick="event.stopPropagation();_deleteFile('${id}','${esc(f.name)}')" title="Delete">🗑</button>`:'';
@@ -10732,7 +9576,7 @@ function _renderShotFiles(id,overrideBody){
         <td class="f-size">${f.size||''}</td>
         <td class="f-edit">${editCell}</td>
         <td class="f-date">${f.date||''}</td>
-        <td class="f-actions">${_chatFileMode?`<button class="f-dl f-share-stub" onclick="event.stopPropagation()" title="Share (coming soon)">🔗</button>`:''}${dlBtn}${fileRenBtn}${fileDelBtn}</td>
+        <td class="f-actions">${dlBtn}${fileRenBtn}${fileDelBtn}</td>
       </tr>`;
     }
   }
@@ -10741,8 +9585,6 @@ function _renderShotFiles(id,overrideBody){
     html+=`<div class="files-empty"><div class="files-empty-icon">📂</div><div>No files</div></div>`;
   }
   html+=`</div>`;// close files-table-wrap
-  // Selection bar below table (chat mode only)
-  if(_chatFileMode) html+=`<div class="files-sel-bar chat-sel-bar" id="filesSelBar2"></div>`;
   // drop zone + hidden file input
   if(canUp){
     html+=`<div class="files-drop" id="filesDropZone" onclick="document.getElementById('filesUploadInput').click()">Drop files here or click to upload</div>`;
@@ -12689,9 +11531,8 @@ function render(){
       const st=r.status,stClass="s-"+st,editSt=canEditStatus(r.id),adm=canAssign();
       const assignCls=r.assignee?" assign-"+r.assignee:"";
       const an=getAdminNote(r.id);
-      const cp=chatPreview(r.id);const cpPrev=trunc(cp.text,20);
       const artistOpts=_getArtists().map(a=>`<option value="${a.id}" ${r.assignee===a.id?"selected":""}>${a.display}</option>`).join("");
-      // [0]=prio [1]=# [2]=ID+preview [3]=shotInfo [4]=cat [5]=tcIn [6]=tcOut [7]=artist [8]=status [9]=admin [10]=chat
+      // [0]=prio [1]=# [2]=ID+preview [3]=shotInfo [4]=cat [5]=tcIn [6]=tcOut [7]=artist [8]=status [9]=admin
       const prio=getPriority(r.id);
       const diff=getDifficulty(r.id);
       const prioTagClass=(prio?'prio-tag prio-'+prio:'prio-tag')+(diff&&!prio?' has-diff-only':'');
@@ -12706,7 +11547,6 @@ function render(){
       if(cells[7]){const sel=cells[7].querySelector('select');if(sel&&sel.value!==r.assignee)sel.value=r.assignee||"";}
       if(cells[8]){const sel=cells[8].querySelector('select');if(sel&&sel.value!==st){sel.value=st;sel.className="status-select s-"+st;}}
       if(cells[9]&&!cells[9].querySelector('.desc-edit-ta'))cells[9].innerHTML=an||'<span style="color:#484f58">...</span>';
-      if(cells[10])cells[10].innerHTML=`<div class="note-cell${cp.text?' has-text':''}${hasUnread(r.id)?' unread':' read'}" onclick="openNote('${r.id}','chat')"><div class="chat-preview-fade">${cp.lines.length?cp.lines.map(l=>`<div class="cp-bubble cp-${l.role}">${esc(l.text)}</div>`).join(''):'<span style="color:#484f58;font-size:11px">...</span>'}</div></div>`;
     });
   }
   updateStats();
@@ -12716,7 +11556,6 @@ function _buildRow(r){
   const st=r.status,stClass="s-"+st,editSt=canEditStatus(r.id),adm=canAssign();
   const assignCls=r.assignee?" assign-"+r.assignee:"";
   const an=getAdminNote(r.id);
-  const cp=chatPreview(r.id);const cpPrev=trunc(cp.text,20);
   const artistOpts=_getArtists().map(a=>`<option value="${a.id}" ${r.assignee===a.id?"selected":""}>${a.display}</option>`).join("");
   const prio=getPriority(r.id);
   const diff=getDifficulty(r.id);
@@ -12741,7 +11580,6 @@ function _buildRow(r){
       ${(isAdmin()||st==="delivered")?`<option value="delivered" ${st==="delivered"?"selected":""}>Delivered</option>`:""}
       <option value="skip" ${st==="skip"?"selected":""}>Skip</option></select></td>
     <td class="desc-cell admin-col${canEditAdminNote()&&isEditMode()?' editable':''}" ${canEditAdminNote()&&isEditMode()?`onclick="startEditAdmin('${r.id}',this,event)"`:''} data-tid="${r.id}">${an||'<span style="color:#484f58">...</span>'}</td>
-    <td style="vertical-align:top;padding-top:32px"><div class="note-cell${cp.text?' has-text':''}${hasUnread(r.id)?' unread':' read'}" onclick="openNote('${r.id}','chat')"><div class="chat-preview-fade">${cp.lines.length?cp.lines.map(l=>`<div class="cp-bubble cp-${l.role}">${esc(l.text)}</div>`).join(''):'<span style="color:#484f58;font-size:11px">...</span>'}</div></div></td>
     ${isAdmin()&&isEditMode()?`<td style="text-align:center;white-space:nowrap"><button title="${state[r.id]?.hidden?'Unhide shot':'Hide shot — keeps data, removes from counters & list'}" style="background:#21262d;color:${state[r.id]?.hidden?'#d29922':'#8b949e'};border:1px solid #30363d;border-radius:4px;padding:4px 7px;cursor:pointer;font-size:11px;margin-right:4px" onclick="event.stopPropagation();toggleHideShot('${r.id}')">${state[r.id]?.hidden?'👁':'⊘'}</button><button title="Delete shot permanently" style="background:#da3633;color:#fff;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:11px" onclick="event.stopPropagation();deleteShot('${r.id}')">✕</button></td>`:''}
   </tr>`;
 }
@@ -12846,7 +11684,6 @@ setInterval(async()=>{
   const pulled=await _pullRemote();
   if(pulled){runMigrations();render();
     if(_gifCurrentId)renderPlayerNotes();
-    if(noteTaskId&&noteType==='chat')renderChat();
   }
 },15000);
 </script>
