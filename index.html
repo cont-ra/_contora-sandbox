@@ -939,7 +939,7 @@
 </table>
 <div class="save-notice" id="saveNotice">Saved</div>
 <div id="updateBanner" class="update-banner hidden"><span id="updateBannerText"></span><button id="updateBannerNow">Reload now</button><button id="updateBannerCancel">Later</button></div>
-<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0161</div>
+<div id="appVersion" style="position:fixed;bottom:8px;right:12px;font-size:11px;color:#30363d;font-family:'SF Mono',monospace;pointer-events:none">v1.0.0162</div>
 
 <script>
 const USERS = {
@@ -1702,10 +1702,14 @@ async function showLoggedIn(){
   document.getElementById("userName").textContent=currentUser.display;
   document.getElementById("userDot").className="dot dot-"+currentUser.id;
   try{if(typeof _renderProjectBadge==='function')_renderProjectBadge();}catch(e){}
-  // Pull latest data from the selected project's row
-  const pulled=await _pullRemote();if(pulled){runMigrations();}
-  // Refresh registry in case other users / project assignments changed
-  try{await _pullRegistry();}catch(e){}
+  // Pull latest data from the selected project's row + registry in parallel
+  // (independent paginated SELECTs on different rows). Hydrate-from-main runs
+  // after _pullRemote because it inspects/mutates state.__bot/__categories.
+  const [pulled]=await Promise.all([
+    _pullRemote(),
+    _pullRegistry().catch(()=>{}),
+  ]);
+  if(pulled)runMigrations();
   // Freshly-created projects don't have a __bot config yet (client chats,
   // discovered TG users, topic names). Without it the player's "Push" and
   // "Push to client" buttons stay hidden everywhere outside legacy "main".
@@ -2267,15 +2271,31 @@ function loadState(){try{return JSON.parse(localStorage.getItem(_storageKey()))|
 
 // Save-notice toaster. `kind` selects background colour; passing 'clear'
 // hides without animation. ttl=0 keeps it visible (used while saving).
+// Same-state guard: skips DOM writes when (kind,text) hasn't changed.
+// Single-slot timer: each call cancels the previous dismiss to avoid races
+// where a stale timer hides a fresh notice.
 const _SAVE_NOTICE_BG={saving:"#1f6feb",ok:"#1f6feb",warn:"#d29922",err:"#f85149"};
+let _saveNoticeTimer=0,_saveNoticeKind="",_saveNoticeText="";
 function _setSaveNotice(text,kind,ttl){
   const n=document.getElementById("saveNotice");
   if(!n)return;
-  if(kind==='clear'){n.classList.remove("show");n.textContent="";n.style.background="";return;}
-  n.textContent=text;
-  n.style.background=_SAVE_NOTICE_BG[kind]||"";
-  n.classList.add("show");
-  if(ttl>0)setTimeout(()=>{n.classList.remove("show");n.style.background="";},ttl);
+  if(_saveNoticeTimer){clearTimeout(_saveNoticeTimer);_saveNoticeTimer=0;}
+  if(kind==='clear'){
+    if(_saveNoticeKind==='')return;
+    n.classList.remove("show");n.textContent="";n.style.background="";
+    _saveNoticeKind="";_saveNoticeText="";
+    return;
+  }
+  if(kind!==_saveNoticeKind||text!==_saveNoticeText){
+    n.textContent=text;
+    n.style.background=_SAVE_NOTICE_BG[kind]||"";
+    n.classList.add("show");
+    _saveNoticeKind=kind;_saveNoticeText=text;
+  }
+  if(ttl>0)_saveNoticeTimer=setTimeout(()=>{
+    n.classList.remove("show");n.style.background="";
+    _saveNoticeKind="";_saveNoticeText="";_saveNoticeTimer=0;
+  },ttl);
 }
 
 function saveState(s){
@@ -2414,8 +2434,8 @@ async function _deleteEntityRows(pePid, deletes){
   ).catch(e=>({ok:false,error:String(e)}))));
   return results.every(r => r && r.ok);
 }
-// Wrap decomposed entities into the row shape expected by batch_dual_write.
-// Auto-stamps project_id, session_id, user_id; payload-only fields stay as-is.
+// Auto-stamps project_id, session_id, user_id onto each row so callers
+// don't have to thread the session/user context through every push path.
 function _buildEntityRows(entities, pePid){
   return entities.map(function(e){
     return {
@@ -2431,8 +2451,6 @@ function _buildEntityRows(entities, pePid){
     };
   });
 }
-// Single POST to the batch_dual_write RPC. Returns the fetch Response so
-// callers can inspect status / parse body / retry as they like.
 function _batchDualWrite(rows){
   return fetch(SUPA_URL+"/rest/v1/rpc/batch_dual_write",{
     method:"POST",
@@ -3816,12 +3834,12 @@ async function _pingArtistFinalRequestBatch(){
   const summary=Object.entries(byArtist).map(([a,ids])=>`${a}: ${ids.join(', ')}`).join('\n')+(orphans.length?'\n\nSkipped (no assignee): '+orphans.join(', '):'');
   const comment=await _showPushPrompt("Batch ping artists",summary);
   if(comment===null)return;
-  let sent=0,failed=0;
-  for(const[artistId,ids] of Object.entries(byArtist)){
-    const r=await _tgFetch({kind:"final_request",shotId:ids[0],shotIds:ids,shotDesc:'',artistId,comment});
-    if(r.ok)sent++;
-    else {console.error('Batch ping failed for',artistId,r.error);failed++;}
-  }
+  const results=await Promise.all(Object.entries(byArtist).map(([artistId,ids])=>
+    _tgFetch({kind:"final_request",shotId:ids[0],shotIds:ids,shotDesc:'',artistId,comment})
+      .then(r=>{if(!r.ok)console.error('Batch ping failed for',artistId,r.error);return r;})
+  ));
+  const sent=results.filter(r=>r.ok).length;
+  const failed=results.length-sent;
   if(typeof _showAlert==='function'){
     _showAlert('Batch sent',`${sent} artist${sent!==1?'s':''} notified${failed?', '+failed+' failed':''}${orphans.length?', '+orphans.length+' skipped (no assignee)':''}`);
   }
@@ -4651,9 +4669,7 @@ function _saveBotSettings(){
   closeBotSettings();
 }
 async function _testBotPush(artistId){
-  if(!currentUser||!_currentUserLinkToken()){
-    alert("No link token");return;
-  }
+  if(!_canTgPush())return;
   // Persist the currently selected dropdown value first so the worker
   // uses the new thread_id when sending the test message.
   const sel=document.querySelector(`.bot-topic-select[data-artist="${artistId}"]`);
@@ -4662,20 +4678,9 @@ async function _testBotPush(artistId){
     const v=parseInt(sel.value,10);
     if(!isNaN(v)&&v>0){cfg.artistThreads[artistId]=v;await new Promise(res=>{saveState(state);setTimeout(res,500);});}
   }
-  try{
-    const r=await fetch('https://sandbox.contora.net/tg/push',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        shotId:'TEST',shotDesc:'Bot Settings test',artistId,
-        kind:"test",fromUser:currentUser.display||currentUser.id,
-        userId:currentUser.id,linkToken:_currentUserLinkToken(),projectId:CURRENT_PROJECT_ID||LEGACY_PROJECT_ID
-      })
-    });
-    const d=await r.json();
-    if(!r.ok||!d.ok){alert("Test failed: "+(d.error||r.status));return;}
-    alert("Test sent ✓");
-  }catch(e){alert("Test failed: "+e.message);}
+  const res=await _tgFetch({kind:"test",shotId:'TEST',shotDesc:'Bot Settings test',artistId});
+  if(!res.ok){alert("Test failed: "+res.error);return;}
+  alert("Test sent ✓");
 }
 const USER_COLORS=[
   "#f85149","#ff7b72","#ffa657","#d29922","#e3b341",
