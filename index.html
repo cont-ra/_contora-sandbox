@@ -5322,9 +5322,7 @@ function closeDoneShots(){
 function openAddShotDialog(){
   if(!isEditMode()||!isAdmin())return;
   const catOpts=getAllCatKeys().map(k=>`<option value="${k}">${esc(getCatLabel(k))}</option>`).join('');
-  const ov=document.createElement("div");
-  ov.className="confirm-overlay";
-  ov.innerHTML=`<div class="confirm-box"><div class="confirm-title">Add Shot</div><div class="confirm-msg"><div style="display:flex;flex-direction:column;gap:12px">
+  const html=`<div class="confirm-box"><div class="confirm-title">Add Shot</div><div class="confirm-msg"><div style="display:flex;flex-direction:column;gap:12px">
     <label>ID <input id="_as_id" style="width:100%;padding:6px;background:#161b22;color:#e6edf3;border:1px solid #30363d;border-radius:4px" placeholder="KH_01_XXX"></label>
     <label>Description <input id="_as_desc" style="width:100%;padding:6px;background:#161b22;color:#e6edf3;border:1px solid #30363d;border-radius:4px" placeholder="Shot description"></label>
     <label>Category <select id="_as_cat" style="padding:6px;background:#161b22;color:#e6edf3;border:1px solid #30363d;border-radius:4px">${catOpts}</select></label>
@@ -5333,7 +5331,7 @@ function openAddShotDialog(){
       <label style="flex:1">TC Out <input id="_as_tcout" style="width:100%;padding:6px;background:#161b22;color:#e6edf3;border:1px solid #30363d;border-radius:4px" placeholder="0:00:00:00"></label>
     </div>
   </div></div><div class="confirm-btns"><button class="confirm-btn cancel" id="confirmNo">Cancel</button><button class="confirm-btn danger" style="background:#238636;border-color:#238636" id="confirmYes">Add</button></div></div>`;
-  document.body.appendChild(ov);
+  const ov=_buildOverlay("confirm-overlay",html,()=>ov.remove());
   ov.querySelector("#confirmYes").onclick=()=>{
     const id=ov.querySelector('#_as_id').value.trim();
     const desc=ov.querySelector('#_as_desc').value.trim();
@@ -5350,7 +5348,6 @@ function openAddShotDialog(){
     render();updateStats();
   };
   ov.querySelector("#confirmNo").onclick=()=>ov.remove();
-  ov.addEventListener("click",(e)=>{if(e.target===ov)ov.remove();});
 }
 async function deleteShot(id){
   if(!isEditMode()||!isAdmin())return;
@@ -5721,10 +5718,9 @@ function _adminShareFolder(name){
   const prodBase=_shareBase();
   const url=prodBase+'?upload='+shareInfo.token;
   // Show share link overlay
-  const ov=document.createElement("div");
-  ov.className="confirm-overlay";ov.id="afShareOverlay";
-  ov.innerHTML=`<div class="confirm-box" style="text-align:left"><div class="confirm-title" style="color:#58a6ff">Share Link</div><div class="confirm-msg" style="text-align:left">Folder: <b>${esc(name)}</b><br><span style="font-size:11px;color:#484f58">Anyone with this link can upload files to this folder.</span></div><div class="af-share-row"><code id="afShareUrl">${esc(url)}</code><button id="afCopyBtn" onclick="_afCopyShareLink()">Copy</button></div><div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end"><button class="confirm-btn cancel" onclick="_afRevokeShare('${esc(fullPath)}')">Revoke</button><button class="confirm-btn cancel" onclick="document.getElementById('afShareOverlay').remove()">Close</button></div></div>`;
-  document.body.appendChild(ov);
+  const html=`<div class="confirm-box" style="text-align:left"><div class="confirm-title" style="color:#58a6ff">Share Link</div><div class="confirm-msg" style="text-align:left">Folder: <b>${esc(name)}</b><br><span style="font-size:11px;color:#484f58">Anyone with this link can upload files to this folder.</span></div><div class="af-share-row"><code id="afShareUrl">${esc(url)}</code><button id="afCopyBtn" onclick="_afCopyShareLink()">Copy</button></div><div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end"><button class="confirm-btn cancel" onclick="_afRevokeShare('${esc(fullPath)}')">Revoke</button><button class="confirm-btn cancel" onclick="document.getElementById('afShareOverlay').remove()">Close</button></div></div>`;
+  const ov=_buildOverlay("confirm-overlay",html,()=>ov.remove());
+  ov.id="afShareOverlay";
 }
 function _afCopyShareLink(){
   const url=document.getElementById("afShareUrl")?.textContent;
@@ -5773,8 +5769,6 @@ function _shareDownloadLink(ids,title){
   const prodBase=_shareBase();
   const _pid=CURRENT_PROJECT_ID||LEGACY_PROJECT_ID;
   const url=prodBase+'?download='+token+'&project='+encodeURIComponent(_pid);
-  const ov=document.createElement("div");
-  ov.className="confirm-overlay";ov.id="dlShareOverlay";
   const list=ids.map(i=>'• '+esc(i)).join('<br>');
   // Stash for the push handler
   window.__lastShareIds=ids;
@@ -5785,8 +5779,9 @@ function _shareDownloadLink(ids,title){
   const pushBtn=canPushClient?`<button class="confirm-btn" id="dlPushClientBtn" onclick="_pushDownloadShareToClient()" style="background:#1f6feb;color:#fff;border-color:#1f6feb">📤 Push to client chat</button>`:'';
   // Internal test target — admin only, lands in KILLHOUSE _contora / General
   const internalBtn=isAdmin()?`<button class="confirm-btn" id="dlPushInternalBtn" onclick="_pushDownloadShareInternal()" style="background:#6e40c9;color:#fff;border-color:#6e40c9">🧪 Push to internal (General)</button>`:'';
-  ov.innerHTML=`<div class="confirm-box" style="text-align:left;max-width:580px"><div class="confirm-title" style="color:#3fb950">📥 Download Share Link</div><div class="confirm-msg" style="text-align:left">${esc(title)}<br><span style="font-size:11px;color:#8b949e">${list}</span><br><br><span style="font-size:11px;color:#484f58">Anyone with this link can download these files.</span></div><div class="af-share-row"><code id="dlShareUrl">${esc(url)}</code><button id="dlCopyBtn" onclick="_dlCopyShareLink()">Copy</button></div><div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">${internalBtn}${pushBtn}<button class="confirm-btn cancel" onclick="_dlRevokeShare('${esc(token)}')">Revoke</button><button class="confirm-btn cancel" onclick="document.getElementById('dlShareOverlay').remove()">Close</button></div></div>`;
-  document.body.appendChild(ov);
+  const html=`<div class="confirm-box" style="text-align:left;max-width:580px"><div class="confirm-title" style="color:#3fb950">📥 Download Share Link</div><div class="confirm-msg" style="text-align:left">${esc(title)}<br><span style="font-size:11px;color:#8b949e">${list}</span><br><br><span style="font-size:11px;color:#484f58">Anyone with this link can download these files.</span></div><div class="af-share-row"><code id="dlShareUrl">${esc(url)}</code><button id="dlCopyBtn" onclick="_dlCopyShareLink()">Copy</button></div><div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">${internalBtn}${pushBtn}<button class="confirm-btn cancel" onclick="_dlRevokeShare('${esc(token)}')">Revoke</button><button class="confirm-btn cancel" onclick="document.getElementById('dlShareOverlay').remove()">Close</button></div></div>`;
+  const ov=_buildOverlay("confirm-overlay",html,()=>ov.remove());
+  ov.id="dlShareOverlay";
 }
 async function _pushDownloadShareInternal(){
   if(!isAdmin())return;
@@ -8804,17 +8799,13 @@ function _pickClientChat(){
     });
     if(choices.length===0){resolve(null);return;}
     if(choices.length===1){resolve(choices[0].id);return;}
-    const ov=document.createElement("div");
-    ov.className="confirm-overlay";
     const opts=choices.map(c=>`<button class="bot-cancel-btn" data-id="${esc(c.id)}" style="width:100%;margin-bottom:6px;text-align:left">${esc(c.title)} <span style="color:#484f58;font-size:10px;font-family:'SF Mono',monospace">${esc(c.id)}</span></button>`).join('');
-    ov.innerHTML=`<div class="confirm-box" style="min-width:380px"><div class="confirm-title">Push to which client chat?</div><div class="confirm-msg">${opts}</div><div class="confirm-btns"><button class="confirm-btn cancel" id="pccCancel">Cancel</button></div></div>`;
-    document.body.appendChild(ov);
-    const cleanup=()=>ov.remove();
+    const html=`<div class="confirm-box" style="min-width:380px"><div class="confirm-title">Push to which client chat?</div><div class="confirm-msg">${opts}</div><div class="confirm-btns"><button class="confirm-btn cancel" id="pccCancel">Cancel</button></div></div>`;
+    const ov=_buildOverlay("confirm-overlay",html,()=>{ov.remove();resolve(null);});
     ov.querySelectorAll('button[data-id]').forEach(b=>{
-      b.onclick=()=>{const id=b.dataset.id;cleanup();resolve(id);};
+      b.onclick=()=>{const id=b.dataset.id;ov.remove();resolve(id);};
     });
-    ov.querySelector('#pccCancel').onclick=()=>{cleanup();resolve(null);};
-    ov.addEventListener("click",(e)=>{if(e.target===ov){cleanup();resolve(null);}});
+    ov.querySelector('#pccCancel').onclick=()=>{ov.remove();resolve(null);};
   });
 }
 
@@ -8887,16 +8878,13 @@ function _showVersionUploadedDialog(shotId,versionIdx){
   const v=versions[versionIdx];
   const versionName=v?.name||('Version '+(versionIdx+1));
   const currentStatus=getStatus(shotId);
-  const ov=document.createElement("div");
-  ov.className="confirm-overlay";
   const statusBtnHtml=currentStatus==='review'
     ? `<button id="vudStatusBtn" class="vud-status-btn vud-status-done" disabled>✓ Already in Review</button>`
     : `<button id="vudStatusBtn" class="vud-status-btn">→ Change status to <b>Review</b></button>`;
-  ov.innerHTML=`<div class="confirm-box" style="min-width:440px"><div class="confirm-title">Version uploaded</div><div class="confirm-msg" style="text-align:left"><div style="font-size:13px;color:#c9d1d9;margin-bottom:6px"><b>${esc(shotId)}</b> · <span style="color:#58a6ff">${esc(versionName)}</span></div><div style="font-size:12px;color:#8b949e;margin-bottom:8px">Quick actions:</div><div style="display:flex;gap:8px;flex-direction:column">${statusBtnHtml}</div></div><div class="confirm-btns"><button class="confirm-btn cancel" id="vudClose">Close</button><button class="confirm-btn danger" id="vudPush" style="background:#d29922;border-color:#d29922">&#128276; Push to Telegram</button></div></div>`;
-  document.body.appendChild(ov);
+  const html=`<div class="confirm-box" style="min-width:440px"><div class="confirm-title">Version uploaded</div><div class="confirm-msg" style="text-align:left"><div style="font-size:13px;color:#c9d1d9;margin-bottom:6px"><b>${esc(shotId)}</b> · <span style="color:#58a6ff">${esc(versionName)}</span></div><div style="font-size:12px;color:#8b949e;margin-bottom:8px">Quick actions:</div><div style="display:flex;gap:8px;flex-direction:column">${statusBtnHtml}</div></div><div class="confirm-btns"><button class="confirm-btn cancel" id="vudClose">Close</button><button class="confirm-btn danger" id="vudPush" style="background:#d29922;border-color:#d29922">&#128276; Push to Telegram</button></div></div>`;
+  const ov=_buildOverlay("confirm-overlay",html,()=>ov.remove());
   const cleanup=()=>ov.remove();
   ov.querySelector("#vudClose").onclick=cleanup;
-  ov.addEventListener("click",(e)=>{if(e.target===ov)cleanup();});
   const statusBtn=ov.querySelector("#vudStatusBtn");
   if(statusBtn&&!statusBtn.disabled){
     statusBtn.onclick=()=>{
@@ -12082,12 +12070,9 @@ function _openReadme(url){
 <span style="${dim}">Download: everyone</span>
 </div>
 </div>`;
-  const ov=document.createElement("div");
-  ov.className="confirm-overlay";
-  ov.innerHTML=`<div class="confirm-box" style="max-width:640px;max-height:85vh;overflow:auto"><div class="confirm-title" style="font-size:16px">README — ${esc(id)}</div><div class="confirm-msg">${html}</div><div class="confirm-btns"><button class="confirm-btn cancel" id="confirmOk">Close</button></div></div>`;
-  document.body.appendChild(ov);
+  const readmeHtml=`<div class="confirm-box" style="max-width:640px;max-height:85vh;overflow:auto"><div class="confirm-title" style="font-size:16px">README — ${esc(id)}</div><div class="confirm-msg">${html}</div><div class="confirm-btns"><button class="confirm-btn cancel" id="confirmOk">Close</button></div></div>`;
+  const ov=_buildOverlay("confirm-overlay",readmeHtml,()=>ov.remove());
   ov.querySelector("#confirmOk").onclick=()=>ov.remove();
-  ov.addEventListener("click",(e)=>{if(e.target===ov)ov.remove();});
 }
 function _showAlert(title,msg){
   return new Promise((resolve)=>{
@@ -12146,10 +12131,11 @@ function _showPushPrompt(title,subject){
   // in the background so the autocomplete has data shortly after open.
   if(!(state.__bot?.tgUsers?.length)&&typeof _prefetchTgBotInfo==='function'){_prefetchTgBotInfo();}
   return new Promise((resolve)=>{
-    const ov=document.createElement("div");
-    ov.className="confirm-overlay";
-    ov.innerHTML=`<div class="confirm-box" style="min-width:420px;overflow:visible"><div class="confirm-title">${esc(title)}</div><div class="confirm-msg" style="text-align:left"><div style="font-size:12px;color:#8b949e;margin-bottom:6px">Will be sent:</div><div style="background:#0d1117;border:1px solid #21262d;border-radius:6px;padding:8px 10px;font-size:13px;color:#c9d1d9;margin-bottom:14px;white-space:pre-wrap;word-break:break-word">${esc(subject)}</div><div style="font-size:12px;color:#8b949e;margin-bottom:4px">Comment (optional, type <code style="background:#161b22;padding:1px 4px;border-radius:3px">@</code> to mention)</div><textarea id="pushPromptTA" style="width:100%;box-sizing:border-box;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;resize:vertical;min-height:60px" placeholder="Add a note for the artist…"></textarea></div><div class="confirm-btns"><button class="confirm-btn cancel" id="pushPromptCancel">Cancel</button><button class="confirm-btn danger" id="pushPromptSend" style="background:#d29922;border-color:#d29922">&#128276; Send</button></div></div>`;
-    document.body.appendChild(ov);
+    const html=`<div class="confirm-box" style="min-width:420px;overflow:visible"><div class="confirm-title">${esc(title)}</div><div class="confirm-msg" style="text-align:left"><div style="font-size:12px;color:#8b949e;margin-bottom:6px">Will be sent:</div><div style="background:#0d1117;border:1px solid #21262d;border-radius:6px;padding:8px 10px;font-size:13px;color:#c9d1d9;margin-bottom:14px;white-space:pre-wrap;word-break:break-word">${esc(subject)}</div><div style="font-size:12px;color:#8b949e;margin-bottom:4px">Comment (optional, type <code style="background:#161b22;padding:1px 4px;border-radius:3px">@</code> to mention)</div><textarea id="pushPromptTA" style="width:100%;box-sizing:border-box;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;resize:vertical;min-height:60px" placeholder="Add a note for the artist…"></textarea></div><div class="confirm-btns"><button class="confirm-btn cancel" id="pushPromptCancel">Cancel</button><button class="confirm-btn danger" id="pushPromptSend" style="background:#d29922;border-color:#d29922">&#128276; Send</button></div></div>`;
+    // No backdrop callback here — `cancel` is declared 80+ lines below (after
+    // the mention dropdown setup). Wiring backdrop click after `cancel` exists
+    // keeps TDZ off the table without forcing a function declaration hoist.
+    const ov=_buildOverlay("confirm-overlay",html);
     const ta=ov.querySelector("#pushPromptTA");
     // Floating dropdown lives at body level so it can overflow modal bounds.
     const dd=document.createElement('div');
